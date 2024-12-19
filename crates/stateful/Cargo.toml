@@ -1,0 +1,16 @@
+[package]
+name = "stateful"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-subprotocol.workspace = true
+
+eyre.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+reth.workspace = true
+reth-network.workspace = true
+reth-network-api.workspace = true
+reth-node-ethereum.workspace = true

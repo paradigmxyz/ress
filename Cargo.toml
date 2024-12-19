@@ -1,9 +1,16 @@
-[package]
-name = "reth-stateless"
+[workspace.package]
+rust-version = "1.83.0"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[workspace]
+members = ["crates/stateless", "crates/stateful", "crates/subprotocol"]
+
+[workspace.dependencies]
+stateless = { path = "crates/stateless" }
+stateful = { path = "crates/stateful" }
+ress-subprotocol = { path = "crates/subprotocol" }
+
 tokio = { version = "1.39", features = ["full"] }
 tokio-stream = "0.1.11"
 futures = "0.3"

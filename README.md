@@ -4,7 +4,9 @@ q. general flow:
 setup stage
 - 1) statefull node launch + add rlpx protocol bytescode & witness
 - 2) sateless node launch + add rlpx protocol bytescode & witness
-- 3) connection: stateful <> statefull (revert) | statefull <> stateless | stateless <> stateless
+- 3) [Type handshake] connection: stateful <> statefull (revert) | statefull <> stateless | stateless <> stateless
+  - q. actaully network level there is no way to get type (peerid/ip is totally irrelevant). so does it also need to be rlpx and later disconnect? 
+  - a. ask matt if possible if on network not do on protocol message
   
 sync stage
 - 4) stateless gets block from consensus 

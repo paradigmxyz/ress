@@ -1,5 +1,5 @@
 use super::CustomRlpxConnection;
-use crate::subprotocol::protocol::{
+use crate::protocol::{
     event::ProtocolEvent, handler::ProtocolState, proto::CustomRlpxProtoMessage,
 };
 use reth_eth_wire::{
@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// The connection handler for the custom RLPx protocol.
-pub(crate) struct CustomRlpxConnectionHandler {
+pub struct CustomRlpxConnectionHandler {
     pub(crate) state: ProtocolState,
 }
 
@@ -28,7 +28,7 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
         _direction: Direction,
         _peer_id: PeerId,
     ) -> OnNotSupported {
-        OnNotSupported::KeepAlive
+        OnNotSupported::Disconnect
     }
 
     fn into_connection(
@@ -38,6 +38,7 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
         conn: ProtocolConnection,
     ) -> Self::Connection {
         let (tx, rx) = mpsc::unbounded_channel();
+
         self.state
             .events
             .send(ProtocolEvent::Established {
@@ -46,11 +47,14 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
                 to_connection: tx,
             })
             .ok();
+
         CustomRlpxConnection {
             conn,
-            initial_ping: direction.is_outgoing().then(CustomRlpxProtoMessage::ping),
             commands: UnboundedReceiverStream::new(rx),
-            pending_pong: None,
+            original_node_type: None,
+            peer_node_type: None,
+            pending_bytecode: None,
+            pending_witness: None,
         }
     }
 }

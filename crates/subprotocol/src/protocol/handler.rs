@@ -1,4 +1,4 @@
-use crate::subprotocol::connection::handler::CustomRlpxConnectionHandler;
+use crate::connection::handler::CustomRlpxConnectionHandler;
 
 use super::event::ProtocolEvent;
 use reth_network::protocol::ProtocolHandler;
@@ -8,13 +8,13 @@ use tokio::sync::mpsc;
 
 /// Protocol state is an helper struct to store the protocol events.
 #[derive(Clone, Debug)]
-pub(crate) struct ProtocolState {
-    pub(crate) events: mpsc::UnboundedSender<ProtocolEvent>,
+pub struct ProtocolState {
+    pub events: mpsc::UnboundedSender<ProtocolEvent>,
 }
 
 /// The protocol handler takes care of incoming and outgoing connections.
 #[derive(Debug)]
-pub(crate) struct CustomRlpxProtoHandler {
+pub struct CustomRlpxProtoHandler {
     pub state: ProtocolState,
 }
 

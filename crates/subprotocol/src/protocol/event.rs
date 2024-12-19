@@ -1,11 +1,12 @@
-use crate::subprotocol::connection::CustomCommand;
 use reth_network::Direction;
 use reth_network_api::PeerId;
 use tokio::sync::mpsc;
 
+use crate::connection::CustomCommand;
+
 /// The events that can be emitted by our custom protocol.
 #[derive(Debug)]
-pub(crate) enum ProtocolEvent {
+pub enum ProtocolEvent {
     Established {
         #[allow(dead_code)]
         direction: Direction,

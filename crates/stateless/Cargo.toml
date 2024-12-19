@@ -1,0 +1,17 @@
+[package]
+name = "stateless"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-subprotocol.workspace = true
+
+eyre.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+rand = "0.8.5"
+reth.workspace = true
+reth-network.workspace = true
+reth-network-api.workspace = true
+reth-node-ethereum.workspace = true
