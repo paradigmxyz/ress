@@ -10,9 +10,11 @@ futures = "0.3"
 eyre = "0.6"
 rand = "0.8.5"
 tracing = "0.1.0"
+rayon = "1.8"
 
 
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
+reth-trie = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-network = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-network-api = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }

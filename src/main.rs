@@ -24,6 +24,7 @@ use tracing::info;
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
         // launch the stateful node
+        // TODO: can add rlpx sub protocol for peer communication, how does the node can use Witness stateprovider?
         let NodeHandle {
             node,
             node_exit_future,
