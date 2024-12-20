@@ -26,6 +26,8 @@ use reth_network_api::PeerId;
 use tokio::sync::{mpsc, oneshot};
 use tracing::info;
 
+pub mod engine_api;
+
 //==============================================
 // testing utils for testing with 2 stateless node peers conenction
 //==============================================

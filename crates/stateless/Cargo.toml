@@ -5,17 +5,27 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-clap.workspace = true
-
 ress-subprotocol.workspace = true
 
+
+alloy-primitives.workspace = true
+alloy-eips.workspace = true
+reth.workspace = true
+reth-network.workspace = true
+reth-network-api.workspace = true
+reth-node-ethereum.workspace = true
+reth-rpc-engine-api.workspace = true
+
+clap.workspace = true
+jsonrpsee-core.workspace = true
 eyre.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 rand.workspace = true
-reth.workspace = true
-reth-network.workspace = true
-reth-network-api.workspace = true
-reth-node-ethereum.workspace = true
 futures.workspace = true
+parking_lot.workspace = true
+assert_matches.workspace = true
+
+[dev-dependencies]
+reth-tokio-util.workspace = true
