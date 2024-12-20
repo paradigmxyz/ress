@@ -16,7 +16,11 @@ pub(crate) mod handler;
 /// Custom commands that the subprotocol supports.
 pub enum CustomCommand {
     /// Sends a node type message to the peer
-    NodeType { node_type: NodeType },
+    NodeType {
+        node_type: NodeType,
+        /// The response will be sent to this channel.
+        response: oneshot::Sender<bool>,
+    },
     /// Get witness for specific block
     Witness {
         /// target block hash that we want to get witness from
@@ -42,6 +46,7 @@ pub struct CustomRlpxConnection {
     original_node_type: NodeType,
     peer_node_type: Option<NodeType>,
 
+    pending_is_valid_connection: Option<oneshot::Sender<bool>>,
     pending_witness: Option<oneshot::Sender<StateWitness>>,
     pending_bytecode: Option<oneshot::Sender<Bytes>>,
 }
@@ -65,15 +70,20 @@ impl Stream for CustomRlpxConnection {
         loop {
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 return match cmd {
-                    CustomCommand::NodeType { node_type } => {
+                    CustomCommand::NodeType {
+                        node_type,
+                        response,
+                    } => {
+                        print!("👀");
                         this.peer_node_type = Some(node_type.clone());
-
+                        this.pending_is_valid_connection = Some(response);
                         Poll::Ready(Some(CustomRlpxProtoMessage::node_type(node_type).encoded()))
                     }
                     CustomCommand::Witness {
                         block_hash,
                         response,
                     } => {
+                        print!("⭐️");
                         this.pending_witness = Some(response);
                         Poll::Ready(Some(
                             CustomRlpxProtoMessage::witness_req(block_hash).encoded(),
@@ -101,13 +111,17 @@ impl Stream for CustomRlpxConnection {
 
             match msg.message {
                 CustomRlpxProtoMessageKind::NodeType(node_type) => {
+                    print!("👀👀👀");
                     if !is_valid_node_type_connection(&this.original_node_type, &node_type) {
                         println!("🔴 invalid conenction!");
                         return Poll::Ready(Some(CustomRlpxProtoMessage::disconnect().encoded()));
+                    } else {
+                        println!("🟢 valid conenction!");
+                        if let Some(sender) = this.pending_is_valid_connection.take() {
+                            sender.send(true).ok();
+                        }
+                        continue;
                     }
-                    return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::node_type(node_type).encoded(),
-                    ));
                 }
                 CustomRlpxProtoMessageKind::Disconnect => {
                     // TODO: this actually doesn't disconnecting the channel. How can i gracefully stop
@@ -115,7 +129,12 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
                     // TODO: get state witness from other full node peers
-                    let state_witness = StateWitness::default();
+                    println!("🟢 requested for {}!", block_hash);
+
+                    // [mock]
+                    let mut state_witness = StateWitness::default();
+                    state_witness.insert(B256::ZERO, [0x00].into());
+
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::witness_res(state_witness).encoded(),
                     ));
@@ -139,7 +158,9 @@ impl Stream for CustomRlpxConnection {
                     }
                     continue;
                 }
-            }
+            };
+
+            return Poll::Pending;
         }
     }
 }

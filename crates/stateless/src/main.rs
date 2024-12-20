@@ -11,16 +11,19 @@ use ress_subprotocol::{
     protocol::{
         event::ProtocolEvent,
         handler::{CustomRlpxProtoHandler, ProtocolState},
-        proto::NodeType,
+        proto::{NodeType, StateWitness},
     },
 };
-use reth::{providers::noop::NoopProvider, revm::primitives::alloy_primitives::B512};
+use reth::{
+    providers::noop::NoopProvider,
+    revm::primitives::{alloy_primitives::B512, B256},
+};
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
     NetworkEventListenerProvider, NetworkManager,
 };
 use reth_network_api::PeerId;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::info;
 
 //==============================================
@@ -72,7 +75,7 @@ impl TestPeers {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
 
     let args = Args::parse();
@@ -88,7 +91,7 @@ async fn main() {
     let (tx, mut from_peer) = mpsc::unbounded_channel();
     let custom_rlpx_handler = CustomRlpxProtoHandler {
         state: ProtocolState { events: tx },
-        node_type: NodeType::Stateful,
+        node_type: NodeType::Stateless,
     };
 
     // Configure the network
@@ -99,9 +102,7 @@ async fn main() {
         .build(client);
 
     // create the network instance
-    let subnetwork = NetworkManager::<EthNetworkPrimitives>::new(config)
-        .await
-        .unwrap();
+    let subnetwork = NetworkManager::<EthNetworkPrimitives>::new(config).await?;
 
     let subnetwork_peer_id = *subnetwork.peer_id();
     let subnet_secret = subnetwork.secret_key();
@@ -114,7 +115,7 @@ async fn main() {
     info!("subnet_all_peers {:?}", subnet_all_peers);
     info!("subnet_secret {:?}", subnet_secret);
 
-    // peer 1 should wait to have another peer to be spawn
+    // [testing] peer 1 should wait to have another peer to be spawn
     if local_node == TestPeers::Peer1 {
         let ten_millis = time::Duration::from_secs(5);
         thread::sleep(ten_millis);
@@ -147,20 +148,48 @@ async fn main() {
             to_connection
         }
     };
-    info!("rlpx-subprotocol Connection established!");
+    info!(target:"rlpx-subprotocol",  "Connection established!");
 
+    // [testing] peer 1 should wait to have another peer to be spawn
+
+    info!(target:"rlpx-subprotocol", "1️⃣ check connection valiadation");
     // Step 1. Type message subprotocol
+    // TODO: for now we initiate original node type on protocol state above, but after conenction we send msg to trigger connection validation. Is there a way to explicitly mention node type one time?
+    let (tx, rx) = oneshot::channel();
+
     peer_conn
         .send(CustomCommand::NodeType {
-            node_type: NodeType::Stateful,
+            node_type: NodeType::Stateless,
+            response: tx,
         })
         .unwrap();
+    let response = rx.await.unwrap();
+    assert_eq!(response, true);
+    info!(target:"rlpx-subprotocol",?response, "Connection validation finished");
 
-    info!(target:"rlpx-subprotocol", "sent type");
+    // Step 2. Request witness
+    // [testing] peer1 -> peer2
+    // TODO: request witness whenever it get new payload from CL
+    info!(target:"rlpx-subprotocol", "2️⃣ request witness");
+    let (tx, rx) = oneshot::channel();
+    peer_conn
+        .send(CustomCommand::Witness {
+            block_hash: B256::random(),
+            response: tx,
+        })
+        .unwrap();
+    let response = rx.await.unwrap();
+    // [mock]
+    let mut state_witness = StateWitness::default();
+    state_witness.insert(B256::ZERO, [0x00].into());
+    assert_eq!(response, state_witness);
+    info!(target:"rlpx-subprotocol", ?response, "Witness received");
 
     // interact with the network
     let mut events = handle.event_listener();
     while let Some(event) = events.next().await {
-        println!("Received event: {:?}", event);
+        info!("Received event: {:?}", event);
     }
+
+    Ok(())
 }

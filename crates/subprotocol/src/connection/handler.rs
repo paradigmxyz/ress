@@ -56,6 +56,7 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
             commands: UnboundedReceiverStream::new(rx),
             original_node_type: self.node_type,
             peer_node_type: None,
+            pending_is_valid_connection: None,
             pending_bytecode: None,
             pending_witness: None,
         }
