@@ -14,8 +14,6 @@ fn main() -> eyre::Result<()> {
             node,
             node_exit_future,
         } = builder.node(EthereumNode::default()).launch().await?;
-        // let peer_id = node.network.peer_id();
-        // let peer_addr = node.network.local_addr();
 
         // add the custom network subprotocol to the launched node
         let (tx, mut _from_peer0) = mpsc::unbounded_channel();

@@ -109,7 +109,7 @@ async fn main() -> eyre::Result<()> {
     let subnetwork_peer_id = *subnetwork.peer_id();
     let subnet_secret = subnetwork.secret_key();
     let subnetwork_peer_addr = subnetwork.local_addr();
-    let subnet_all_peers: Vec<_> = subnetwork.all_peers().collect();
+
     let subnetwork_handle = subnetwork.peers_handle();
 
     info!("subnetwork_peer_id {}", subnetwork_peer_id);
@@ -130,7 +130,6 @@ async fn main() -> eyre::Result<()> {
     );
 
     info!("added peer_id: {:?}", local_node.get_peer().get_peer_id());
-    info!("subnet_all_peers {:?}", subnet_all_peers);
 
     // get a handle to the network to interact with it
     let handle = subnetwork.handle().clone();
@@ -149,6 +148,7 @@ async fn main() -> eyre::Result<()> {
             to_connection
         }
     };
+
     info!(target:"rlpx-subprotocol",  "Connection established!");
 
     // =================================================================
