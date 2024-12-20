@@ -16,7 +16,7 @@ use ress_subprotocol::{
 };
 use reth::{
     providers::noop::NoopProvider,
-    revm::primitives::{alloy_primitives::B512, B256},
+    revm::primitives::{alloy_primitives::B512, Bytes, B256},
 };
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
@@ -85,6 +85,8 @@ async fn main() -> eyre::Result<()> {
         _ => unreachable!(),
     };
 
+    // =================================================================
+
     // This block provider implementation is used for testing purposes.
     let client = NoopProvider::default();
 
@@ -112,7 +114,6 @@ async fn main() -> eyre::Result<()> {
 
     info!("subnetwork_peer_id {}", subnetwork_peer_id);
     info!("subnetwork_peer_addr {}", subnetwork_peer_addr);
-    info!("subnet_all_peers {:?}", subnet_all_peers);
     info!("subnet_secret {:?}", subnet_secret);
 
     // [testing] peer 1 should wait to have another peer to be spawn
@@ -129,10 +130,10 @@ async fn main() -> eyre::Result<()> {
     );
 
     info!("added peer_id: {:?}", local_node.get_peer().get_peer_id());
+    info!("subnet_all_peers {:?}", subnet_all_peers);
 
     // get a handle to the network to interact with it
     let handle = subnetwork.handle().clone();
-
     // spawn the network
     tokio::task::spawn(subnetwork);
 
@@ -150,10 +151,10 @@ async fn main() -> eyre::Result<()> {
     };
     info!(target:"rlpx-subprotocol",  "Connection established!");
 
-    // [testing] peer 1 should wait to have another peer to be spawn
+    // =================================================================
 
-    info!(target:"rlpx-subprotocol", "1️⃣ check connection valiadation");
     // Step 1. Type message subprotocol
+    info!(target:"rlpx-subprotocol", "1️⃣ check connection valiadation");
     // TODO: for now we initiate original node type on protocol state above, but after conenction we send msg to trigger connection validation. Is there a way to explicitly mention node type one time?
     let (tx, rx) = oneshot::channel();
 
@@ -166,6 +167,8 @@ async fn main() -> eyre::Result<()> {
     let response = rx.await.unwrap();
     assert_eq!(response, true);
     info!(target:"rlpx-subprotocol",?response, "Connection validation finished");
+
+    // =================================================================
 
     // Step 2. Request witness
     // [testing] peer1 -> peer2
@@ -184,6 +187,28 @@ async fn main() -> eyre::Result<()> {
     state_witness.insert(B256::ZERO, [0x00].into());
     assert_eq!(response, state_witness);
     info!(target:"rlpx-subprotocol", ?response, "Witness received");
+
+    // =================================================================
+
+    // Step 3. Request bytecode
+    // [testing] peer1 -> peer2
+    // TODO: consensus engine will call this request via Bytecode Provider to get necessary bytecode when validating payload
+    info!(target:"rlpx-subprotocol", "3️⃣ request bytecode");
+    let (tx, rx) = oneshot::channel();
+    peer_conn
+        .send(CustomCommand::Bytecode {
+            code_hash: B256::random(),
+            response: tx,
+        })
+        .unwrap();
+    let response = rx.await.unwrap();
+
+    // [mock]
+    let bytecode: Bytes = [0xab, 0xab].into();
+    assert_eq!(response, bytecode);
+    info!(target:"rlpx-subprotocol", ?response, "Bytecode received");
+
+    // =================================================================
 
     // interact with the network
     let mut events = handle.event_listener();

@@ -93,6 +93,7 @@ impl Stream for CustomRlpxConnection {
                         code_hash,
                         response,
                     } => {
+                        print!("🚀");
                         this.pending_bytecode = Some(response);
                         Poll::Ready(Some(
                             CustomRlpxProtoMessage::bytecode_req(code_hash).encoded(),
@@ -129,7 +130,7 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
                     // TODO: get state witness from other full node peers
-                    println!("🟢 requested for {}!", block_hash);
+                    println!("🟢 requested for blockhash {}!", block_hash);
 
                     // [mock]
                     let mut state_witness = StateWitness::default();
@@ -147,7 +148,10 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
                     // TODO: get bytecode from other full node peers
-                    let bytecode = Bytes::new();
+                    println!("🟢 requested for codehash {}!", code_hash);
+
+                    // [mock]
+                    let bytecode = [0xab, 0xab].into();
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
                     ));
@@ -159,8 +163,6 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
             };
-
-            return Poll::Pending;
         }
     }
 }
