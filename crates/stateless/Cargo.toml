@@ -5,15 +5,15 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-clap = { version = "4.4", features = ["derive"] }
+clap.workspace = true
 
 ress-subprotocol.workspace = true
 
 eyre.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber = "0.3"
-rand = "0.8.5"
+tracing-subscriber.workspace = true
+rand.workspace = true
 reth.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true

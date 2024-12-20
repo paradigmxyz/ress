@@ -165,7 +165,7 @@ async fn main() -> eyre::Result<()> {
         })
         .unwrap();
     let response = rx.await.unwrap();
-    assert_eq!(response, true);
+    assert!(response);
     info!(target:"rlpx-subprotocol",?response, "Connection validation finished");
 
     // =================================================================

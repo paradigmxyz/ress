@@ -25,4 +25,4 @@ jobs:
           rustup component add rustfmt
       - uses: taiki-e/install-action@just
       - name: Run clippy and formatter checks
-        run: just run-ci-flow
+        run: just ci

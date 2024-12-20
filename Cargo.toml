@@ -11,12 +11,14 @@ stateless = { path = "crates/stateless" }
 stateful = { path = "crates/stateful" }
 ress-subprotocol = { path = "crates/subprotocol" }
 
+clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.39", features = ["full"] }
 tokio-stream = "0.1.11"
 futures = "0.3"
 eyre = "0.6"
 rand = "0.8.5"
 tracing = "0.1.0"
+tracing-subscriber = "0.3"
 rayon = "1.8"
 
 
