@@ -1,6 +1,8 @@
 use super::CustomRlpxConnection;
 use crate::protocol::{
-    event::ProtocolEvent, handler::ProtocolState, proto::CustomRlpxProtoMessage,
+    event::ProtocolEvent,
+    handler::ProtocolState,
+    proto::{CustomRlpxProtoMessage, NodeType},
 };
 use reth_eth_wire::{
     capability::SharedCapabilities, multiplex::ProtocolConnection, protocol::Protocol,
@@ -13,6 +15,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 /// The connection handler for the custom RLPx protocol.
 pub struct CustomRlpxConnectionHandler {
     pub(crate) state: ProtocolState,
+    pub(crate) node_type: NodeType,
 }
 
 impl ConnectionHandler for CustomRlpxConnectionHandler {
@@ -51,7 +54,7 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
         CustomRlpxConnection {
             conn,
             commands: UnboundedReceiverStream::new(rx),
-            original_node_type: None,
+            original_node_type: self.node_type,
             peer_node_type: None,
             pending_bytecode: None,
             pending_witness: None,

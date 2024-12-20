@@ -88,6 +88,7 @@ async fn main() {
     let (tx, mut from_peer) = mpsc::unbounded_channel();
     let custom_rlpx_handler = CustomRlpxProtoHandler {
         state: ProtocolState { events: tx },
+        node_type: NodeType::Stateful,
     };
 
     // Configure the network

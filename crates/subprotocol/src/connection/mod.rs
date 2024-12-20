@@ -39,7 +39,7 @@ pub struct CustomRlpxConnection {
     commands: UnboundedReceiverStream<CustomCommand>,
 
     // below two type decides connection type
-    original_node_type: Option<NodeType>,
+    original_node_type: NodeType,
     peer_node_type: Option<NodeType>,
 
     pending_witness: Option<oneshot::Sender<StateWitness>>,
@@ -66,23 +66,7 @@ impl Stream for CustomRlpxConnection {
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 return match cmd {
                     CustomCommand::NodeType { node_type } => {
-                        println!(
-                            "original: {:?}, node type:{:?}",
-                            this.original_node_type, node_type
-                        );
-                        match &this.original_node_type {
-                            Some(_) => {
-                                this.peer_node_type = Some(node_type.clone());
-                            }
-                            None => {
-                                this.original_node_type = Some(node_type.clone());
-                            }
-                        }
-
-                        println!(
-                            "original: {:?}, node type:{:?}",
-                            this.original_node_type, node_type
-                        );
+                        this.peer_node_type = Some(node_type.clone());
 
                         Poll::Ready(Some(CustomRlpxProtoMessage::node_type(node_type).encoded()))
                     }
@@ -117,24 +101,16 @@ impl Stream for CustomRlpxConnection {
 
             match msg.message {
                 CustomRlpxProtoMessageKind::NodeType(node_type) => {
-                    match &this.original_node_type {
-                        Some(original_node_type) => {
-                            if !is_valid_node_type_connection(original_node_type, &node_type) {
-                                return Poll::Ready(Some(
-                                    CustomRlpxProtoMessage::disconnect().encoded(),
-                                ));
-                            }
-                        }
-                        None => {
-                            println!("not yet original node type")
-                        }
+                    if !is_valid_node_type_connection(&this.original_node_type, &node_type) {
+                        println!("🔴 invalid conenction!");
+                        return Poll::Ready(Some(CustomRlpxProtoMessage::disconnect().encoded()));
                     }
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::node_type(node_type).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::Disconnect => {
-                    println!("🔴🔴 disconnect!");
+                    // TODO: this actually doesn't disconnecting the channel. How can i gracefully stop
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {

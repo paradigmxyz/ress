@@ -1,6 +1,6 @@
 use crate::connection::handler::CustomRlpxConnectionHandler;
 
-use super::event::ProtocolEvent;
+use super::{event::ProtocolEvent, proto::NodeType};
 use reth_network::protocol::ProtocolHandler;
 use reth_network_api::PeerId;
 use std::net::SocketAddr;
@@ -16,6 +16,7 @@ pub struct ProtocolState {
 #[derive(Debug)]
 pub struct CustomRlpxProtoHandler {
     pub state: ProtocolState,
+    pub node_type: NodeType,
 }
 
 impl ProtocolHandler for CustomRlpxProtoHandler {
@@ -24,6 +25,7 @@ impl ProtocolHandler for CustomRlpxProtoHandler {
     fn on_incoming(&self, _socket_addr: SocketAddr) -> Option<Self::ConnectionHandler> {
         Some(CustomRlpxConnectionHandler {
             state: self.state.clone(),
+            node_type: self.node_type.clone(),
         })
     }
 
@@ -34,6 +36,7 @@ impl ProtocolHandler for CustomRlpxProtoHandler {
     ) -> Option<Self::ConnectionHandler> {
         Some(CustomRlpxConnectionHandler {
             state: self.state.clone(),
+            node_type: self.node_type.clone(),
         })
     }
 }

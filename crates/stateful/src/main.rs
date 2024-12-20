@@ -1,4 +1,7 @@
-use ress_subprotocol::protocol::handler::{CustomRlpxProtoHandler, ProtocolState};
+use ress_subprotocol::protocol::{
+    handler::{CustomRlpxProtoHandler, ProtocolState},
+    proto::NodeType,
+};
 use reth::builder::NodeHandle;
 use reth_network::{protocol::IntoRlpxSubProtocol, NetworkProtocols};
 use reth_node_ethereum::EthereumNode;
@@ -18,6 +21,7 @@ fn main() -> eyre::Result<()> {
         let (tx, mut _from_peer0) = mpsc::unbounded_channel();
         let custom_rlpx_handler = CustomRlpxProtoHandler {
             state: ProtocolState { events: tx },
+            node_type: NodeType::Stateful,
         };
         node.network
             .add_rlpx_sub_protocol(custom_rlpx_handler.into_rlpx_sub_protocol());

@@ -11,22 +11,24 @@ use reth_eth_wire::{protocol::Protocol, Capability};
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CustomRlpxProtoMessageId {
+    Disconnect = 0x00,
     // A. node type
-    NodeType = 0x00,
+    NodeType = 0x01,
 
     // B. witness
-    WitnessReq = 0x01,
-    WitnessRes = 0x02,
+    WitnessReq = 0x02,
+    WitnessRes = 0x03,
 
     // C. bytecode
-    BytecodeReq = 0x3,
-    BytecodeRes = 0x4,
-
-    Disconnect = 0x5,
+    BytecodeReq = 0x04,
+    BytecodeRes = 0x05,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum CustomRlpxProtoMessageKind {
+    // TODO: unsure how to disconnect after connection had established
+    Disconnect,
+
     // A. node type
     NodeType(NodeType),
 
@@ -37,9 +39,6 @@ pub(crate) enum CustomRlpxProtoMessageKind {
     // C. bytecode
     BytecodeReq(B256),
     BytecodeRes(Bytes),
-
-    // TODO: unsure how to disconnect after connection had established
-    Disconnect,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -170,7 +169,12 @@ impl CustomRlpxProtoMessage {
         let id = buf[0];
         buf.advance(1);
         let message_type = match id {
-            0x00 => CustomRlpxProtoMessageId::NodeType,
+            0x00 => CustomRlpxProtoMessageId::Disconnect,
+            0x01 => CustomRlpxProtoMessageId::NodeType,
+            0x02 => CustomRlpxProtoMessageId::WitnessReq,
+            0x03 => CustomRlpxProtoMessageId::WitnessRes,
+            0x04 => CustomRlpxProtoMessageId::BytecodeReq,
+            0x05 => CustomRlpxProtoMessageId::BytecodeRes,
             _ => return None,
         };
         let message = match message_type {
