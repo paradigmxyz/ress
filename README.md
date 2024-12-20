@@ -1,5 +1,18 @@
 # stateless reth
 
+## Demo
+
+Situation: 
+
+A. run stateful(reth) + rlpx + consensus
+```
+cargo run -p stateful -- node
+```
+B. run stateless(engine API, consensus engine, network) + rlpx + consensus
+```
+cargo run -p stateless -- node
+```
+
 q. general flow: 
 setup stage
 - 1) statefull node launch + add rlpx protocol bytescode & witness

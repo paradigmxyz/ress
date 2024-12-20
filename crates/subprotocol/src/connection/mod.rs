@@ -13,7 +13,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 pub(crate) mod handler;
 
-/// We define some custom commands that the subprotocol supports.
+/// Custom commands that the subprotocol supports.
 pub enum CustomCommand {
     /// Sends a node type message to the peer
     NodeType { node_type: NodeType },
@@ -49,11 +49,10 @@ pub struct CustomRlpxConnection {
 /// determine whether is valid node combination or not
 fn is_valid_node_type_connection(original_node: &NodeType, peer_node: &NodeType) -> bool {
     match (original_node, peer_node) {
-        // TODO: for now i wanna only do stateless -> stateful connection
         (NodeType::Stateless, NodeType::Stateful) => true,
-        (NodeType::Stateful, NodeType::Stateless) => false,
+        (NodeType::Stateful, NodeType::Stateless) => true,
         (NodeType::Stateful, NodeType::Stateful) => false,
-        (NodeType::Stateless, NodeType::Stateless) => false,
+        (NodeType::Stateless, NodeType::Stateless) => true,
     }
 }
 
@@ -67,6 +66,10 @@ impl Stream for CustomRlpxConnection {
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 return match cmd {
                     CustomCommand::NodeType { node_type } => {
+                        println!(
+                            "original: {:?}, node type:{:?}",
+                            this.original_node_type, node_type
+                        );
                         match &this.original_node_type {
                             Some(_) => {
                                 this.peer_node_type = Some(node_type.clone());
@@ -75,6 +78,11 @@ impl Stream for CustomRlpxConnection {
                                 this.original_node_type = Some(node_type.clone());
                             }
                         }
+
+                        println!(
+                            "original: {:?}, node type:{:?}",
+                            this.original_node_type, node_type
+                        );
 
                         Poll::Ready(Some(CustomRlpxProtoMessage::node_type(node_type).encoded()))
                     }
@@ -117,13 +125,16 @@ impl Stream for CustomRlpxConnection {
                                 ));
                             }
                         }
-                        None => {}
+                        None => {
+                            println!("not yet original node type")
+                        }
                     }
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::node_type(node_type).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::Disconnect => {
+                    println!("🔴🔴 disconnect!");
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
@@ -153,8 +164,6 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
             }
-
-            return Poll::Pending;
         }
     }
 }

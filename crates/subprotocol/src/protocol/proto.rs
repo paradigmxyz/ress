@@ -85,7 +85,7 @@ impl CustomRlpxProtoMessage {
 
     /// Returns the protocol for the `custom_rlpx` protocol.
     pub fn protocol() -> Protocol {
-        Protocol::new(Self::capability(), 4)
+        Protocol::new(Self::capability(), 6)
     }
 
     /// Create node type message
