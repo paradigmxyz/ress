@@ -26,3 +26,10 @@ RUST_LOG=info cargo run -p stateless 2
 - storage: bytecode storage
 - consensus(`EthBeaconConsensus`): 
 - network(`NetworkManager`): handle network that add 
+
+
+## idea
+
+- spawn a `AuthRpcModule` https://github.com/paradigmxyz/reth/blob/main/crates/rpc/rpc-builder/src/auth.rs#L197
+- reimplement handler that handles receiver of the channel from the message event from the consensus layer
+  - receiver handler will match message type and get the new payload and call network subprotocol etc

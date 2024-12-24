@@ -6,10 +6,7 @@ use alloy_eips::eip7685::{Requests, RequestsOrHash};
 use alloy_primitives::B256;
 use parking_lot::Mutex;
 use reth::{
-    api::{
-        BeaconEngineMessage, EngineApiMessageVersion, EngineTypes, EngineValidator,
-        PayloadOrAttributes,
-    },
+    api::{EngineApiMessageVersion, EngineTypes, EngineValidator, PayloadOrAttributes},
     beacon_consensus::BeaconConsensusEngineHandle,
     rpc::{
         compat::engine::payload::convert_payload_input_v2_to_payload,
@@ -21,14 +18,12 @@ use reth::{
     },
 };
 use reth_rpc_engine_api::EngineApiResult;
-use tokio::sync::mpsc::UnboundedSender;
 
 struct EngineApi<EngineT, Validator>
 where
     EngineT: EngineTypes,
     Validator: EngineValidator<EngineT>,
 {
-    engine_tx: UnboundedSender<BeaconEngineMessage<EngineT>>,
     /// Engine validator.
     validator: Validator,
     /// The channel to send messages to the beacon consensus engine.
@@ -43,12 +38,10 @@ where
     Validator: EngineValidator<EngineT>,
 {
     pub fn new(
-        engine_tx: UnboundedSender<BeaconEngineMessage<EngineT>>,
         beacon_consensus: BeaconConsensusEngineHandle<EngineT>,
         validator: Validator,
     ) -> Self {
         Self {
-            engine_tx,
             validator,
             beacon_consensus,
             latest_new_payload_response: Mutex::new(None),
@@ -272,6 +265,7 @@ mod tests {
     use std::sync::Arc;
 
     use reth::{
+        api::BeaconEngineMessage,
         beacon_consensus::BeaconConsensusEngineEvent,
         chainspec::{ChainSpec, MAINNET},
         primitives::SealedBlock,
@@ -295,8 +289,7 @@ mod tests {
         let (to_engine, engine_rx) = unbounded_channel();
         let event_sender: EventSender<BeaconConsensusEngineEvent> = Default::default();
         let api = EngineApi::new(
-            to_engine.clone(),
-            BeaconConsensusEngineHandle::new(to_engine.clone(), event_sender),
+            BeaconConsensusEngineHandle::new(to_engine, event_sender),
             EthereumEngineValidator::new(chain_spec.clone()),
         );
         let handle = EngineApiTestHandle {
@@ -321,4 +314,12 @@ mod tests {
             Some(BeaconEngineMessage::NewPayload { .. })
         );
     }
+
+    // async fn run(mut rx :  UnboundedReceiver<BeaconEngineMessage<Engine>>, statelessproto: ()) {
+    //         loop {
+
+    //             match rx.recv().await {
+
+    //             }
+    // }
 }
