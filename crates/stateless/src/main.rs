@@ -1,16 +1,12 @@
 use std::{
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     str::FromStr,
     thread, time,
 };
 
 use alloy_primitives::{b256, hex, U256};
-use alloy_rpc_types_eth::Block;
 use clap::Parser;
 use futures::StreamExt;
-use itertools::Either;
-use jsonrpsee_core::client::ClientT;
-use node::Ress;
 use ress_subprotocol::{
     connection::CustomCommand,
     protocol::{
@@ -19,26 +15,22 @@ use ress_subprotocol::{
         proto::{NodeType, StateWitness},
     },
 };
+use reth::{beacon_consensus::BeaconConsensusEngineEvent, rpc::types::engine::ExecutionPayloadV3};
 use reth::{
-    api::EngineTypes,
     beacon_consensus::BeaconConsensusEngineHandle,
-    chainspec::{DEV, MAINNET},
-    primitives::{BlockExt, PooledTransaction, TransactionSigned},
+    chainspec::DEV,
     providers::noop::NoopProvider,
     revm::primitives::{alloy_primitives::B512, Bytes, B256},
     rpc::{
         api::EngineApiClient,
         builder::auth::{AuthRpcModule, AuthServerConfig},
         types::engine::{
-            CancunPayloadFields, ClientCode, ClientVersionV1, ExecutionPayload,
-            ExecutionPayloadSidecar, ExecutionPayloadV1, ExecutionPayloadV2, PayloadStatus,
+            ClientCode, ClientVersionV1, ExecutionPayloadV1, ExecutionPayloadV2, PayloadStatus,
         },
     },
     tasks::TokioTaskExecutor,
     transaction_pool::noop::NoopTransactionPool,
 };
-use reth::{beacon_consensus::BeaconConsensusEngineEvent, rpc::types::engine::ExecutionPayloadV3};
-use reth_consensus_debug_client::block_to_execution_payload_v3;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
     NetworkEventListenerProvider, NetworkManager,
@@ -48,13 +40,12 @@ use reth_node_ethereum::{node::EthereumEngineValidator, EthEngineTypes};
 use reth_payload_builder::test_utils::spawn_test_payload_service;
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_layer::JwtSecret;
-use reth_rpc_types_compat::engine::{block_to_payload_v1, payload::try_into_block};
 use reth_tokio_util::EventSender;
 use tokio::sync::{
     mpsc::{self, unbounded_channel},
     oneshot,
 };
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod engine_api;
 pub mod node;
@@ -107,8 +98,8 @@ impl TestPeers {
 
     pub fn get_authserver_addr(&self) -> SocketAddr {
         match self {
-            TestPeers::Peer1 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61248)),
-            TestPeers::Peer2 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61249)),
+            TestPeers::Peer1 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8551)),
+            TestPeers::Peer2 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8552)),
         }
     }
 
@@ -147,7 +138,7 @@ async fn main() -> eyre::Result<()> {
     let (tx, mut rx) = unbounded_channel();
     let event_handler: EventSender<BeaconConsensusEngineEvent> = Default::default();
     // Create a listener for the events
-    let mut listener = event_handler.new_listener();
+    let mut _listener = event_handler.new_listener();
     let beacon_engine_handle =
         BeaconConsensusEngineHandle::<EthEngineTypes>::new(tx, event_handler);
     let client = ClientVersionV1 {
@@ -215,41 +206,42 @@ async fn main() -> eyre::Result<()> {
     let parent_beacon_block_root =
         b256!("531cd53b8e68deef0ea65edfa3cda927a846c307b0907657af34bc3f313b5871");
     // Send new events to execution client -> called `Result::unwrap()` on an `Err` value: RequestTimeout
-    let h = EngineApiClient::<EthEngineTypes>::new_payload_v3(
-        &client,
-        new_payload,
-        versioned_hashes,
-        parent_beacon_block_root,
-    )
-    .await;
-    println!("Payload : {:?}", h);
+    tokio::spawn(async move {
+        let _ = EngineApiClient::<EthEngineTypes>::new_payload_v3(
+            &client,
+            new_payload,
+            versioned_hashes,
+            parent_beacon_block_root,
+        )
+        .await;
+    });
 
-    while let Some(msg) = rx.recv().await {
-        // actually even tho the `Err(RequestTimeout)` happen, it got message from rx about `NewPayload`
-        println!("Received message from beacon engine: {:?}", msg);
-        match msg {
-            reth::api::BeaconEngineMessage::NewPayload {
-                payload,
-                sidecar,
-                tx,
-            } => {
-                let _ = tx.send(Ok(PayloadStatus::from_status(
-                    reth::rpc::types::engine::PayloadStatusEnum::Accepted,
-                )));
-            }
-            reth::api::BeaconEngineMessage::ForkchoiceUpdated {
-                state,
-                payload_attrs,
-                version,
-                tx,
-            } => todo!(),
-            reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
+    let beacon_msg = rx.recv().await.expect("peer connecting");
+    println!("Received message from beacon engine: {:?}", beacon_msg);
+    let _ = match beacon_msg {
+        reth::api::BeaconEngineMessage::NewPayload {
+            payload,
+            sidecar,
+            tx,
+        } => {
+            let _ = tx.send(Ok(PayloadStatus::from_status(
+                reth::rpc::types::engine::PayloadStatusEnum::Accepted,
+            )));
         }
-    }
+        reth::api::BeaconEngineMessage::ForkchoiceUpdated {
+            state,
+            payload_attrs,
+            version,
+            tx,
+        } => todo!(),
+        reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
+    };
 
-    while let Some(event) = listener.next().await {
-        info!("Received event: {:?}", event);
-    }
+    // while let Some(msg) = rx.recv().await {}
+
+    // while let Some(event) = listener.next().await {
+    //     info!("Received event: {:?}", event);
+    // }
 
     // =================================================================
     // Now setup & spin up network that implemented subprotocol
