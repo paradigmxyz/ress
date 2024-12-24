@@ -8685,6 +8685,7 @@ dependencies = [
  "clap",
  "eyre",
  "futures",
+ "itertools 0.13.0",
  "jsonrpsee",
  "jsonrpsee-core",
  "jsonrpsee-http-client",

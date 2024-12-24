@@ -8,6 +8,7 @@ use alloy_primitives::{b256, hex, U256};
 use alloy_rpc_types_eth::Block;
 use clap::Parser;
 use futures::StreamExt;
+use itertools::Either;
 use jsonrpsee_core::client::ClientT;
 use node::Ress;
 use ress_subprotocol::{
@@ -30,7 +31,7 @@ use reth::{
         builder::auth::{AuthRpcModule, AuthServerConfig},
         types::engine::{
             CancunPayloadFields, ClientCode, ClientVersionV1, ExecutionPayload,
-            ExecutionPayloadSidecar, ExecutionPayloadV1, ExecutionPayloadV2,
+            ExecutionPayloadSidecar, ExecutionPayloadV1, ExecutionPayloadV2, PayloadStatus,
         },
     },
     tasks::TokioTaskExecutor,
@@ -77,6 +78,19 @@ pub enum TestPeers {
 }
 
 impl TestPeers {
+    pub fn get_jwt_key(&self) -> JwtSecret {
+        match self {
+            TestPeers::Peer1 => JwtSecret::from_hex(
+                "0x4cbc48e87389399a0ea0b382b1c46962c4b8e398014bf0cc610f9c672bee3155",
+            )
+            .expect("32 bytes"),
+            TestPeers::Peer2 => JwtSecret::from_hex(
+                "0xd829192799c73ef28a7332313b3c03af1f2d5da2c36f8ecfafe7a83a3bfb8d1e",
+            )
+            .expect("32 bytes"),
+        }
+    }
+
     pub fn get_key(&self) -> SecretKey {
         match self {
             TestPeers::Peer1 => SecretKey::from_slice(&[0x01; 32]).expect("32 bytes"),
@@ -84,10 +98,17 @@ impl TestPeers {
         }
     }
 
-    pub fn get_addr(&self) -> SocketAddr {
+    pub fn get_network_addr(&self) -> SocketAddr {
         match self {
             TestPeers::Peer1 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61397)),
             TestPeers::Peer2 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61398)),
+        }
+    }
+
+    pub fn get_authserver_addr(&self) -> SocketAddr {
+        match self {
+            TestPeers::Peer1 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61248)),
+            TestPeers::Peer2 => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 61249)),
         }
     }
 
@@ -120,12 +141,8 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
 
     // 127.0.0.1:61248 spawn auth server
-    let secret = JwtSecret::random();
-    let config = AuthServerConfig::builder(secret)
-        .socket_addr(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::LOCALHOST,
-            61248,
-        )))
+    let config = AuthServerConfig::builder(local_node.get_jwt_key())
+        .socket_addr(local_node.get_authserver_addr())
         .build();
     let (tx, mut rx) = unbounded_channel();
     let event_handler: EventSender<BeaconConsensusEngineEvent> = Default::default();
@@ -210,6 +227,24 @@ async fn main() -> eyre::Result<()> {
     while let Some(msg) = rx.recv().await {
         // actually even tho the `Err(RequestTimeout)` happen, it got message from rx about `NewPayload`
         println!("Received message from beacon engine: {:?}", msg);
+        match msg {
+            reth::api::BeaconEngineMessage::NewPayload {
+                payload,
+                sidecar,
+                tx,
+            } => {
+                let _ = tx.send(Ok(PayloadStatus::from_status(
+                    reth::rpc::types::engine::PayloadStatusEnum::Accepted,
+                )));
+            }
+            reth::api::BeaconEngineMessage::ForkchoiceUpdated {
+                state,
+                payload_attrs,
+                version,
+                tx,
+            } => todo!(),
+            reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
+        }
     }
 
     while let Some(event) = listener.next().await {
@@ -231,7 +266,7 @@ async fn main() -> eyre::Result<()> {
 
     // Configure the network
     let config = NetworkConfig::builder(local_node.get_key())
-        .listener_addr(local_node.get_addr())
+        .listener_addr(local_node.get_network_addr())
         .disable_discovery()
         .add_rlpx_sub_protocol(custom_rlpx_handler.into_rlpx_sub_protocol())
         .build(client);
@@ -259,7 +294,7 @@ async fn main() -> eyre::Result<()> {
     // connect peer to own network
     subnetwork_handle.add_peer(
         local_node.get_peer().get_peer_id(),
-        local_node.get_peer().get_addr(),
+        local_node.get_peer().get_network_addr(),
     );
 
     info!("added peer_id: {:?}", local_node.get_peer().get_peer_id());

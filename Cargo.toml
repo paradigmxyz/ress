@@ -12,6 +12,7 @@ stateful = { path = "crates/stateful" }
 ress-subprotocol = { path = "crates/subprotocol" }
 
 clap = { version = "4.4", features = ["derive"] }
+itertools = "0.13"
 tokio = { version = "1.39", features = ["full"] }
 tokio-stream = "0.1.11"
 futures = "0.3"
