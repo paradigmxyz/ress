@@ -1,7 +1,6 @@
 use std::{
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
     str::FromStr,
-    thread, time,
 };
 
 use alloy_primitives::{b256, hex, U256};
@@ -237,12 +236,6 @@ async fn main() -> eyre::Result<()> {
         reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
     };
 
-    // while let Some(msg) = rx.recv().await {}
-
-    // while let Some(event) = listener.next().await {
-    //     info!("Received event: {:?}", event);
-    // }
-
     // =================================================================
     // Now setup & spin up network that implemented subprotocol
     // =================================================================
@@ -276,13 +269,6 @@ async fn main() -> eyre::Result<()> {
     info!("subnetwork_peer_addr {}", subnetwork_peer_addr);
     info!("subnet_secret {:?}", subnet_secret);
 
-    // [testing] peer 1 should wait to have another peer to be spawn
-    if local_node == TestPeers::Peer1 {
-        let ten_millis = time::Duration::from_secs(5);
-        thread::sleep(ten_millis);
-        info!("waited for 5 seconds");
-    }
-
     // connect peer to own network
     subnetwork_handle.add_peer(
         local_node.get_peer().get_peer_id(),
@@ -296,11 +282,17 @@ async fn main() -> eyre::Result<()> {
     // spawn the network
     tokio::task::spawn(subnetwork);
 
-    // let is_alive = match TcpListener::bind(("0.0.0.0", 61248)) {
-    //     Ok(_listener) => false, // Successfully bound, so the port is not in use
-    //     Err(_) => true,         // Failed to bind, so the port is in use
-    // };
-    // println!("is_alive:{:?}", is_alive);
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("auth server is_alive: {:?}", is_alive);
+
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("network is_alive: {:?}", is_alive);
 
     // Establish connection between peer0 and peer1
     let peer_to_peer = from_peer.recv().await.expect("peer connecting");
