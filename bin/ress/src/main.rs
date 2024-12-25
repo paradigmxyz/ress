@@ -4,6 +4,7 @@ use alloy_primitives::{b256, hex, U256};
 use clap::Parser;
 use futures::StreamExt;
 use ress_core::{node::Node, test_utils::TestPeers};
+use ress_subprotocol::protocol::proto::NodeType;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth::rpc::types::engine::ExecutionPayloadV3;
 use reth::{
@@ -20,10 +21,6 @@ use reth_node_ethereum::EthEngineTypes;
 use tokio::sync::oneshot;
 use tracing::info;
 
-//==============================================
-// testing utils for testing with 2 stateless node peers conenction
-//==============================================
-
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -34,8 +31,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    // =================================================================
+
     tracing_subscriber::fmt::init();
 
+    // <for testing purpose>
     let args = Args::parse();
     let local_node = match args.peer_number {
         1 => TestPeers::Peer1,
@@ -44,24 +44,40 @@ async fn main() -> eyre::Result<()> {
     };
 
     // =================================================================
-    let mut node = Node::launch_test_node(&local_node).await;
+    // spin up node
+
+    let mut node = Node::launch_test_node(&local_node, NodeType::Stateless).await;
+
+    // =================================================================
+    // debugging for port liveness of auth server and network
+
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("auth server is_alive: {:?}", is_alive);
+
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("network is_alive: {:?}", is_alive);
 
     // =================================================================
     // I'm trying to send some rpc request to Engine API
-    // =================================================================
 
     // TODO: v1/v2 is not working with `EngineApiClient` (https://github.com/paradigmxyz/reth/blob/934fd1f7f07c42ea49b92fb15694209ee0b9530f/crates/rpc/rpc-builder/tests/it/auth.rs#L15-L30 failing)
     // let payload = block_to_payload_v1::<TransactionSigned>(block.clone());
     // println!("payload:{:?}", payload);
 
     // engine_exchange_capabilities is working (= auth server spawn correctly)
-    let h = EngineApiClient::<EthEngineTypes>::exchange_capabilities(
+    let _ = EngineApiClient::<EthEngineTypes>::exchange_capabilities(
         &node.authserve_handle.http_client(),
         vec![],
     )
     .await
     .unwrap();
-    println!("Payload accepted: {:?}", h);
+    // println!("Payload accepted: {:?}", h);
 
     // TODO: but why engine_new_payload_v3 is not working? i think it's valid payload from devnet (https://github.com/paradigmxyz/reth/blob/934fd1f7f07c42ea49b92fb15694209ee0b9530f/crates/rpc/rpc-types-compat/src/engine/payload.rs#L377)
     let first_transaction_raw = Bytes::from_static(&hex!("02f9017a8501a1f0ff438211cc85012a05f2008512a05f2000830249f094d5409474fd5a725eab2ac9a8b26ca6fb51af37ef80b901040cc7326300000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000001bdd2ed4b616c800000000000000000000000000001e9ee781dd4b97bdef92e5d1785f73a1f931daa20000000000000000000000007a40026a3b9a41754a95eec8c92c6b99886f440c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000009ae80eb647dd09968488fa1d7e412bf8558a0b7a0000000000000000000000000f9815537d361cb02befd9918c95c97d4d8a4a2bc001a0ba8f1928bb0efc3fcd01524a2039a9a2588fa567cd9a7cc18217e05c615e9d69a0544bfd11425ac7748e76b3795b57a5563e2b0eff47b5428744c62ff19ccfc305")[..]);
@@ -110,10 +126,11 @@ async fn main() -> eyre::Result<()> {
         .expect("peer connecting");
     match beacon_msg {
         reth::api::BeaconEngineMessage::NewPayload {
-            payload: _,
+            payload: new_payload,
             sidecar: _,
             tx,
         } => {
+            info!("received new payload: {:?}", new_payload);
             let _ = tx.send(Ok(PayloadStatus::from_status(
                 reth::rpc::types::engine::PayloadStatusEnum::Accepted,
             )));
@@ -127,21 +144,11 @@ async fn main() -> eyre::Result<()> {
         reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
     };
 
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!("auth server is_alive: {:?}", is_alive);
-
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!("network is_alive: {:?}", is_alive);
+    // =================================================================
 
     // Step 2. Request witness
     // [testing] peer1 -> peer2
-    // TODO: request witness whenever it get new payload from CL
+    // TODO: request witness whenever it get new payload from CL check above how message is streming thru receiver channel and combine inside new consensus engine implementation
     info!(target:"rlpx-subprotocol", "2️⃣ request witness");
     let (tx, rx) = oneshot::channel();
     node.network_peer_conn

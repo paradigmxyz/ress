@@ -1,5 +1,16 @@
 # ress(reth stateless)
 
+## run: ress <> ress 
+
+```console
+RUST_LOG=info cargo run --bin ress 1
+```
+
+```console
+RUST_LOG=info cargo run --bin ress 2
+```
+
+
 ## component
 
 - binary
