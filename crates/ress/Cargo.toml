@@ -1,5 +1,5 @@
 [package]
-name = "stateless"
+name = "ress-core"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -11,10 +11,20 @@ ress-subprotocol.workspace = true
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 reth.workspace = true
+reth-provider.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-payload-builder.workspace = true
+reth-rpc-layer.workspace = true
+reth-rpc-types-compat.workspace = true
+reth-tracing.workspace = true
+reth-consensus-debug-client.workspace = true
+reth-tokio-util.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-serde.workspace = true
+
 
 clap.workspace = true
 jsonrpsee-core.workspace = true
