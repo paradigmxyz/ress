@@ -66,20 +66,6 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
     // I'm trying to send some rpc request to Engine API
 
-    // TODO: v1/v2 is not working with `EngineApiClient` (https://github.com/paradigmxyz/reth/blob/934fd1f7f07c42ea49b92fb15694209ee0b9530f/crates/rpc/rpc-builder/tests/it/auth.rs#L15-L30 failing)
-    // let payload = block_to_payload_v1::<TransactionSigned>(block.clone());
-    // println!("payload:{:?}", payload);
-
-    // engine_exchange_capabilities is working (= auth server spawn correctly)
-    let _ = EngineApiClient::<EthEngineTypes>::exchange_capabilities(
-        &node.authserve_handle.http_client(),
-        vec![],
-    )
-    .await
-    .unwrap();
-    // println!("Payload accepted: {:?}", h);
-
-    // TODO: but why engine_new_payload_v3 is not working? i think it's valid payload from devnet (https://github.com/paradigmxyz/reth/blob/934fd1f7f07c42ea49b92fb15694209ee0b9530f/crates/rpc/rpc-types-compat/src/engine/payload.rs#L377)
     let first_transaction_raw = Bytes::from_static(&hex!("02f9017a8501a1f0ff438211cc85012a05f2008512a05f2000830249f094d5409474fd5a725eab2ac9a8b26ca6fb51af37ef80b901040cc7326300000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000001bdd2ed4b616c800000000000000000000000000001e9ee781dd4b97bdef92e5d1785f73a1f931daa20000000000000000000000007a40026a3b9a41754a95eec8c92c6b99886f440c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000009ae80eb647dd09968488fa1d7e412bf8558a0b7a0000000000000000000000000f9815537d361cb02befd9918c95c97d4d8a4a2bc001a0ba8f1928bb0efc3fcd01524a2039a9a2588fa567cd9a7cc18217e05c615e9d69a0544bfd11425ac7748e76b3795b57a5563e2b0eff47b5428744c62ff19ccfc305")[..]);
     let second_transaction_raw = Bytes::from_static(&hex!("03f901388501a1f0ff430c843b9aca00843b9aca0082520894e7249813d8ccf6fa95a2203f46a64166073d58878080c005f8c6a00195f6dff17753fc89b60eac6477026a805116962c9e412de8015c0484e661c1a001aae314061d4f5bbf158f15d9417a238f9589783f58762cd39d05966b3ba2fba0013f5be9b12e7da06f0dd11a7bdc4e0db8ef33832acc23b183bd0a2c1408a757a0019d9ac55ea1a615d92965e04d960cb3be7bff121a381424f1f22865bd582e09a001def04412e76df26fefe7b0ed5e10580918ae4f355b074c0cfe5d0259157869a0011c11a415db57e43db07aef0de9280b591d65ca0cce36c7002507f8191e5d4a80a0c89b59970b119187d97ad70539f1624bbede92648e2dc007890f9658a88756c5a06fb2e3d4ce2c438c0856c2de34948b7032b1aadc4642a9666228ea8cdc7786b7")[..]);
     let new_payload = ExecutionPayloadV3 {
