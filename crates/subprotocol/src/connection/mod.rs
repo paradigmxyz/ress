@@ -159,7 +159,7 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
                     if let Some(sender) = this.pending_bytecode.take() {
-                        let _ = sender.send(msg);
+                        sender.send(msg).ok();
                     }
                     continue;
                 }
