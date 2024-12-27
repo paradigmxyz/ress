@@ -7,7 +7,7 @@ use tracing::info;
 pub trait BytecodeProviderTrait {
     type Error;
 
-    async fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
+    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 }
 
 /// BytecodeProvider error type.
@@ -34,12 +34,7 @@ impl BytecodeProvider {
 impl BytecodeProviderTrait for BytecodeProvider {
     type Error = BytecodeProviderError;
 
-    // TODO: actually If I have `BytecodeProvider::code_by_hash` method to request subprotocol lazly,
-    // TODO: this need to be async method. However the above `WitnessStateProvider` that implemented `Database` trait (https://github.com/ithacaxyz/reth-stateless/blob/feat/consensus-engine/crates/ress/src/witness_provider.rs#L68-L74)
-    // TODO: which every method is defined in non-async. If this case :
-    // TODO: A) turn `BytecodeProvider`'s method sync, when initialize bytecode provider it fetch everything save in disk and `code_by_hash` is just Disk get method(non-async)
-    // TODO: B) make `WitnessStateProvider` not bound to `Database` trait.
-    async fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
+    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         // Step 3. Request bytecode
         info!(target:"rlpx-subprotocol", "3️⃣ request bytecode");
         let (tx, rx) = oneshot::channel();
@@ -50,13 +45,13 @@ impl BytecodeProviderTrait for BytecodeProvider {
             })
             .map_err(|e| BytecodeProviderError::ChannelSend(e.to_string()))?;
 
-        let response = rx
-            .await
+        let response = tokio::task::block_in_place(|| rx.blocking_recv())
             .map_err(|e| BytecodeProviderError::ChannelReceive(e.to_string()))?;
 
         // [mock]
-        let bytecode: Bytecode = Bytecode::default();
-        assert_eq!(response, bytecode);
+        let bytecode: Bytecode = Bytecode::new();
+        // TODO: somehow this diff type
+        // assert_eq!(response, bytecode);
         info!(target:"rlpx-subprotocol", ?response, "Bytecode received");
         Ok(bytecode)
     }

@@ -4,10 +4,9 @@ use alloy_primitives::{b256, hex, U256};
 use clap::Parser;
 use futures::StreamExt;
 use ress_core::{node::Node, test_utils::TestPeers};
-use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth::rpc::types::engine::ExecutionPayloadV3;
 use reth::{
-    revm::primitives::{Bytes, B256},
+    revm::primitives::Bytes,
     rpc::{
         api::EngineApiClient,
         types::engine::{ExecutionPayloadV1, ExecutionPayloadV2},
@@ -17,7 +16,6 @@ use reth_network::NetworkEventListenerProvider;
 
 use reth_node_ethereum::EthEngineTypes;
 
-use tokio::sync::oneshot;
 use tracing::info;
 
 #[derive(Parser)]

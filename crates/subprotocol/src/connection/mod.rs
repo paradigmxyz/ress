@@ -152,14 +152,14 @@ impl Stream for CustomRlpxConnection {
                     println!("🟢 requested for codehash {}!", code_hash);
 
                     // [mock]
-                    let bytecode = Bytecode::default();
+                    let bytecode = Bytecode::new();
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
                     if let Some(sender) = this.pending_bytecode.take() {
-                        sender.send(msg).ok();
+                        let _ = sender.send(msg);
                     }
                     continue;
                 }

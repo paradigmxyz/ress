@@ -15,9 +15,9 @@ where
     B: BytecodeProviderTrait,
     B::Error: Into<WitnessStateProviderError>,
 {
-    state_witness: StateWitness,
+    pub state_witness: StateWitness,
     block_hashes: HashMap<BlockNumber, B256>,
-    bytecode_provider: B,
+    pub bytecode_provider: B,
 }
 
 impl<B> WitnessStateProvider<B>
@@ -60,7 +60,7 @@ where
     type Error = WitnessStateProviderError;
 
     #[doc = " Get basic account information."]
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&mut self, _address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         // TODO: do some magic with `state_witness`
         todo!()
     }
@@ -70,12 +70,11 @@ where
         Ok(self
             .bytecode_provider
             .code_by_hash(code_hash)
-            .await
             .map_err(Into::into)?)
     }
 
     #[doc = " Get storage value of address at index."]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, _address: Address, _index: U256) -> Result<U256, Self::Error> {
         // TODO/QUESTION: how i get this
         todo!()
     }

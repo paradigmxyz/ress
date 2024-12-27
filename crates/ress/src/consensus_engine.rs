@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use alloy_primitives::B256;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
-use reth::api::BeaconEngineMessage;
 use reth::rpc::types::engine::PayloadStatus;
+use reth::{api::BeaconEngineMessage, revm::Database};
 use reth_node_ethereum::EthEngineTypes;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
 use crate::{bytecode_provider::BytecodeProvider, witness_provider::WitnessStateProvider};
@@ -52,21 +52,25 @@ impl ConsensusEngine {
                 let state_witness: StateWitness = self.request_witness(block_hash).await;
 
                 // step3. construct witness provider from retirved witness
-                let witness_provider = WitnessStateProvider::new(
+                let mut witness_provider = WitnessStateProvider::new(
                     state_witness,
                     HashMap::new(),
                     BytecodeProvider::new(self.network_peer_conn.clone()),
                 );
+
+                // request bytecode dynamically
+                let bytecode = witness_provider.code_by_hash(B256::random()).unwrap();
+                info!("bytecode:{:?}", bytecode);
 
                 let _ = tx.send(Ok(PayloadStatus::from_status(
                     reth::rpc::types::engine::PayloadStatusEnum::Accepted,
                 )));
             }
             BeaconEngineMessage::ForkchoiceUpdated {
-                state,
-                payload_attrs,
-                version,
-                tx,
+                state: _,
+                payload_attrs: _,
+                version: _,
+                tx: _,
             } => {
                 // Implement forkchoice updated handling
                 todo!()
