@@ -36,8 +36,7 @@ use crate::test_utils::TestPeers;
 pub struct Node {
     //  retrieve beacon engine client to interact
     pub authserve_handle: AuthServerHandle,
-    /// channel to send - network
-    pub network_peer_conn: UnboundedSender<CustomCommand>,
+
     /// channel to receive - network
     pub network_handle: NetworkHandle,
 
@@ -68,14 +67,13 @@ impl Node {
             Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
 
         // Initialize and spawn the consensus engine
-        let consensus_engine = ConsensusEngine::new(from_beacon_engine);
+        let consensus_engine = ConsensusEngine::new(from_beacon_engine, network_peer_conn);
         let consensus_engine_handle = tokio::spawn(async move {
             consensus_engine.run().await;
         });
 
         Self {
             authserve_handle,
-            network_peer_conn,
             network_handle: handle,
             consensus_engine_handle,
         }

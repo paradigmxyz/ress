@@ -106,46 +106,6 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    // Step 2. Request witness
-    // [testing] peer1 -> peer2
-    // TODO: request witness whenever it get new payload from CL check above how message is streming thru receiver channel and combine inside new consensus engine implementation
-    info!(target:"rlpx-subprotocol", "2️⃣ request witness");
-    let (tx, rx) = oneshot::channel();
-    node.network_peer_conn
-        .send(CustomCommand::Witness {
-            block_hash: B256::random(),
-            response: tx,
-        })
-        .unwrap();
-    let response = rx.await.unwrap();
-    // [mock]
-    let mut state_witness = StateWitness::default();
-    state_witness.insert(B256::ZERO, [0x00].into());
-    assert_eq!(response, state_witness);
-    info!(target:"rlpx-subprotocol", ?response, "Witness received");
-
-    // =================================================================
-
-    // Step 3. Request bytecode
-    // [testing] peer1 -> peer2
-    // TODO: consensus engine will call this request via Bytecode Provider to get necessary bytecode when validating payload
-    info!(target:"rlpx-subprotocol", "3️⃣ request bytecode");
-    let (tx, rx) = oneshot::channel();
-    node.network_peer_conn
-        .send(CustomCommand::Bytecode {
-            code_hash: B256::random(),
-            response: tx,
-        })
-        .unwrap();
-    let response = rx.await.unwrap();
-
-    // [mock]
-    let bytecode: Bytes = [0xab, 0xab].into();
-    assert_eq!(response, bytecode);
-    info!(target:"rlpx-subprotocol", ?response, "Bytecode received");
-
-    // =================================================================
-
     // interact with the network
     let mut events = node.network_handle.event_listener();
     while let Some(event) = events.next().await {

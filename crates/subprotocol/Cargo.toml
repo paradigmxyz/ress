@@ -9,6 +9,7 @@ alloy-primitives.workspace = true
 reth-eth-wire.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
+reth.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true

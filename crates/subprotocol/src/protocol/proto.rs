@@ -6,6 +6,7 @@ use alloy_primitives::{
     map::HashMap,
     BlockHash, Bytes, B256,
 };
+use reth::revm::primitives::Bytecode;
 use reth_eth_wire::{protocol::Protocol, Capability};
 
 #[repr(u8)]
@@ -38,7 +39,7 @@ pub(crate) enum CustomRlpxProtoMessageKind {
 
     // C. bytecode
     BytecodeReq(B256),
-    BytecodeRes(Bytes),
+    BytecodeRes(Bytecode),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,7 +129,7 @@ impl CustomRlpxProtoMessage {
     }
 
     /// Response Bytecode
-    pub fn bytecode_res(msg: Bytes) -> Self {
+    pub fn bytecode_res(msg: Bytecode) -> Self {
         Self {
             message_type: CustomRlpxProtoMessageId::BytecodeRes,
             message: CustomRlpxProtoMessageKind::BytecodeRes(msg),
@@ -154,7 +155,7 @@ impl CustomRlpxProtoMessage {
                 buf.put(&msg.0[..]);
             }
             CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
-                buf.put(&msg.0[..]);
+                buf.put(msg.bytes_slice());
             }
             CustomRlpxProtoMessageKind::Disconnect => {}
         }
@@ -192,9 +193,9 @@ impl CustomRlpxProtoMessage {
             CustomRlpxProtoMessageId::BytecodeReq => {
                 CustomRlpxProtoMessageKind::BytecodeReq(B256::from_slice(&buf[..]))
             }
-            CustomRlpxProtoMessageId::BytecodeRes => {
-                CustomRlpxProtoMessageKind::BytecodeRes(Bytes::copy_from_slice(&buf[..]))
-            }
+            CustomRlpxProtoMessageId::BytecodeRes => CustomRlpxProtoMessageKind::BytecodeRes(
+                Bytecode::new_raw(Bytes::copy_from_slice(&buf[..])),
+            ),
             CustomRlpxProtoMessageId::Disconnect => CustomRlpxProtoMessageKind::Disconnect,
         };
 

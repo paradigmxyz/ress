@@ -1,8 +1,9 @@
 use crate::protocol::proto::StateWitness;
 
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
-use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
+use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
+use reth::revm::primitives::Bytecode;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use std::{
     pin::Pin,
@@ -33,7 +34,7 @@ pub enum CustomCommand {
         /// target code hash that we want to get bytecode from
         code_hash: B256,
         /// The response will be sent to this channel.
-        response: oneshot::Sender<Bytes>,
+        response: oneshot::Sender<Bytecode>,
     },
 }
 
@@ -48,7 +49,7 @@ pub struct CustomRlpxConnection {
 
     pending_is_valid_connection: Option<oneshot::Sender<bool>>,
     pending_witness: Option<oneshot::Sender<StateWitness>>,
-    pending_bytecode: Option<oneshot::Sender<Bytes>>,
+    pending_bytecode: Option<oneshot::Sender<Bytecode>>,
 }
 
 /// determine whether is valid node combination or not
@@ -151,7 +152,7 @@ impl Stream for CustomRlpxConnection {
                     println!("🟢 requested for codehash {}!", code_hash);
 
                     // [mock]
-                    let bytecode = [0xab, 0xab].into();
+                    let bytecode = Bytecode::default();
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
                     ));
