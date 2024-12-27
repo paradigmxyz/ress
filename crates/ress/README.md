@@ -10,3 +10,10 @@ This is stateless ethereum execution node implementation that doesn't store full
 - storage: bytecode storage
 - consensus(`EthBeaconConsensus`): 
 - network(`NetworkManager`): handle network that add 
+
+
+## consensus 
+
+new payload 
+- ress -> reth: request witness/get response witness from reth
+- ress -> ress: request witness/ if not send request to other 

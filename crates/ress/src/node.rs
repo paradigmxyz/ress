@@ -30,30 +30,27 @@ use reth_tokio_util::EventSender;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
+use crate::consensus_engine::ConsensusEngine;
 use crate::test_utils::TestPeers;
 
 pub struct Node {
     //  retrieve beacon engine client to interact
     pub authserve_handle: AuthServerHandle,
-    /// channel to receive - beacon engine
-    pub from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     /// channel to send - network
     pub network_peer_conn: UnboundedSender<CustomCommand>,
     /// channel to receive - network
     pub network_handle: NetworkHandle,
+
+    consensus_engine_handle: tokio::task::JoinHandle<()>,
 }
 
 impl Node {
-    pub async fn launch_test_node(id: &TestPeers, node_type: NodeType) -> Self {
+    pub async fn launch_test_node(id: &TestPeers) -> Self {
         let (authserve_handle, from_beacon_engine) =
             Self::launch_auth_server(id.get_jwt_key(), id.get_authserver_addr()).await;
 
-        let (subnetwork_handle, from_peer) = Self::launch_subprotocol_network(
-            id.get_key(),
-            id.get_network_addr(),
-            node_type.clone(),
-        )
-        .await;
+        let (subnetwork_handle, from_peer) =
+            Self::launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;
 
         // connect peer to own network
         subnetwork_handle.peers_handle().add_peer(
@@ -68,14 +65,19 @@ impl Node {
         tokio::task::spawn(subnetwork_handle);
 
         let network_peer_conn =
-            Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id(), node_type)
-                .await;
+            Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
+
+        // Initialize and spawn the consensus engine
+        let consensus_engine = ConsensusEngine::new(from_beacon_engine);
+        let consensus_engine_handle = tokio::spawn(async move {
+            consensus_engine.run().await;
+        });
 
         Self {
             authserve_handle,
             network_peer_conn,
-            from_beacon_engine,
             network_handle: handle,
+            consensus_engine_handle,
         }
     }
 
@@ -120,7 +122,6 @@ impl Node {
     async fn launch_subprotocol_network(
         secret_key: SecretKey,
         socket: SocketAddr,
-        node_type: NodeType,
     ) -> (NetworkManager, UnboundedReceiver<ProtocolEvent>) {
         // This block provider implementation is used for testing purposes.
         let client = NoopProvider::default();
@@ -128,7 +129,7 @@ impl Node {
         let (tx, from_peer) = tokio::sync::mpsc::unbounded_channel();
         let custom_rlpx_handler = CustomRlpxProtoHandler {
             state: ProtocolState { events: tx },
-            node_type,
+            node_type: NodeType::Stateless,
         };
 
         // Configure the network
@@ -158,7 +159,6 @@ impl Node {
     async fn setup_subprotocol_network(
         mut from_peer: UnboundedReceiver<ProtocolEvent>,
         peer_id: PeerId,
-        node_type: NodeType,
     ) -> UnboundedSender<CustomCommand> {
         // Establish connection between peer0 and peer1
         let peer_to_peer = from_peer.recv().await.expect("peer connecting");
@@ -183,7 +183,7 @@ impl Node {
         let (tx, rx) = tokio::sync::oneshot::channel();
         peer_conn
             .send(CustomCommand::NodeType {
-                node_type,
+                node_type: NodeType::Stateless,
                 response: tx,
             })
             .unwrap();
@@ -192,5 +192,10 @@ impl Node {
         info!(target:"rlpx-subprotocol",?response, "Connection validation finished");
 
         peer_conn
+    }
+
+    // gracefully shutdown the node
+    pub async fn shutdown(self) {
+        self.consensus_engine_handle.abort();
     }
 }

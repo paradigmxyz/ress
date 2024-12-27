@@ -4,14 +4,13 @@ use alloy_primitives::{b256, hex, U256};
 use clap::Parser;
 use futures::StreamExt;
 use ress_core::{node::Node, test_utils::TestPeers};
-use ress_subprotocol::protocol::proto::NodeType;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth::rpc::types::engine::ExecutionPayloadV3;
 use reth::{
     revm::primitives::{Bytes, B256},
     rpc::{
         api::EngineApiClient,
-        types::engine::{ExecutionPayloadV1, ExecutionPayloadV2, PayloadStatus},
+        types::engine::{ExecutionPayloadV1, ExecutionPayloadV2},
     },
 };
 use reth_network::NetworkEventListenerProvider;
@@ -46,7 +45,7 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
     // spin up node
 
-    let mut node = Node::launch_test_node(&local_node, NodeType::Stateless).await;
+    let node = Node::launch_test_node(&local_node).await;
 
     // =================================================================
     // debugging for port liveness of auth server and network
@@ -104,31 +103,6 @@ async fn main() -> eyre::Result<()> {
         )
         .await;
     });
-
-    let beacon_msg = node
-        .from_beacon_engine
-        .recv()
-        .await
-        .expect("peer connecting");
-    match beacon_msg {
-        reth::api::BeaconEngineMessage::NewPayload {
-            payload: new_payload,
-            sidecar: _,
-            tx,
-        } => {
-            info!("received new payload: {:?}", new_payload);
-            let _ = tx.send(Ok(PayloadStatus::from_status(
-                reth::rpc::types::engine::PayloadStatusEnum::Accepted,
-            )));
-        }
-        reth::api::BeaconEngineMessage::ForkchoiceUpdated {
-            state: _,
-            payload_attrs: _,
-            version: _,
-            tx: _,
-        } => todo!(),
-        reth::api::BeaconEngineMessage::TransitionConfigurationExchanged => todo!(),
-    };
 
     // =================================================================
 
