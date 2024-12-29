@@ -1,4 +1,6 @@
-use alloy_primitives::B256;
+use std::str::FromStr;
+
+use alloy_primitives::{Bytes, B256};
 use ress_subprotocol::connection::CustomCommand;
 use reth::revm::primitives::Bytecode;
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
@@ -49,9 +51,9 @@ impl BytecodeProviderTrait for BytecodeProvider {
             .map_err(|e| BytecodeProviderError::ChannelReceive(e.to_string()))?;
 
         // [mock]
-        let bytecode: Bytecode = Bytecode::new();
+        let bytecode: Bytecode = Bytecode::LegacyRaw(Bytes::from_str("0xabcd").unwrap());
         // TODO: somehow this diff type
-        // assert_eq!(response, bytecode);
+        assert_eq!(response, bytecode);
         info!(target:"rlpx-subprotocol", ?response, "Bytecode received");
         Ok(bytecode)
     }

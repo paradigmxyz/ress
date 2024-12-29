@@ -98,8 +98,8 @@ impl Node {
         let client = ClientVersionV1 {
             code: ClientCode::RH,
             name: "Ress".to_string(),
-            version: "v0.1.0".to_string(),
-            commit: "defa64b2".to_string(),
+            version: "".to_string(),
+            commit: "".to_string(),
         };
         let engine_api = EngineApi::new(
             NoopProvider::default(),

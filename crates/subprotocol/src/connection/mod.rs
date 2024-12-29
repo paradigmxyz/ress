@@ -1,12 +1,13 @@
 use crate::protocol::proto::StateWitness;
 
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
-use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
+use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth::revm::primitives::Bytecode;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use std::{
     pin::Pin,
+    str::FromStr,
     task::{ready, Context, Poll},
 };
 use tokio::sync::oneshot;
@@ -150,9 +151,9 @@ impl Stream for CustomRlpxConnection {
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
                     // TODO: get bytecode from other full node peers
                     println!("🟢 requested for codehash {}!", code_hash);
-
                     // [mock]
-                    let bytecode = Bytecode::new();
+                    let bytecode: Bytecode =
+                        Bytecode::LegacyRaw(Bytes::from_str("0xabcd").unwrap());
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
                     ));

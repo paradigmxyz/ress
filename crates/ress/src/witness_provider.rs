@@ -67,10 +67,9 @@ where
 
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        Ok(self
-            .bytecode_provider
+        self.bytecode_provider
             .code_by_hash(code_hash)
-            .map_err(Into::into)?)
+            .map_err(Into::into)
     }
 
     #[doc = " Get storage value of address at index."]
