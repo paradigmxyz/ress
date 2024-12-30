@@ -5282,8 +5282,10 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
+ "alloy-rlp",
  "alloy-rpc-types-eth",
  "alloy-serde",
+ "alloy-trie",
  "assert_matches",
  "clap",
  "eyre",
@@ -5304,6 +5306,7 @@ dependencies = [
  "reth-rpc-types-compat",
  "reth-tokio-util",
  "reth-tracing",
+ "reth-trie",
  "thiserror 2.0.9",
  "tokio",
  "tracing",

@@ -2,6 +2,9 @@ use std::collections::HashMap;
 
 use alloy_primitives::B256;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
+use reth::revm::db::BenchmarkDB;
+use reth::revm::primitives::TxEnv;
+use reth::revm::Evm;
 use reth::rpc::types::engine::PayloadStatus;
 use reth::{api::BeaconEngineMessage, revm::Database};
 use reth_node_ethereum::EthEngineTypes;
@@ -43,15 +46,18 @@ impl ConsensusEngine {
                 sidecar: _,
                 tx,
             } => {
-                // step1. determine what witness i need to get from the payload/ i think it's blocknumber?
-                info!("received new payload: {:?}", new_payload);
-                // get this from payload i guess
-                let block_hash = B256::random();
+                // step 1. determine what witness i need to get from the payload via retrievd block hash
+                let block_hash = new_payload.block_hash();
+                info!(
+                    "received new payload, trying to get block hash: {:?}",
+                    block_hash
+                );
 
                 // step2. request witness to stateful/stateless(?) peers
                 let state_witness: StateWitness = self.request_witness(block_hash).await;
 
                 // step3. construct witness provider from retirved witness
+                // TODO: for initial start, i also need to get block hashes but if not i can just add the latest one
                 let mut witness_provider = WitnessStateProvider::new(
                     state_witness,
                     HashMap::new(),
@@ -62,6 +68,17 @@ impl ConsensusEngine {
                 let bytecode = witness_provider.code_by_hash(B256::random()).unwrap();
                 info!("bytecode:{:?}", bytecode);
 
+                // step 4. execute on EVM
+                // TODO: somehow how to dump the contexts above
+                let mut evm = Evm::builder()
+                    .with_db(BenchmarkDB::new_bytecode(bytecode))
+                    .with_tx_env(TxEnv::default())
+                    .build();
+                let _tx_result = evm.transact().unwrap().result;
+
+                // TODO: also need to do validation with stateroot from witness <> stateroot from payload
+
+                // TODO: also seems somehow validate `tx_result`?
                 let _ = tx.send(Ok(PayloadStatus::from_status(
                     reth::rpc::types::engine::PayloadStatusEnum::Accepted,
                 )));
@@ -92,7 +109,8 @@ impl ConsensusEngine {
             })
             .unwrap();
         let response = rx.await.unwrap();
-        // [mock]
+
+        // TODO: I need to get witness from stateful/stateless peers
         let mut state_witness = StateWitness::default();
         state_witness.insert(B256::ZERO, [0x00].into());
         assert_eq!(response, state_witness);

@@ -14,6 +14,11 @@ This is stateless ethereum execution node implementation that doesn't store full
 
 ## consensus 
 
-new payload 
+### new payload 
 - ress -> reth: request witness/get response witness from reth
 - ress -> ress: request witness/ if not send request to other 
+
+### fork choice update
+- update the `block_hashes` to the point until `finalized_block_hash`
+- validate head block hash to the latest block hash that ress saved
+- `safe_block_hash` ?
