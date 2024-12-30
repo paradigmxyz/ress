@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth::revm::db::BenchmarkDB;
 use reth::revm::primitives::TxEnv;
@@ -8,6 +6,8 @@ use reth::revm::Evm;
 use reth::rpc::types::engine::PayloadStatus;
 use reth::{api::BeaconEngineMessage, revm::Database};
 use reth_node_ethereum::EthEngineTypes;
+use std::collections::HashMap;
+use std::str::FromStr;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
@@ -20,16 +20,20 @@ pub struct ConsensusEngine {
     beacon_rx: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     /// channel to send - network
     pub network_peer_conn: UnboundedSender<CustomCommand>,
+    /// head block hash
+    pub head_block_hash: B256,
 }
 
 impl ConsensusEngine {
     pub fn new(
         beacon_rx: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
         network_peer_conn: UnboundedSender<CustomCommand>,
+        head_block_hash: B256,
     ) -> Self {
         Self {
             beacon_rx,
             network_peer_conn,
+            head_block_hash,
         }
     }
 
@@ -39,7 +43,7 @@ impl ConsensusEngine {
         }
     }
 
-    async fn handle_beacon_message(&self, msg: BeaconEngineMessage<EthEngineTypes>) {
+    async fn handle_beacon_message(&mut self, msg: BeaconEngineMessage<EthEngineTypes>) {
         match msg {
             BeaconEngineMessage::NewPayload {
                 payload: new_payload,
@@ -54,9 +58,10 @@ impl ConsensusEngine {
                 );
 
                 // step2. request witness to stateful/stateless(?) peers
+                // TODO: yet implemented subprotocol detail from getting state from stateful ( somehow using `TrieWitness::compute` )
                 let state_witness: StateWitness = self.request_witness(block_hash).await;
 
-                // step3. construct witness provider from retirved witness
+                // step3. construct witness provider from retrieved witness
                 // TODO: for initial start, i also need to get block hashes but if not i can just add the latest one
                 let mut witness_provider = WitnessStateProvider::new(
                     state_witness,
@@ -65,31 +70,50 @@ impl ConsensusEngine {
                 );
 
                 // request bytecode dynamically
+                // TODO: not sure when and who call this bytecode
                 let bytecode = witness_provider.code_by_hash(B256::random()).unwrap();
                 info!("bytecode:{:?}", bytecode);
 
                 // step 4. execute on EVM
                 // TODO: somehow how to dump the contexts above
-                let mut evm = Evm::builder()
+                let _evm = Evm::builder()
                     .with_db(BenchmarkDB::new_bytecode(bytecode))
                     .with_tx_env(TxEnv::default())
                     .build();
-                let _tx_result = evm.transact().unwrap().result;
 
                 // TODO: also need to do validation with stateroot from witness <> stateroot from payload
+                let state_root_from_payload = new_payload.into_v1().state_root;
+                println!("state_root_from_payload:{}", state_root_from_payload);
+                // TODO: rn by calling `basic` I printing out stateroot from witness. Prob need to return value back somehow
+                let _basic_account = witness_provider
+                    .basic(Address::from_str("0xfef955f3c66c14d005d5dd719dc3c838eb5232be").unwrap())
+                    .unwrap();
 
                 // TODO: also seems somehow validate `tx_result`?
+                //  let _tx_result = evm.transact().unwrap().result;
+                //
+
+                // after validation, update head hash?
+                self.head_block_hash = block_hash;
+
                 let _ = tx.send(Ok(PayloadStatus::from_status(
                     reth::rpc::types::engine::PayloadStatusEnum::Accepted,
                 )));
             }
             BeaconEngineMessage::ForkchoiceUpdated {
-                state: _,
+                state,
                 payload_attrs: _,
                 version: _,
                 tx: _,
             } => {
-                // Implement forkchoice updated handling
+                // - validate head block hash to the latest block hash that ress saved
+                let head_block_hash = state.head_block_hash;
+                assert_eq!(head_block_hash, self.head_block_hash);
+                // - `safe_block_hash` ?
+                let _safe_block_hash = state.safe_block_hash;
+                //  - update the `block_hashes` to the point until `finalized_block_hash`
+                let _finalized_block_hash = state.finalized_block_hash;
+
                 todo!()
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
@@ -110,11 +134,7 @@ impl ConsensusEngine {
             .unwrap();
         let response = rx.await.unwrap();
 
-        // TODO: I need to get witness from stateful/stateless peers
-        let mut state_witness = StateWitness::default();
-        state_witness.insert(B256::ZERO, [0x00].into());
-        assert_eq!(response, state_witness);
         info!(target:"rlpx-subprotocol", ?response, "Witness received");
-        state_witness
+        response
     }
 }

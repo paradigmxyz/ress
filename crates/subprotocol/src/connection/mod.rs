@@ -1,10 +1,10 @@
-use crate::protocol::proto::StateWitness;
-
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
+use crate::protocol::proto::StateWitness;
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth::revm::primitives::Bytecode;
 use reth_eth_wire::multiplex::ProtocolConnection;
+use std::collections::HashMap;
 use std::{
     pin::Pin,
     str::FromStr,
@@ -135,7 +135,23 @@ impl Stream for CustomRlpxConnection {
                     println!("🟢 requested for blockhash {}!", block_hash);
 
                     // [mock]
-                    let mut state_witness = StateWitness::default();
+                    let mut state_witness = HashMap::from_iter(vec![(
+                        B256::from_str("0xc8ed2e88eb4f392010421e1279bc6daf555783bd0dcf8fcc64cf2b2da99f191a")
+                            .unwrap(),
+                        Bytes::from_str("0xd580c22001c220018080808080808080808080808080").unwrap(),
+                    ),(
+                        B256::from_str("0xce8c4b060e961e285a1c2d6af956fae96986f946102f23b71506524eea9e2450")
+                            .unwrap(),
+                        Bytes::from_str("0xc22001").unwrap(),
+                    ),(
+                        B256::from_str("0x5655f0253ad63e4f18d39fc2bfbf96f445184f547391df04bf1e40a47603aae6")
+                            .unwrap(),
+                      Bytes::from_str("0xf86aa12035f8e0fb36d119637a1f9b03ca5c35ce5640413aa9d321b5fd836dd5afd764bcb846f8448080a0359525f4e6e459e5619b726371e527549a1bc34d3ebd535fb881691399224dffa0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470").unwrap(),
+                    ),(
+                        B256::from_str("0x359525f4e6e459e5619b726371e527549a1bc34d3ebd535fb881691399224dff")
+                            .unwrap(),
+                      Bytes::from_str("0xf7a01000000000000000000000000000000000000000000000000000000000000000d580c22001c220018080808080808080808080808080").unwrap(),
+                    )]);
                     state_witness.insert(B256::ZERO, [0x00].into());
 
                     return Poll::Ready(Some(

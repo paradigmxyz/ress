@@ -8,6 +8,7 @@ use reth::revm::{
     primitives::{AccountInfo, Bytecode},
     Database,
 };
+use tracing::info;
 
 use crate::bytecode_provider::{BytecodeProviderError, BytecodeProviderTrait};
 
@@ -74,18 +75,21 @@ where
             let node = TrieNode::decode(&mut &encoded[..]);
             match node {
                 Ok(trie_node) => {
-                    println!("trie_node:{:?}", trie_node);
                     if let TrieNode::Leaf(leaf) = trie_node {
                         if nibbles.ends_with(&leaf.key) {
                             let account = TrieAccount::decode(&mut &leaf.value[..]);
                             match account {
                                 Ok(account_node) => {
+                                    info!(
+                                        "storage root from witness:{}",
+                                        account_node.storage_root
+                                    );
                                     return Ok(Some(AccountInfo {
                                         balance: account_node.balance,
                                         nonce: account_node.nonce,
                                         code_hash: account_node.code_hash,
                                         code: None,
-                                    }))
+                                    }));
                                 }
                                 Err(_) => continue,
                             }

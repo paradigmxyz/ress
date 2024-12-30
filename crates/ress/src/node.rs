@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use alloy_primitives::B256;
 use ress_subprotocol::connection::CustomCommand;
 use ress_subprotocol::protocol::event::ProtocolEvent;
 use ress_subprotocol::protocol::handler::{CustomRlpxProtoHandler, ProtocolState};
@@ -67,7 +68,9 @@ impl Node {
             Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
 
         // Initialize and spawn the consensus engine
-        let consensus_engine = ConsensusEngine::new(from_beacon_engine, network_peer_conn);
+        // TODO: first get head block hash from somewhere
+        let consensus_engine =
+            ConsensusEngine::new(from_beacon_engine, network_peer_conn, B256::random());
         let consensus_engine_handle = tokio::spawn(async move {
             consensus_engine.run().await;
         });
