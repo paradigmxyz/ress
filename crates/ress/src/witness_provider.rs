@@ -4,9 +4,12 @@ use alloy_primitives::{keccak256, Address, BlockNumber, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::{nodes::TrieNode, Nibbles, TrieAccount};
 use ress_subprotocol::protocol::proto::StateWitness;
-use reth::revm::{
-    primitives::{AccountInfo, Bytecode},
-    Database,
+use reth::{
+    revm::{
+        primitives::{AccountInfo, Bytecode},
+        Database,
+    },
+    rpc::types::engine::ExecutionPayload,
 };
 use tracing::info;
 
@@ -21,6 +24,8 @@ where
     pub state_witness: StateWitness,
     block_hashes: HashMap<BlockNumber, B256>,
     pub bytecode_provider: B,
+    /// head information about blocknumber N, hold as pending until blocknumber N+1 FCU arrived
+    pub pending_payload: Option<ExecutionPayload>,
 }
 
 impl<B> WitnessStateProvider<B>
@@ -38,6 +43,39 @@ where
             state_witness,
             block_hashes,
             bytecode_provider,
+            pending_payload: None,
+        }
+    }
+
+    pub fn update_state_witness(&mut self, state_witness: StateWitness) {
+        self.state_witness = state_witness;
+    }
+
+    pub fn get_head_block(&self) -> (BlockNumber, B256) {
+        self.block_hashes
+            .iter()
+            .max_by_key(|(block_number, _)| *block_number)
+            .map(|(number, hash)| (*number, *hash))
+            .expect("Block hashes should not be empty")
+    }
+
+    pub fn update_block_hashes(&mut self, new_head_hash: B256, new_finalized_block_hash: B256) {
+        let (head_block_number, _head_block_hash) = self.get_head_block();
+        // when FCU is called, it means n + 1
+        let new_block_number = head_block_number + 1;
+        // Insert the new head block hash
+        self.block_hashes.insert(new_block_number, new_head_hash);
+
+        // Find the block number of the finalized block
+        if let Some(finalized_block_number) = self
+            .block_hashes
+            .iter()
+            .find(|(_, &hash)| hash == new_finalized_block_hash)
+            .map(|(&num, _)| num)
+        {
+            // Remove all blocks older than the finalized block
+            self.block_hashes
+                .retain(|&block_number, _| block_number >= finalized_block_number);
         }
     }
 }

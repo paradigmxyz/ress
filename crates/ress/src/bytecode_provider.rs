@@ -37,6 +37,8 @@ impl BytecodeProviderTrait for BytecodeProvider {
     type Error = BytecodeProviderError;
 
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        // TODO: in the future this should first look up on disk and then fall back to network if missing
+
         // Step 3. Request bytecode
         info!(target:"rlpx-subprotocol", "3️⃣ request bytecode");
         let (tx, rx) = oneshot::channel();

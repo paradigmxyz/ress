@@ -1,6 +1,3 @@
-use std::net::SocketAddr;
-
-use alloy_primitives::B256;
 use ress_subprotocol::connection::CustomCommand;
 use ress_subprotocol::protocol::event::ProtocolEvent;
 use ress_subprotocol::protocol::handler::{CustomRlpxProtoHandler, ProtocolState};
@@ -28,6 +25,7 @@ use reth_node_ethereum::EthEngineTypes;
 use reth_rpc_engine_api::capabilities::EngineCapabilities;
 use reth_rpc_engine_api::EngineApi;
 use reth_tokio_util::EventSender;
+use std::net::SocketAddr;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
@@ -69,8 +67,7 @@ impl Node {
 
         // Initialize and spawn the consensus engine
         // TODO: first get head block hash from somewhere
-        let consensus_engine =
-            ConsensusEngine::new(from_beacon_engine, network_peer_conn, B256::random());
+        let consensus_engine = ConsensusEngine::new(from_beacon_engine, network_peer_conn);
         let consensus_engine_handle = tokio::spawn(async move {
             consensus_engine.run().await;
         });
