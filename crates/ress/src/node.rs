@@ -29,7 +29,7 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
-use crate::consensus_engine::ConsensusEngine;
+use crate::engine::ConsensusEngine;
 use crate::test_utils::TestPeers;
 
 pub struct Node {

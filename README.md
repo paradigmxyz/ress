@@ -1,11 +1,20 @@
 # ress(reth stateless)
 
-## run: ress <> ress 
+## Poc seniaro
 
+I join network (statless - ress)
+- connect 1 ress 
+- connect 1 reth (i wanna get witness / bytecode + small...etc)
+
+
+## run: ress <> ress && reth(stateful reth) <> ress && reth <> reth (this is reth impl)(x)
+
+- test_uils (peer1)
 ```console
 RUST_LOG=info cargo run --bin ress 1
 ```
 
+- test_uils (peer2)
 ```console
 RUST_LOG=info cargo run --bin ress 2
 ```

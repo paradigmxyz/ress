@@ -1,11 +1,12 @@
-use crate::{bytecode_provider::BytecodeProvider, witness_provider::WitnessStateProvider};
 use alloy_primitives::{Address, B256};
+use provider::bytecode::BytecodeProvider;
+use provider::witness::WitnessStateProvider;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
+use reth::api::BeaconEngineMessage;
 use reth::revm::db::BenchmarkDB;
 use reth::revm::primitives::TxEnv;
-use reth::revm::Evm;
+use reth::revm::{Database, Evm};
 use reth::rpc::types::engine::PayloadStatus;
-use reth::{api::BeaconEngineMessage, revm::Database};
 use reth_node_ethereum::EthEngineTypes;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -13,6 +14,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tracing::info;
+
+pub mod provider;
+pub mod tree;
 
 /// ress consensus engine
 /// ### `BeaconEngineMessage::NewPayload`

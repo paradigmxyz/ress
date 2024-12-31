@@ -11,9 +11,8 @@ use reth::{
     },
     rpc::types::engine::ExecutionPayload,
 };
-use tracing::info;
 
-use crate::bytecode_provider::{BytecodeProviderError, BytecodeProviderTrait};
+use crate::engine::provider::bytecode::{BytecodeProviderError, BytecodeProviderTrait};
 
 /// ress will construct this `WitnessStateProvider` after getting `StateWitness` thru subprotocol communication.
 pub struct WitnessStateProvider<B>
@@ -118,10 +117,6 @@ where
                             let account = TrieAccount::decode(&mut &leaf.value[..]);
                             match account {
                                 Ok(account_node) => {
-                                    info!(
-                                        "storage root from witness:{}",
-                                        account_node.storage_root
-                                    );
                                     return Ok(Some(AccountInfo {
                                         balance: account_node.balance,
                                         nonce: account_node.nonce,
@@ -173,7 +168,7 @@ mod tests {
     use alloy_primitives::Bytes;
     use tokio::sync::mpsc::unbounded_channel;
 
-    use crate::bytecode_provider::BytecodeProvider;
+    use crate::engine::provider::bytecode::BytecodeProvider;
 
     use super::*;
 
