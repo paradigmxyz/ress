@@ -6,7 +6,6 @@ use ress_network::p2p::P2pHandler;
 use reth::{chainspec::ChainSpec, rpc::builder::auth::AuthServerHandle};
 
 pub mod engine;
-pub mod validate;
 
 pub struct Node {
     pub p2p_handler: Arc<P2pHandler>,

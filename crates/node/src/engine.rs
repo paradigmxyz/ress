@@ -4,13 +4,19 @@ use ress_network::rpc::RpcHandler;
 use ress_storage::Store;
 use ress_subprotocol::connection::CustomCommand;
 use ress_subprotocol::protocol::proto::StateWitness;
+use ress_vm::vm::execute_block;
 use ress_vm::vm::EvmState;
 use reth::api::BeaconEngineMessage;
 use reth::api::PayloadValidator;
 use reth::beacon_consensus::EthBeaconConsensus;
 use reth::chainspec::ChainSpec;
 use reth::consensus::Consensus;
+use reth::consensus::FullConsensus;
 use reth::consensus::HeaderValidator;
+use reth::consensus::PostExecutionInput;
+use reth::primitives::Block;
+use reth::primitives::BlockWithSenders;
+use reth::primitives::TransactionSigned;
 use reth::revm::db::BenchmarkDB;
 use reth::revm::primitives::TxEnv;
 use reth::revm::Evm;
@@ -75,6 +81,8 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
+                // ===================== Validation =====================
+
                 // note: basic payload validation is cared from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
                 let block_hash_from_payload = new_payload.block_hash();
                 let parent_hash_from_payload = new_payload.parent_hash();
@@ -99,60 +107,29 @@ impl ConsensusEngine {
                     warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
 
-                let evm_state = EvmState::new(store, parent_hash_from_payload);
-                // Validate the block pre-execution
-                // validate_block(block, &parent_header, &state)?;
-
-                // ===================== Validation =====================
-
-                // Step 1: Check the "head block" from the witness_provider
-                // {
-                //     let witness_provider = self.witness_provider.lock().await;
-                //     let (head_block_number, head_block_hash) = witness_provider.get_head_block();
-
-                //     // Basic payload validation from previous FCU update of block N, etc.
-
-                //     assert_eq!(head_block_hash, block_hash_from_payload);
-                //     assert_eq!(head_block_number, block_number_from_payload);
-
                 info!(
                     "received new payload, block hash: {:?} on block number :{:?}",
                     block_hash_from_payload, block_number_from_payload
                 );
 
-                // ===================== Preparing witness (stateless only) =====================
-
-                // step2. request witness to stateful/stateless(?) peers
-                // // TODO: yet implemented subprotocol detail from getting state from stateful ( somehow using `TrieWitness::compute` )
-                // let state_witness: StateWitness =
-                //     self.request_witness(new_payload.block_hash()).await;
-                // {
-                //     // Step 3: Update the witness_provider with the new state witness
-                //     let mut witness_provider = self.witness_provider.lock().await;
-                //     witness_provider.update_state_witness(state_witness);
-                // }
-
                 // ===================== Execution =====================
 
-                // TODO: also need to do validation with stateroot from witness <> stateroot from payload
-                // let state_root_from_payload = new_payload.into_v1().state_root;
-                // println!("state_root_from_payload:{}", state_root_from_payload);
-                // // TODO: rn by calling `basic` I printing out stateroot from witness. Prob need to return value back somehow
-                // let _basic_account = {
-                //     let mut witness_provider = self.witness_provider.lock().await;
-                //     witness_provider
-                //         .basic(
-                //             Address::from_str("0xfef955f3c66c14d005d5dd719dc3c838eb5232be")
-                //                 .unwrap(),
-                //         )
-                //         .unwrap()
-                // };
-
-                // // TODO: also seems somehow validate `tx_result`?
-                //  let _tx_result = evm.transact().unwrap().result;
-                //
+                let mut evm_state = EvmState::new(store, parent_hash_from_payload);
+                let output = execute_block(&block, &mut evm_state).unwrap();
+                let senders = block.senders().unwrap();
+                let block: reth::primitives::Block<TransactionSigned> = block.unseal();
+                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
+
+                // todo: rn error
+                // let _ = self
+                //     .eth_beacon_consensus
+                //     .validate_block_post_execution(
+                //         &unsealed_block,
+                //         PostExecutionInput::new(&output.receipts, &output.requests),
+                //     )
+                //     .unwrap();
 
                 let _ = tx.send(Ok(PayloadStatus::from_status(
                     reth::rpc::types::engine::PayloadStatusEnum::Valid,

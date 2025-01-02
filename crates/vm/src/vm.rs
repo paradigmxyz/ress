@@ -1,13 +1,12 @@
-use std::collections::HashMap;
-
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::B256;
 use ress_storage::Store;
 use reth::{
     chainspec::ChainSpec,
-    primitives::{Block, Receipt},
+    primitives::{Block, Receipt, SealedBlock},
+    providers::BlockExecutionOutput,
     revm::{
-        db::{states::bundle_state::BundleRetention, AccountStatus, State, StateBuilder},
-        primitives::{AccountInfo, BlockEnv, ExecutionResult, SpecId, TxEnv},
+        db::{State, StateBuilder},
+        primitives::{BlockEnv, ExecutionResult, SpecId, TxEnv},
         Evm,
     },
 };
@@ -73,9 +72,9 @@ fn run_evm(
 
 /// Executes all transactions in a block and returns their receipts.
 pub fn execute_block(
-    block: &Block,
+    block: &SealedBlock,
     state: &mut EvmState,
-) -> Result<(Vec<Receipt>, Vec<AccountUpdate>), EvmError> {
+) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
     // let witness_state = Arc::new(WitnessState {
     //     store: state.database().unwrap(),
     //     block_hash: block.header.parent_hash,
@@ -83,7 +82,7 @@ pub fn execute_block(
 
     let mut receipts = Vec::new();
     let mut cumulative_gas_used = 0;
-    let mut account_updates = get_state_transitions(state);
+    // let mut bundle_state = get_state_transitions(state);
 
     for transaction in block.body.transactions.iter() {
         let block_header = &block.header;
@@ -105,114 +104,10 @@ pub fn execute_block(
         receipts.push(receipt);
     }
 
-    if let Some(withdrawals) = &block.body.withdrawals {
+    if let Some(_withdrawals) = &block.body.withdrawals {
         // process_withdrawals(state, withdrawals)?;
         //todo: process withdrawl
     }
 
-    Ok((receipts, account_updates))
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct AccountUpdate {
-    pub address: Address,
-    pub removed: bool,
-    pub info: Option<AccountInfo>,
-    pub code: Option<Bytes>,
-    pub added_storage: HashMap<B256, U256>,
-    // Matches TODO in code
-    // removed_storage_keys: Vec<H256>,
-}
-
-impl AccountUpdate {
-    /// Creates new empty update for the given account
-    pub fn new(address: Address) -> AccountUpdate {
-        AccountUpdate {
-            address,
-            ..Default::default()
-        }
-    }
-
-    /// Creates new update representing an account removal
-    pub fn removed(address: Address) -> AccountUpdate {
-        AccountUpdate {
-            address,
-            removed: true,
-            ..Default::default()
-        }
-    }
-}
-
-/// Merges transitions stored when executing transactions and returns the resulting account updates
-/// Doesn't update the DB
-pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
-    match state {
-        EvmState::Store(db) => {
-            db.merge_transitions(BundleRetention::PlainState);
-            let bundle = db.take_bundle();
-
-            // Update accounts
-            let mut account_updates = Vec::new();
-            for (address, account) in bundle.state() {
-                if account.status.is_not_modified() {
-                    continue;
-                }
-                let address = Address::from_slice(address.0.as_slice());
-                // Remove account from DB if destroyed (Process DestroyedChanged as changed account)
-                if matches!(
-                    account.status,
-                    AccountStatus::Destroyed | AccountStatus::DestroyedAgain
-                ) {
-                    account_updates.push(AccountUpdate::removed(address));
-                    continue;
-                }
-
-                // If account is empty, do not add to the database
-                if account
-                    .account_info()
-                    .is_some_and(|acc_info| acc_info.is_empty())
-                {
-                    continue;
-                }
-
-                // Apply account changes to DB
-                let mut account_update = AccountUpdate::new(address);
-                // If the account was changed then both original and current info will be present in the bundle account
-                if account.is_info_changed() {
-                    // Update account info in DB
-                    if let Some(new_acc_info) = account.account_info() {
-                        let code_hash = B256::from_slice(new_acc_info.code_hash.as_slice());
-                        let account_info = AccountInfo {
-                            code: None,
-                            code_hash,
-                            balance: U256::from_le_slice(new_acc_info.balance.as_le_slice()),
-                            nonce: new_acc_info.nonce,
-                        };
-                        account_update.info = Some(account_info);
-                        if account.is_contract_changed() {
-                            // Update code in db
-                            if let Some(code) = new_acc_info.code {
-                                account_update.code = Some(code.original_bytes().clone());
-                            }
-                        }
-                    }
-                }
-                // Update account storage in DB
-                for (key, slot) in account.storage.iter() {
-                    if slot.is_changed() {
-                        // TODO check if we need to remove the value from our db when value is zero
-                        // if slot.present_value().is_zero() {
-                        //     account_update.removed_keys.push(H256::from_uint(&U256::from_little_endian(key.as_le_slice())))
-                        // }
-                        account_update.added_storage.insert(
-                            U256::from_le_slice(key.as_le_slice()).into(),
-                            U256::from_le_slice(slot.present_value().as_le_slice()),
-                        );
-                    }
-                }
-                account_updates.push(account_update)
-            }
-            account_updates
-        }
-    }
+    todo!()
 }
