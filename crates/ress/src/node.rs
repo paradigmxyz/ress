@@ -1,3 +1,4 @@
+use ress_common::test_utils::TestPeers;
 use ress_subprotocol::connection::CustomCommand;
 use ress_subprotocol::protocol::event::ProtocolEvent;
 use ress_subprotocol::protocol::handler::{CustomRlpxProtoHandler, ProtocolState};
@@ -30,7 +31,6 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
 use crate::engine::ConsensusEngine;
-use crate::test_utils::TestPeers;
 
 pub struct Node {
     //  retrieve beacon engine client to interact
@@ -195,5 +195,15 @@ impl Node {
     // gracefully shutdown the node
     pub async fn shutdown(self) {
         self.consensus_engine_handle.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    pub async fn test_node() {
+        Node::launch_test_node(&TestPeers::Peer1).await;
     }
 }

@@ -4,11 +4,26 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["crates/ress", "crates/subprotocol", "bin/ress", "bin/reth"]
+members = [
+    "crates/ress",
+    "crates/subprotocol",
+    "bin/ress",
+    "bin/reth",
+    "crates/vm",
+    "crates/storage",
+    "crates/network",
+    "crates/common",
+    "crates/node",
+]
 
 [workspace.dependencies]
 ress-core = { path = "crates/ress" }
+ress-node = { path = "crates/node" }
 ress-subprotocol = { path = "crates/subprotocol" }
+ress-storage = { path = "crates/storage" }
+ress-network = { path = "crates/network" }
+ress-common = { path = "crates/common" }
+ress-vm = { path = "crates/vm" }
 
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.39", features = ["full"] }
@@ -28,6 +43,7 @@ assert_matches = "1.5.0"
 
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-trie = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
+reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e", features = [
     "test-utils",
 ] }

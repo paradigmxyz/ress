@@ -1,0 +1,15 @@
+[package]
+name = "ress-storage"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-network.workspace = true
+
+alloy-primitives.workspace = true
+reth.workspace = true
+thiserror.workspace = true
+reth-trie.workspace = true
+reth-trie-sparse.workspace = true
+alloy-trie.workspace = true

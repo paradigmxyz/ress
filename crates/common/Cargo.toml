@@ -1,0 +1,9 @@
+[package]
+name = "ress-common"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+reth.workspace = true
+alloy-primitives.workspace = true

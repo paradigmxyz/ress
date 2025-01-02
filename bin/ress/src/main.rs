@@ -3,7 +3,9 @@ use std::net::TcpListener;
 use alloy_primitives::{b256, hex, U256};
 use clap::Parser;
 use futures::StreamExt;
-use ress_core::{node::Node, test_utils::TestPeers};
+use ress_common::test_utils::TestPeers;
+use ress_node::Node;
+use reth::chainspec::DEV;
 use reth::rpc::types::engine::ExecutionPayloadV3;
 use reth::{
     revm::primitives::Bytes,
@@ -43,7 +45,7 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
     // spin up node
 
-    let node = Node::launch_test_node(&local_node).await;
+    let node = Node::launch_test_node(local_node, DEV.clone()).await;
 
     // =================================================================
     // debugging for port liveness of auth server and network
@@ -94,7 +96,7 @@ async fn main() -> eyre::Result<()> {
     // Send new events to execution client -> called `Result::unwrap()` on an `Err` value: RequestTimeout
     tokio::spawn(async move {
         let _ = EngineApiClient::<EthEngineTypes>::new_payload_v3(
-            &node.authserve_handle.http_client(),
+            &node.authserver_handler.http_client(),
             new_payload,
             versioned_hashes,
             parent_beacon_block_root,
@@ -105,7 +107,7 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
 
     // interact with the network
-    let mut events = node.network_handle.event_listener();
+    let mut events = node.p2p_handler.network_handle.event_listener();
     while let Some(event) = events.next().await {
         info!("Received event: {:?}", event);
     }

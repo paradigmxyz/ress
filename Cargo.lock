@@ -5263,7 +5263,9 @@ dependencies = [
  "jsonrpsee-core",
  "parking_lot",
  "rand",
+ "ress-common",
  "ress-core",
+ "ress-node",
  "ress-subprotocol",
  "reth 1.1.4",
  "reth-network",
@@ -5274,6 +5276,14 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "ress-common"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "reth 1.1.4",
 ]
 
 [[package]]
@@ -5293,6 +5303,7 @@ dependencies = [
  "jsonrpsee-core",
  "parking_lot",
  "rand",
+ "ress-common",
  "ress-subprotocol",
  "reth 1.1.4",
  "reth-consensus-debug-client",
@@ -5314,6 +5325,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "ress-network"
+version = "0.1.0"
+dependencies = [
+ "alloy-rpc-types-eth",
+ "ress-common",
+ "ress-subprotocol",
+ "reth 1.1.4",
+ "reth-node-ethereum",
+ "reth-payload-builder",
+ "reth-provider",
+ "reth-rpc-engine-api",
+ "reth-tokio-util",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "ress-node"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "ress-common",
+ "ress-network",
+ "ress-storage",
+ "ress-subprotocol",
+ "ress-vm",
+ "reth 1.1.4",
+ "reth-node-ethereum",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "ress-storage"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-trie",
+ "ress-network",
+ "reth 1.1.4",
+ "reth-trie",
+ "reth-trie-sparse",
+ "thiserror 2.0.9",
+]
+
+[[package]]
 name = "ress-subprotocol"
 version = "0.1.0"
 dependencies = [
@@ -5327,6 +5384,16 @@ dependencies = [
  "serde",
  "tokio",
  "tokio-stream",
+]
+
+[[package]]
+name = "ress-vm"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "ress-storage",
+ "reth 1.1.4",
+ "thiserror 2.0.9",
 ]
 
 [[package]]

@@ -1,0 +1,11 @@
+[package]
+name = "ress-vm"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ress-storage.workspace = true
+reth.workspace = true
+alloy-primitives.workspace = true
+thiserror.workspace = true
