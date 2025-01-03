@@ -5287,7 +5287,6 @@ dependencies = [
  "parking_lot",
  "rand",
  "ress-common",
- "ress-core",
  "ress-node",
  "ress-subprotocol",
  "reth 1.1.4",
@@ -5307,44 +5306,6 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "reth 1.1.4",
-]
-
-[[package]]
-name = "ress-core"
-version = "0.1.0"
-dependencies = [
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-rpc-types-eth",
- "alloy-serde",
- "alloy-trie",
- "assert_matches",
- "clap",
- "eyre",
- "futures",
- "jsonrpsee-core",
- "parking_lot",
- "rand",
- "ress-common",
- "ress-subprotocol",
- "reth 1.1.4",
- "reth-consensus-debug-client",
- "reth-network",
- "reth-network-api",
- "reth-node-ethereum",
- "reth-payload-builder",
- "reth-provider",
- "reth-rpc-engine-api",
- "reth-rpc-layer",
- "reth-rpc-types-compat",
- "reth-tokio-util",
- "reth-tracing",
- "reth-trie",
- "thiserror 2.0.9",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

@@ -6,7 +6,6 @@ edition.workspace = true
 
 [dependencies]
 ress-subprotocol.workspace = true
-ress-core.workspace = true
 ress-node.workspace = true
 ress-common.workspace = true
 

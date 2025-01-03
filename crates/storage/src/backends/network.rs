@@ -1,8 +1,6 @@
 use alloy_primitives::B256;
-use ress_network::p2p::P2pHandler;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth::revm::primitives::Bytecode;
-use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
@@ -19,7 +17,7 @@ impl NetworkStorage {
 
     /// fallbacked from disk
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        info!(target:"rlpx-subprotocol", "request bytecode");
+        info!(target:"rlpx-subprotocol", "Request bytecode");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Bytecode {
@@ -38,7 +36,7 @@ impl NetworkStorage {
 
     /// request to get StateWitness from block hash
     pub async fn get_witness(&self, block_hash: B256) -> Result<StateWitness, StorageError> {
-        info!(target:"rlpx-subprotocol", "request witness");
+        info!(target:"rlpx-subprotocol", "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Witness {

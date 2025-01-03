@@ -5,7 +5,6 @@ edition = "2021"
 
 [workspace]
 members = [
-    "crates/ress",
     "crates/subprotocol",
     "bin/ress",
     "bin/reth",
@@ -17,7 +16,6 @@ members = [
 ]
 
 [workspace.dependencies]
-ress-core = { path = "crates/ress" }
 ress-node = { path = "crates/node" }
 ress-subprotocol = { path = "crates/subprotocol" }
 ress-storage = { path = "crates/storage" }

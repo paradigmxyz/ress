@@ -84,6 +84,7 @@ impl ConsensusEngine {
                     .unwrap()
                     .unwrap();
 
+                // todo: current payload from script error on ensure_well_formed_payload
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
                 // let block = self
                 //     .payload_validator
@@ -107,7 +108,7 @@ impl ConsensusEngine {
                 // ===================== Execution =====================
 
                 let bytescode = storage.get_account_code(B256::random());
-                info!("receitved bytecode:{:?}", bytescode);
+                info!("received bytecode:{:?}", bytescode);
 
                 // let mut evm_state = EvmState::new(storage, parent_hash_from_payload);
                 // let output = execute_block(&block, &mut evm_state).unwrap();

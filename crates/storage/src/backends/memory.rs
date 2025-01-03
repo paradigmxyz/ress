@@ -23,19 +23,17 @@ impl MemoryStorage {
         }
     }
 
-    pub fn canonical_hashes(&self, block_hash: B256, block_number: BlockNumber) {
+    pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
         self.canonical_hashes
             .write()
             .unwrap()
             .insert(block_number, block_hash);
     }
 
-    pub fn store_header(&self, block_hash: B256, header: Header) {
+    pub fn set_block_header(&self, block_hash: B256, header: Header) {
         self.headers.write().unwrap().insert(block_hash, header);
     }
-}
 
-impl MemoryStorage {
     pub fn get_account_info_by_hash(
         &self,
         block_hash: B256,
