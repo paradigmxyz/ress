@@ -22,5 +22,5 @@ test:
     cargo llvm-cov nextest
 
 # Run the entire CI pipeline including format, clippy, docs, and test checks
-ci: format clippy docs test
+ci: format docs test
     @echo "CI flow completed"

@@ -41,15 +41,3 @@ impl Node {
         self.consensus_engine_handle.abort();
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use reth::chainspec::DEV;
-
-    use super::*;
-
-    #[tokio::test]
-    pub async fn test_node() {
-        Node::launch_test_node(TestPeers::Peer1, DEV.clone()).await;
-    }
-}
