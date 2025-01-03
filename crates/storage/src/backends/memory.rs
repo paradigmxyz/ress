@@ -1,48 +1,46 @@
-use std::sync::{Arc, Mutex};
+use std::{collections::HashMap, sync::RwLock};
 
-use alloy_primitives::{Address, BlockNumber, B256, U256};
-use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
-use errors::StorageError;
-use ress_network::p2p::P2pHandler;
+use alloy_primitives::{Address, BlockHash, BlockNumber, B256, U256};
 use reth::{
     chainspec::ChainSpec,
     primitives::{Header, SealedHeader},
-    revm::primitives::{AccountInfo, Bytecode},
+    revm::primitives::AccountInfo,
 };
 use reth_trie_sparse::SparseStateTrie;
 
-pub mod backends;
-pub mod errors;
+use crate::errors::StorageError;
 
-/// orchestract 3 different type of backends (in memory, disk, network)
-pub struct Storage {
-    memory: Arc<MemoryStorage>,
-    disk: Arc<DiskStorage>,
-    network: Arc<NetworkStorage>,
+pub struct MemoryStorage {
+    headers: RwLock<HashMap<BlockHash, Header>>,
+    canonical_hashes: RwLock<HashMap<BlockNumber, BlockHash>>,
 }
 
-impl Storage {
-    pub fn new(p2p_handler: &Arc<P2pHandler>) -> Self {
-        let memory = Arc::new(MemoryStorage::new());
-        let disk = Arc::new(DiskStorage::new("my_db_path"));
-        let network = Arc::new(NetworkStorage::new(p2p_handler));
+impl MemoryStorage {
+    pub fn new() -> Self {
         Self {
-            memory,
-            disk,
-            network,
+            headers: RwLock::new(HashMap::new()),
+            canonical_hashes: RwLock::new(HashMap::new()),
         }
     }
 
+    pub fn canonical_hashes(&self, block_hash: B256, block_number: BlockNumber) {
+        self.canonical_hashes
+            .write()
+            .unwrap()
+            .insert(block_number, block_hash);
+    }
+
+    pub fn store_header(&self, block_hash: B256, header: Header) {
+        self.headers.write().unwrap().insert(block_hash, header);
+    }
+}
+
+impl MemoryStorage {
     pub fn get_account_info_by_hash(
         &self,
         block_hash: B256,
         address: Address,
     ) -> Result<Option<AccountInfo>, StorageError> {
-        todo!()
-    }
-
-    /// get bytecode from libmbdx -> fall back network
-    pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
         todo!()
     }
 

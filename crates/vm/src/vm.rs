@@ -1,8 +1,8 @@
 use alloy_primitives::B256;
-use ress_storage::Store;
+use ress_storage::Storage;
 use reth::{
     chainspec::ChainSpec,
-    primitives::{Block, Receipt, SealedBlock},
+    primitives::{Receipt, SealedBlock},
     providers::BlockExecutionOutput,
     revm::{
         db::{State, StateBuilder},
@@ -14,23 +14,26 @@ use reth::{
 use crate::{db::WitnessState, errors::EvmError};
 
 pub enum EvmState {
-    Store(State<WitnessState>),
+    State(State<WitnessState>),
 }
 
 impl EvmState {
-    pub fn new(store: Store, block_hash: B256) -> Self {
-        EvmState::Store(
-            StateBuilder::new_with_database(WitnessState { store, block_hash })
-                .with_bundle_update()
-                .without_state_clear()
-                .build(),
+    pub fn new(storage: Storage, block_hash: B256) -> Self {
+        EvmState::State(
+            StateBuilder::new_with_database(WitnessState {
+                storage,
+                block_hash,
+            })
+            .with_bundle_update()
+            .without_state_clear()
+            .build(),
         )
     }
 
     #[allow(irrefutable_let_patterns)]
-    pub fn database(&self) -> Option<&Store> {
-        if let EvmState::Store(db) = self {
-            Some(&db.database.store)
+    pub fn database(&self) -> Option<&Storage> {
+        if let EvmState::State(db) = self {
+            Some(&db.database.storage)
         } else {
             None
         }
@@ -39,7 +42,11 @@ impl EvmState {
     /// Gets the stored chain config
     pub fn chain_config(&self) -> Result<ChainSpec, EvmError> {
         match self {
-            EvmState::Store(db) => db.database.store.get_chain_config().map_err(EvmError::from),
+            EvmState::State(db) => db
+                .database
+                .storage
+                .get_chain_config()
+                .map_err(EvmError::from),
         }
     }
 }
@@ -61,7 +68,7 @@ fn run_evm(
             .with_spec_id(spec_id);
 
         match state {
-            EvmState::Store(db) => {
+            EvmState::State(db) => {
                 let mut evm = evm_builder.with_db(db).build();
                 evm.transact_commit().unwrap()
             }
@@ -75,11 +82,6 @@ pub fn execute_block(
     block: &SealedBlock,
     state: &mut EvmState,
 ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
-    // let witness_state = Arc::new(WitnessState {
-    //     store: state.database().unwrap(),
-    //     block_hash: block.header.parent_hash,
-    // });
-
     let mut receipts = Vec::new();
     let mut cumulative_gas_used = 0;
     // let mut bundle_state = get_state_transitions(state);

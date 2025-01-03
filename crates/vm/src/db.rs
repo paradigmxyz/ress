@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, B256, U256};
-use ress_storage::{errors::StoreError, Store};
+use ress_storage::{errors::StorageError, Storage};
 use reth::revm::{
     primitives::{AccountInfo, Bytecode},
     Database,
@@ -8,7 +8,7 @@ use reth::revm::{
 use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessState {
-    pub store: Store,
+    pub storage: Storage,
     pub block_hash: B256,
 }
 
@@ -19,12 +19,12 @@ impl Database for WitnessState {
     #[doc = " Get basic account information."]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         let acc_info = self
-            .store
+            .storage
             .get_account_info_by_hash(self.block_hash, address)
             .unwrap()
             .unwrap_or_default();
 
-        let code = self.store.get_account_code(acc_info.code_hash).unwrap();
+        let code = self.storage.get_account_code(acc_info.code_hash).unwrap();
 
         Ok(Some(AccountInfo {
             balance: acc_info.balance,
@@ -37,15 +37,15 @@ impl Database for WitnessState {
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         Ok(self
-            .store
+            .storage
             .get_account_code(code_hash)?
-            .ok_or_else(|| StoreError::NoCodeForCodeHash)?)
+            .ok_or_else(|| StorageError::NoCodeForCodeHash)?)
     }
 
     #[doc = " Get storage value of address at index."]
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         Ok(self
-            .store
+            .storage
             .get_storage_at_hash(self.block_hash, address, index.into())?
             .unwrap_or_else(|| U256::ZERO))
     }
@@ -53,9 +53,9 @@ impl Database for WitnessState {
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         Ok(self
-            .store
+            .storage
             .get_block_header(number)?
             .map(|header| header.hash_slow())
-            .ok_or_else(|| StoreError::BlockNotFound)?)
+            .ok_or_else(|| StorageError::BlockNotFound)?)
     }
 }

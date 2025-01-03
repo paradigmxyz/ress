@@ -6,6 +6,7 @@ edition.workspace = true
 
 [dependencies]
 ress-network.workspace = true
+ress-subprotocol.workspace = true
 
 alloy-primitives.workspace = true
 reth.workspace = true
@@ -13,3 +14,5 @@ thiserror.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 alloy-trie.workspace = true
+tracing.workspace = true
+tokio.workspace = true

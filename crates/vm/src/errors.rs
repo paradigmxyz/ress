@@ -1,4 +1,4 @@
-use ress_storage::errors::StoreError;
+use ress_storage::errors::StorageError;
 
 /// Database error type.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -11,9 +11,9 @@ pub enum WitnessStateProviderError {
     #[error("failed to decode data")]
     DecodingError,
 
-    /// Error from StoreError
+    /// Error from StorageError
     #[error(transparent)]
-    BytecodeProviderError(#[from] StoreError),
+    BytecodeProviderError(#[from] StorageError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -23,7 +23,7 @@ pub enum EvmError {
     #[error("Invalid Header: {0}")]
     Header(String),
     #[error("DB error: {0}")]
-    DB(#[from] StoreError),
+    DB(#[from] StorageError),
     #[error("{0}")]
     Custom(String),
     #[error("{0}")]

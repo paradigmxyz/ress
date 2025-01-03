@@ -5349,7 +5349,6 @@ dependencies = [
  "ress-common",
  "ress-network",
  "ress-storage",
- "ress-subprotocol",
  "ress-vm",
  "reth 1.1.4",
  "reth-node-ethereum",
@@ -5364,10 +5363,13 @@ dependencies = [
  "alloy-primitives",
  "alloy-trie",
  "ress-network",
+ "ress-subprotocol",
  "reth 1.1.4",
  "reth-trie",
  "reth-trie-sparse",
  "thiserror 2.0.9",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

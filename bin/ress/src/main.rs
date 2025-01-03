@@ -104,6 +104,8 @@ async fn main() -> eyre::Result<()> {
         .await;
     });
 
+    info!("i sent");
+
     // =================================================================
 
     // interact with the network

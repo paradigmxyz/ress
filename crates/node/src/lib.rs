@@ -19,6 +19,9 @@ impl Node {
         let (p2p_handler, rpc_handler) =
             ress_network::start_network(id, Arc::clone(&chain_spec)).await;
         let p2p_handler = Arc::new(p2p_handler);
+
+        // ================ initial update ==================
+
         let consensus_engine = ConsensusEngine::new(
             chain_spec.as_ref(),
             p2p_handler.clone(),
