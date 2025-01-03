@@ -30,9 +30,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    // =================================================================
-
     tracing_subscriber::fmt::init();
+    // =================================================================
 
     // <for testing purpose>
     let args = Args::parse();
@@ -43,7 +42,6 @@ async fn main() -> eyre::Result<()> {
     };
 
     // =================================================================
-    // spin up node
 
     let node = Node::launch_test_node(local_node, DEV.clone()).await;
 

@@ -1,3 +1,5 @@
+//! deprecating
+
 # stateless node
 
 This is stateless ethereum execution node implementation that doesn't store full state, instead using rlpx network to communicate with other stateful node and stateless node to get necessary data.

@@ -10,11 +10,20 @@ pub enum StorageError {
     BlockNotFound,
 
     #[error("network storage")]
-    Network(String),
+    Network(#[from] NetworkStorageError),
 
     #[error("disk storage")]
     Disk(String),
 
     #[error("in memory storage")]
     Memory(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum NetworkStorageError {
+    #[error("Failed to send request through channel: {0}")]
+    ChannelSend(String),
+
+    #[error("Failed to receive response from channel: {0}")]
+    ChannelReceive(String),
 }
