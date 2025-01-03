@@ -1,15 +1,16 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use alloy_primitives::{Address, BlockNumber, B256, U256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
-use ress_network::p2p::P2pHandler;
+use ress_subprotocol::connection::CustomCommand;
 use reth::{
     chainspec::ChainSpec,
     primitives::{Header, SealedHeader},
     revm::primitives::{AccountInfo, Bytecode},
 };
 use reth_trie_sparse::SparseStateTrie;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub mod backends;
 pub mod errors;
@@ -22,10 +23,10 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new(p2p_handler: &Arc<P2pHandler>) -> Self {
+    pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
         let memory = Arc::new(MemoryStorage::new());
-        let disk = Arc::new(DiskStorage::new("my_db_path"));
-        let network = Arc::new(NetworkStorage::new(p2p_handler));
+        let disk = Arc::new(DiskStorage::new("test.db"));
+        let network = Arc::new(NetworkStorage::new(network_peer_conn));
         Self {
             memory,
             disk,
@@ -41,9 +42,18 @@ impl Storage {
         todo!()
     }
 
-    /// get bytecode from libmbdx -> fall back network
+    /// get bytecode from disk -> fallback network
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        todo!()
+        if let Some(bytecode) = self.disk.get_account_code(code_hash)? {
+            return Ok(Some(bytecode));
+        }
+        // fallback to network storage if not found in disk
+        if let Some(bytecode) = self.network.get_account_code(code_hash)? {
+            self.disk.update_account_code(code_hash, bytecode.clone())?;
+            return Ok(Some(bytecode));
+        }
+
+        Ok(None)
     }
 
     // get storge value from a

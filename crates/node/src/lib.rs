@@ -8,7 +8,7 @@ use reth::{chainspec::ChainSpec, rpc::builder::auth::AuthServerHandle};
 pub mod engine;
 
 pub struct Node {
-    pub p2p_handler: Arc<P2pHandler>,
+    pub p2p_handler: P2pHandler,
     pub authserver_handler: Arc<AuthServerHandle>,
 
     consensus_engine_handle: tokio::task::JoinHandle<()>,
@@ -18,13 +18,12 @@ impl Node {
     pub async fn launch_test_node(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
         let (p2p_handler, rpc_handler) =
             ress_network::start_network(id, Arc::clone(&chain_spec)).await;
-        let p2p_handler = Arc::new(p2p_handler);
 
         // ================ initial update ==================
 
         let consensus_engine = ConsensusEngine::new(
             chain_spec.as_ref(),
-            p2p_handler.clone(),
+            p2p_handler.network_peer_conn.clone(),
             rpc_handler.from_beacon_engine,
         );
         let consensus_engine_handle = tokio::spawn(async move {

@@ -5372,6 +5372,7 @@ dependencies = [
  "ress-common",
  "ress-network",
  "ress-storage",
+ "ress-subprotocol",
  "ress-vm",
  "reth 1.1.4",
  "reth-node-ethereum",
@@ -5395,6 +5396,7 @@ dependencies = [
  "thiserror 2.0.9",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

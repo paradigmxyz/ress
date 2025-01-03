@@ -16,6 +16,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 pub(crate) mod handler;
 
 /// Custom commands that the subprotocol supports.
+#[derive(Debug)]
 pub enum CustomCommand {
     /// Sends a node type message to the peer
     NodeType {

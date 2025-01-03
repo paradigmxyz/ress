@@ -1,6 +1,8 @@
 use alloy_primitives::BlockNumber;
+use alloy_primitives::B256;
 use ress_network::p2p::P2pHandler;
 use ress_storage::Storage;
+use ress_subprotocol::connection::CustomCommand;
 use ress_vm::vm::execute_block;
 use ress_vm::vm::EvmState;
 use reth::api::BeaconEngineMessage;
@@ -16,6 +18,7 @@ use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 use tracing::warn;
 
@@ -27,14 +30,14 @@ pub struct ConsensusEngine {
     safe_block_number: Option<BlockNumber>,
     eth_beacon_consensus: EthBeaconConsensus<ChainSpec>,
     payload_validator: EthereumEngineValidator,
-    p2p_handler: Arc<P2pHandler>,
+    network_peer_conn: UnboundedSender<CustomCommand>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
 }
 
 impl ConsensusEngine {
     pub fn new(
         chain_spec: &ChainSpec,
-        p2p_handler: Arc<P2pHandler>,
+        network_peer_conn: UnboundedSender<CustomCommand>,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
@@ -45,7 +48,7 @@ impl ConsensusEngine {
             safe_block_number: None,
             eth_beacon_consensus,
             payload_validator,
-            p2p_handler,
+            network_peer_conn,
             from_beacon_engine,
         }
     }
@@ -75,26 +78,26 @@ impl ConsensusEngine {
                 let block_number_from_payload = new_payload.block_number();
 
                 // initiate state with parent hash
-                let storage = Storage::new(&self.p2p_handler);
+                let storage = Storage::new(self.network_peer_conn.clone());
                 let parent_header = storage
                     .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()
                     .unwrap();
 
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
-                let block = self
-                    .payload_validator
-                    .ensure_well_formed_payload(new_payload, sidecar)
-                    .unwrap();
+                // let block = self
+                //     .payload_validator
+                //     .ensure_well_formed_payload(new_payload, sidecar)
+                //     .unwrap();
 
                 info!("hi block had well formed");
 
-                if let Err(e) = self
-                    .eth_beacon_consensus
-                    .validate_header_against_parent(&block, &parent_header)
-                {
-                    warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
-                }
+                // if let Err(e) = self
+                //     .eth_beacon_consensus
+                //     .validate_header_against_parent(&block, &parent_header)
+                // {
+                //     warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
+                // }
 
                 info!(
                     "received new payload, block hash: {:?} on block number :{:?}",
@@ -103,11 +106,14 @@ impl ConsensusEngine {
 
                 // ===================== Execution =====================
 
-                let mut evm_state = EvmState::new(storage, parent_hash_from_payload);
-                let output = execute_block(&block, &mut evm_state).unwrap();
-                let senders = block.senders().unwrap();
-                let block: reth::primitives::Block<TransactionSigned> = block.unseal();
-                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
+                let bytescode = storage.get_account_code(B256::random());
+                info!("receitved bytecode:{:?}", bytescode);
+
+                // let mut evm_state = EvmState::new(storage, parent_hash_from_payload);
+                // let output = execute_block(&block, &mut evm_state).unwrap();
+                // let senders = block.senders().unwrap();
+                // let block: reth::primitives::Block<TransactionSigned> = block.unseal();
+                // let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
 

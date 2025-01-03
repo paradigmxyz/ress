@@ -50,13 +50,13 @@ impl DiskStorage {
     pub fn update_account_code(
         &self,
         code_hash: B256,
-        bytecode: Vec<u8>,
+        bytecode: Bytecode,
     ) -> Result<(), StorageError> {
         self.conn
             .execute(
                 "INSERT INTO account_code (codehash, bytecode) VALUES (?1, ?2)
             ON CONFLICT(codehash) DO UPDATE SET bytecode = excluded.bytecode",
-                rusqlite::params![code_hash.to_string(), bytecode],
+                rusqlite::params![code_hash.to_string(), bytecode.bytes_slice()],
             )
             .unwrap();
         Ok(())
@@ -66,6 +66,7 @@ impl DiskStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
     use tempfile::tempdir;
 
     #[test]
@@ -75,7 +76,7 @@ mod tests {
         let storage = DiskStorage::new(db_path.to_str().unwrap());
 
         let code_hash = B256::random();
-        let bytecode = vec![0x01, 0x02, 0x03, 0x04];
+        let bytecode = Bytecode::LegacyRaw(Bytes::from_str("0xabcdef").unwrap());
 
         let result = storage.update_account_code(code_hash.clone(), bytecode.clone());
         assert!(result.is_ok(), "Failed to update account code");
@@ -88,7 +89,7 @@ mod tests {
 
         assert_eq!(
             retrieved_bytecode.unwrap(),
-            Bytecode::LegacyRaw(Bytes::copy_from_slice(&bytecode)),
+            bytecode,
             "Retrieved bytecode does not match the original"
         );
     }
