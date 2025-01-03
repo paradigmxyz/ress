@@ -40,6 +40,8 @@ bincode = "1.3"
 jsonrpsee-core = "0.24"
 parking_lot = "0.12"
 assert_matches = "1.5.0"
+# for now disk using sqlite
+rusqlite = { version = "0.32.0", features = ["bundled"] }
 
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-trie = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }

@@ -37,13 +37,6 @@ impl ConsensusEngine {
         p2p_handler: Arc<P2pHandler>,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
-        // TODO: first initial start dump block hashes head ~ 256 blocks: from rpc?
-        // let mut block_hashes = HashMap::new();
-        // block_hashes.insert(
-        //     43334,
-        //     B256::from_str("0xa5ddd3f286f429458a39cafc13ffe89295a7efa8eb363cf89a1a4887dbcf272b")
-        //         .unwrap(),
-        // );
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
         let payload_validator = EthereumEngineValidator::new(chain_spec.clone().into());
         let eth_beacon_consensus = EthBeaconConsensus::new(chain_spec.clone().into());

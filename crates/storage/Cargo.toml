@@ -16,3 +16,7 @@ reth-trie-sparse.workspace = true
 alloy-trie.workspace = true
 tracing.workspace = true
 tokio.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+tempfile = "3.3"
