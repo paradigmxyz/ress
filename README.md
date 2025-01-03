@@ -2,12 +2,35 @@
 
 ## Poc seniaro
 
-I join network (statless - ress)
-- connect 1 ress 
-- connect 1 reth (i wanna get witness / bytecode + small...etc)
+### 1. launch ress node
+
+Spawning 3 process. 
+- authserver: `EngineApi` implemented server to listen consensus message.
+- p2p network: spawn network that implemented `ress-subprotocol`.
+- engine: `ConsensusEngine` that spawned to keep receive message
 
 
-## run: ress <> ress && reth(stateful reth) <> ress && reth <> reth (this is reth impl)(x)
+<img src=".github/images/1.png" alt="" width="500" />
+
+### 2. new payload
+
+Authserver received the message and validate payload scaleton. Send to `ConsensusEngine` and handle logic of further validation - against the parent header, construct Executor and run evm and post validation with receipt. 
+
+Storage is abstracted in 3 different backend, disk, memory, network.
+
+
+<img src=".github/images/2.png" alt="" width="500" />
+
+### 3. new fcu
+
+validate message and update the state of node. 
+
+<img src=".github/images/3.png" alt="" width="300" />
+
+
+
+## run
+ress <> ress && reth(stateful reth) <> ress && reth <> reth (this is reth impl)(x)
 
 - test_uils (peer1)
 ```console
@@ -27,21 +50,12 @@ RUST_LOG=info cargo run --bin ress 2
   - [ress](./bin/ress): run resss client - stateless execution client
 
 - crates
-  - [ress-core](./crates/ress): ress core 
+  - [ress-common](./crates/common): ress common 
+  - [ress-network](./crates/network): provide functions to spawn authserver and network.
+  - [ress-node](./crates/node): provide abstraction of launch the node and inner consensus engine implementation
+  - [ress-storage](./crates/storage): provide abstraction of storage that handles 3 backends(disk,in memeory, network) base on request.
+  - [ress-vm](./crates/vm): provide executor that can execute evm from new block
   - [subprotocol](./crates/subprotocol/)
 
-
-## general flow
-
-setup stage
-- 1) stateful node launch + add rlpx protocol bytescode & witness
-- 2) sateless node launch + add rlpx protocol bytescode & witness
-- 3) [Type handshake] rlpx connection: stateful <> statefull (revert) | statefull <> stateless | stateless <> stateless
-- 4) stateless gets block(new payload) from consensus 
-  - engine api
-- 5) stateless send rlpx msg to stateful for get witness/bytecode of current new payload to validate 
-  - consensus engine coordinates this 
-- 6) execute on evm
-- 7) response back to CL -> FCU req/res
 
 

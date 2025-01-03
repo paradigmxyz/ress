@@ -10,7 +10,6 @@ pub mod engine;
 pub struct Node {
     pub p2p_handler: P2pHandler,
     pub authserver_handler: Arc<AuthServerHandle>,
-
     consensus_engine_handle: tokio::task::JoinHandle<()>,
 }
 

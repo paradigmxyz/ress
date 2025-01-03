@@ -92,12 +92,12 @@ impl ConsensusEngine {
 
                 info!("hi block had well formed");
 
-                // if let Err(e) = self
-                //     .eth_beacon_consensus
-                //     .validate_header_against_parent(&block, &parent_header)
-                // {
-                //     warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
-                // }
+                if let Err(e) = self
+                    .eth_beacon_consensus
+                    .validate_header_against_parent(&block, &parent_header)
+                {
+                    warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
+                }
 
                 info!(
                     "received new payload, block hash: {:?} on block number :{:?}",
