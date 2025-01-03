@@ -3,8 +3,7 @@ use alloy_primitives::B256;
 use ress_network::p2p::P2pHandler;
 use ress_storage::Storage;
 use ress_subprotocol::connection::CustomCommand;
-use ress_vm::vm::execute_block;
-use ress_vm::vm::EvmState;
+use ress_vm::executor::BlockExecutor;
 use reth::api::BeaconEngineMessage;
 use reth::api::PayloadValidator;
 use reth::beacon_consensus::EthBeaconConsensus;
@@ -86,10 +85,10 @@ impl ConsensusEngine {
 
                 // todo: current payload from script error on ensure_well_formed_payload
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
-                // let block = self
-                //     .payload_validator
-                //     .ensure_well_formed_payload(new_payload, sidecar)
-                //     .unwrap();
+                let block = self
+                    .payload_validator
+                    .ensure_well_formed_payload(new_payload, sidecar)
+                    .unwrap();
 
                 info!("hi block had well formed");
 
@@ -107,14 +106,15 @@ impl ConsensusEngine {
 
                 // ===================== Execution =====================
 
+                // testing purpose for bytecode
                 let bytescode = storage.get_account_code(B256::random());
                 info!("received bytecode:{:?}", bytescode);
 
-                // let mut evm_state = EvmState::new(storage, parent_hash_from_payload);
-                // let output = execute_block(&block, &mut evm_state).unwrap();
-                // let senders = block.senders().unwrap();
-                // let block: reth::primitives::Block<TransactionSigned> = block.unseal();
-                // let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
+                let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
+                let output = block_executor.execute(&block).unwrap();
+                let senders = block.senders().unwrap();
+                let block: reth::primitives::Block<TransactionSigned> = block.unseal();
+                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
 

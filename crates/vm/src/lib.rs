@@ -1,3 +1,3 @@
 pub mod db;
 pub mod errors;
-pub mod vm;
+pub mod executor;

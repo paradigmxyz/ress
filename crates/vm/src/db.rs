@@ -1,8 +1,8 @@
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{map::HashMap, Address, B256, U256};
 use ress_storage::{errors::StorageError, Storage};
 use reth::revm::{
-    primitives::{AccountInfo, Bytecode},
-    Database,
+    primitives::{Account, AccountInfo, Bytecode},
+    Database, DatabaseCommit,
 };
 
 use crate::errors::WitnessStateProviderError;
@@ -57,5 +57,12 @@ impl Database for WitnessState {
             .get_block_header(number)?
             .map(|header| header.hash_slow())
             .ok_or_else(|| StorageError::BlockNotFound)?)
+    }
+}
+
+impl DatabaseCommit for WitnessState {
+    #[doc = " Commit changes to the database."]
+    fn commit(&mut self, _changes: HashMap<Address, Account>) {
+        todo!()
     }
 }
