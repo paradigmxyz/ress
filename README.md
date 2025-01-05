@@ -2,6 +2,8 @@
 
 ## Poc seniaro
 
+*note example payload generated from [here](https://github.com/Rjected/execution-payload-builder/tree/main)*
+
 ### 1. launch ress node
 
 Spawning 3 process. 

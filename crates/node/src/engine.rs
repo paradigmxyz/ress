@@ -1,6 +1,3 @@
-use alloy_primitives::BlockNumber;
-use alloy_primitives::B256;
-use ress_network::p2p::P2pHandler;
 use ress_storage::Storage;
 use ress_subprotocol::connection::CustomCommand;
 use ress_vm::executor::BlockExecutor;
@@ -15,7 +12,6 @@ use reth::primitives::TransactionSigned;
 use reth::rpc::types::engine::PayloadStatus;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
-use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
@@ -25,8 +21,6 @@ use tracing::warn;
 /// ### `BeaconEngineMessage::NewPayload`
 /// - determine required witness
 pub struct ConsensusEngine {
-    finalized_block_number: Option<BlockNumber>,
-    safe_block_number: Option<BlockNumber>,
     eth_beacon_consensus: EthBeaconConsensus<ChainSpec>,
     payload_validator: EthereumEngineValidator,
     network_peer_conn: UnboundedSender<CustomCommand>,
@@ -43,8 +37,6 @@ impl ConsensusEngine {
         let payload_validator = EthereumEngineValidator::new(chain_spec.clone().into());
         let eth_beacon_consensus = EthBeaconConsensus::new(chain_spec.clone().into());
         Self {
-            finalized_block_number: None,
-            safe_block_number: None,
             eth_beacon_consensus,
             payload_validator,
             network_peer_conn,
@@ -96,7 +88,7 @@ impl ConsensusEngine {
                     .eth_beacon_consensus
                     .validate_header_against_parent(&block, &parent_header)
                 {
-                    warn!(target: "engine::tree", ?block, "Failed to validate header {} against parent: {e}", block.header.hash());
+                    warn!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
 
                 info!(
@@ -107,14 +99,14 @@ impl ConsensusEngine {
                 // ===================== Execution =====================
 
                 // testing purpose for bytecode
-                let bytescode = storage.get_account_code(B256::random());
-                info!("received bytecode:{:?}", bytescode);
+                // let bytescode = storage.get_account_code(B256::random());
+                // info!("received bytecode:{:?}", bytescode);
 
                 let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
-                let output = block_executor.execute(&block).unwrap();
+                let _output = block_executor.execute(&block).unwrap();
                 let senders = block.senders().unwrap();
                 let block: reth::primitives::Block<TransactionSigned> = block.unseal();
-                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
+                let _unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
 
@@ -141,8 +133,8 @@ impl ConsensusEngine {
                 let _safe_block_hash = state.safe_block_hash;
 
                 // N + 1 hash
-                let new_head_hash = state.head_block_hash;
-                let finalized_block_hash = state.finalized_block_hash;
+                // let new_head_hash = state.head_block_hash;
+                // let finalized_block_hash = state.finalized_block_hash;
 
                 // FCU msg update head block + also clean up block hashes stored in memeory up to finalized block
                 // let mut witness_provider = self.witness_provider.lock().await;

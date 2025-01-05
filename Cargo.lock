@@ -5305,7 +5305,9 @@ name = "ress-common"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "eyre",
  "reth 1.1.4",
+ "serde_json",
 ]
 
 [[package]]
@@ -5347,6 +5349,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-trie",
+ "ress-common",
  "ress-network",
  "ress-subprotocol",
  "reth 1.1.4",
