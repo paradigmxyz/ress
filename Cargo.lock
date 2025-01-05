@@ -5279,6 +5279,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
+ "alloy-rpc-types",
  "assert_matches",
  "clap",
  "eyre",
@@ -5289,10 +5290,11 @@ dependencies = [
  "ress-common",
  "ress-node",
  "ress-subprotocol",
- "reth 1.1.4",
+ "reth-chainspec",
  "reth-network",
  "reth-network-api",
  "reth-node-ethereum",
+ "reth-rpc-api",
  "reth-rpc-engine-api",
  "reth-tokio-util",
  "tokio",
@@ -5305,8 +5307,11 @@ name = "ress-common"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-rpc-types",
+ "alloy-rpc-types-engine",
  "eyre",
- "reth 1.1.4",
+ "reth-network",
+ "reth-transaction-pool",
  "serde_json",
 ]
 
@@ -5398,6 +5403,7 @@ dependencies = [
  "reth 1.1.4",
  "reth-network",
  "reth-network-api",
+ "reth-node-builder",
  "reth-node-ethereum",
  "tokio",
  "tracing",

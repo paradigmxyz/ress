@@ -4,7 +4,9 @@ use std::{
 };
 
 use alloy_primitives::B512;
-use reth::{network::config::SecretKey, rpc::types::engine::JwtSecret, transaction_pool::PeerId};
+use alloy_rpc_types_engine::JwtSecret;
+use reth_network::config::SecretKey;
+use reth_transaction_pool::PeerId;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TestPeers {

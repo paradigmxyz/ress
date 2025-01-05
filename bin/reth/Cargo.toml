@@ -11,6 +11,7 @@ eyre.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 reth.workspace = true
+reth-node-builder.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true

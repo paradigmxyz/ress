@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use reth::rpc::types::engine::ExecutionPayloadV3;
+use alloy_rpc_types::engine::ExecutionPayloadV3;
 
 pub fn read_example_payload(file_path: &str) -> eyre::Result<ExecutionPayloadV3> {
     let mut file = File::open(file_path)?;

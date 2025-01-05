@@ -2,8 +2,8 @@ use ress_subprotocol::protocol::{
     handler::{CustomRlpxProtoHandler, ProtocolState},
     proto::NodeType,
 };
-use reth::builder::NodeHandle;
 use reth_network::{protocol::IntoRlpxSubProtocol, NetworkProtocols};
+use reth_node_builder::NodeHandle;
 use reth_node_ethereum::EthereumNode;
 use tokio::sync::mpsc;
 

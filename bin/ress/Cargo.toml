@@ -12,11 +12,13 @@ ress-common.workspace = true
 
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
-reth.workspace = true
+alloy-rpc-types.workspace = true
+reth-rpc-api.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-chainspec.workspace = true
 
 clap.workspace = true
 jsonrpsee-core.workspace = true

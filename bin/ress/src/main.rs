@@ -1,18 +1,18 @@
 use std::net::TcpListener;
 
 use alloy_primitives::b256;
+use alloy_rpc_types::engine::ExecutionPayloadV3;
 use clap::Parser;
 use futures::StreamExt;
 use ress_common::test_utils::TestPeers;
 use ress_common::utils::read_example_payload;
 use ress_node::Node;
-use reth::chainspec::MAINNET;
-use reth::rpc::api::EngineApiClient;
-use reth::rpc::types::engine::ExecutionPayloadV3;
+use reth_chainspec::MAINNET;
 use reth_network::NetworkEventListenerProvider;
 
 use reth_node_ethereum::EthEngineTypes;
 
+use reth_rpc_api::EngineApiClient;
 use tracing::info;
 
 #[derive(Parser)]
