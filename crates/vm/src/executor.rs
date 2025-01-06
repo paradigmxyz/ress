@@ -1,14 +1,12 @@
 use alloy_primitives::B256;
 use ress_storage::Storage;
-use reth::{
-    chainspec::ChainSpec,
-    primitives::{Receipt, SealedBlock},
-    providers::BlockExecutionOutput,
-    revm::{
-        db::{State, StateBuilder},
-        primitives::{BlockEnv, SpecId, TxEnv},
-        Evm,
-    },
+use reth_chainspec::ChainSpec;
+use reth_primitives::{Receipt, SealedBlock};
+use reth_provider::BlockExecutionOutput;
+use reth_revm::{
+    db::State,
+    primitives::{BlockEnv, SpecId, TxEnv},
+    Evm, StateBuilder,
 };
 
 use crate::{db::WitnessState, errors::EvmError};

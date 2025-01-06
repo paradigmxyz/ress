@@ -8,13 +8,21 @@ edition.workspace = true
 ress-subprotocol.workspace = true
 ress-common.workspace = true
 
-reth.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
-alloy-rpc-types-eth.workspace = true
+reth-chainspec.workspace = true
 reth-tokio-util.workspace = true
 reth-payload-builder.workspace = true
 reth-provider.workspace = true
+reth-transaction-pool.workspace = true
+reth-network.workspace = true
+reth-node-api.workspace = true
+reth-tasks.workspace = true
+reth-beacon-consensus.workspace = true
+reth-primitives.workspace = true
+reth-rpc-builder.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-rpc-types-engine.workspace = true
 
 tokio.workspace = true
 tracing.workspace = true

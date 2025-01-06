@@ -9,14 +9,13 @@ use ress_subprotocol::{
         proto::NodeType,
     },
 };
-use reth::{
-    network::{
-        config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
-        NetworkHandle, NetworkManager,
-    },
-    providers::noop::NoopProvider,
-    transaction_pool::PeerId,
+
+use reth_network::{
+    config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
+    NetworkHandle, NetworkManager,
 };
+use reth_provider::noop::NoopProvider;
+use reth_transaction_pool::PeerId;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
 

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use engine::ConsensusEngine;
 use ress_common::test_utils::TestPeers;
 use ress_network::p2p::P2pHandler;
-use reth::{chainspec::ChainSpec, rpc::builder::auth::AuthServerHandle};
+use reth_chainspec::ChainSpec;
+use reth_rpc_builder::auth::AuthServerHandle;
 
 pub mod engine;
 

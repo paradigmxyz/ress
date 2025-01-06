@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use p2p::P2pHandler;
 use ress_common::test_utils::TestPeers;
-use reth::chainspec::ChainSpec;
+use reth_chainspec::ChainSpec;
 use rpc::RpcHandler;
 
 pub mod p2p;

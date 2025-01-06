@@ -1,5 +1,5 @@
 use alloy_primitives::{Bytes, B256};
-use reth::revm::primitives::Bytecode;
+use reth_revm::primitives::Bytecode;
 use rusqlite::{Connection, OptionalExtension, Result};
 
 use crate::errors::StorageError;

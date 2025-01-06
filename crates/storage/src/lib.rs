@@ -4,11 +4,9 @@ use alloy_primitives::{Address, BlockNumber, B256, U256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
 use ress_subprotocol::connection::CustomCommand;
-use reth::{
-    chainspec::ChainSpec,
-    primitives::{Header, SealedHeader},
-    revm::primitives::{AccountInfo, Bytecode},
-};
+use reth_chainspec::ChainSpec;
+use reth_primitives::{Header, SealedHeader};
+use reth_revm::primitives::{AccountInfo, Bytecode};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub mod backends;

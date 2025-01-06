@@ -1,11 +1,9 @@
 use std::{collections::HashMap, sync::RwLock};
 
 use alloy_primitives::{Address, BlockHash, BlockNumber, B256, U256};
-use reth::{
-    chainspec::ChainSpec,
-    primitives::{Header, SealedHeader},
-    revm::primitives::AccountInfo,
-};
+use reth_chainspec::ChainSpec;
+use reth_primitives::{Header, SealedHeader};
+use reth_revm::primitives::AccountInfo;
 
 use crate::errors::StorageError;
 

@@ -6,8 +6,8 @@ use alloy_primitives::{
     map::HashMap,
     BlockHash, Bytes, B256,
 };
-use reth::revm::primitives::Bytecode;
 use reth_eth_wire::{protocol::Protocol, Capability};
+use reth_revm::primitives::Bytecode;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

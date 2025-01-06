@@ -1,17 +1,18 @@
+use alloy_rpc_types_engine::PayloadStatus;
+use alloy_rpc_types_engine::PayloadStatusEnum;
 use ress_storage::Storage;
 use ress_subprotocol::connection::CustomCommand;
 use ress_vm::executor::BlockExecutor;
-use reth::api::BeaconEngineMessage;
-use reth::api::PayloadValidator;
-use reth::beacon_consensus::EthBeaconConsensus;
-use reth::chainspec::ChainSpec;
-use reth::consensus::HeaderValidator;
-use reth::primitives::Block;
-use reth::primitives::BlockWithSenders;
-use reth::primitives::TransactionSigned;
-use reth::rpc::types::engine::PayloadStatus;
+use reth_beacon_consensus::EthBeaconConsensus;
+use reth_chainspec::ChainSpec;
+use reth_consensus::HeaderValidator;
+use reth_node_api::BeaconEngineMessage;
+use reth_node_api::PayloadValidator;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
+use reth_primitives::Block;
+use reth_primitives::BlockWithSenders;
+use reth_primitives::TransactionSigned;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
@@ -105,7 +106,7 @@ impl ConsensusEngine {
                 let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
                 let _output = block_executor.execute(&block).unwrap();
                 let senders = block.senders().unwrap();
-                let block: reth::primitives::Block<TransactionSigned> = block.unseal();
+                let block: Block<TransactionSigned> = block.unseal();
                 let _unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
@@ -119,9 +120,7 @@ impl ConsensusEngine {
                 //     )
                 //     .unwrap();
 
-                let _ = tx.send(Ok(PayloadStatus::from_status(
-                    reth::rpc::types::engine::PayloadStatusEnum::Valid,
-                )));
+                let _ = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)));
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,

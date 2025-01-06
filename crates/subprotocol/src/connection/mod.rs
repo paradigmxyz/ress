@@ -2,8 +2,8 @@ use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind,
 use crate::protocol::proto::StateWitness;
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
-use reth::revm::primitives::Bytecode;
 use reth_eth_wire::multiplex::ProtocolConnection;
+use reth_revm::primitives::Bytecode;
 use std::collections::HashMap;
 use std::{
     pin::Pin,

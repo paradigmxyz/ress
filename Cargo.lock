@@ -5319,15 +5319,23 @@ dependencies = [
 name = "ress-network"
 version = "0.1.0"
 dependencies = [
+ "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
  "ress-common",
  "ress-subprotocol",
- "reth 1.1.4",
+ "reth-beacon-consensus",
+ "reth-chainspec",
+ "reth-network",
+ "reth-node-api",
  "reth-node-ethereum",
  "reth-payload-builder",
+ "reth-primitives",
  "reth-provider",
+ "reth-rpc-builder",
  "reth-rpc-engine-api",
+ "reth-tasks",
  "reth-tokio-util",
+ "reth-transaction-pool",
  "tokio",
  "tracing",
 ]
@@ -5337,13 +5345,19 @@ name = "ress-node"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-rpc-types-engine",
  "ress-common",
  "ress-network",
  "ress-storage",
  "ress-subprotocol",
  "ress-vm",
- "reth 1.1.4",
+ "reth-beacon-consensus",
+ "reth-chainspec",
+ "reth-consensus",
+ "reth-node-api",
  "reth-node-ethereum",
+ "reth-primitives",
+ "reth-rpc-builder",
  "tokio",
  "tracing",
 ]
@@ -5357,7 +5371,9 @@ dependencies = [
  "ress-common",
  "ress-network",
  "ress-subprotocol",
- "reth 1.1.4",
+ "reth-chainspec",
+ "reth-primitives",
+ "reth-revm",
  "reth-trie",
  "reth-trie-sparse",
  "rusqlite",
@@ -5375,10 +5391,10 @@ dependencies = [
  "alloy-primitives",
  "bincode",
  "futures",
- "reth 1.1.4",
  "reth-eth-wire",
  "reth-network",
  "reth-network-api",
+ "reth-revm",
  "serde",
  "tokio",
  "tokio-stream",
@@ -5390,7 +5406,10 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "ress-storage",
- "reth 1.1.4",
+ "reth-chainspec",
+ "reth-primitives",
+ "reth-provider",
+ "reth-revm",
  "thiserror 2.0.9",
 ]
 
@@ -7131,6 +7150,7 @@ source = "git+https://github.com/paradigmxyz/reth?rev=ef033abaf9105f167a778e0041
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types",

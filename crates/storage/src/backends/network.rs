@@ -1,6 +1,6 @@
 use alloy_primitives::B256;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
-use reth::revm::primitives::Bytecode;
+use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
