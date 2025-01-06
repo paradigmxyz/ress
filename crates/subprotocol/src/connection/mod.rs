@@ -135,7 +135,7 @@ impl Stream for CustomRlpxConnection {
                     // TODO: get state witness from other full node peers
                     println!("🟢 requested for blockhash {}!", block_hash);
 
-                    // [mock]
+                    // TODO [mock]
                     let mut state_witness = HashMap::from_iter(vec![(
                         B256::from_str("0xc8ed2e88eb4f392010421e1279bc6daf555783bd0dcf8fcc64cf2b2da99f191a")
                             .unwrap(),

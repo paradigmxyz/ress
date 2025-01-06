@@ -10,6 +10,7 @@ ress-network.workspace = true
 ress-subprotocol.workspace = true
 
 alloy-primitives.workspace = true
+alloy-rlp.workspace = true
 alloy-trie.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true

@@ -5369,6 +5369,7 @@ name = "ress-storage"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-rlp",
  "alloy-trie",
  "ress-common",
  "ress-network",
@@ -5406,10 +5407,15 @@ dependencies = [
 name = "ress-vm"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
+ "eyre",
  "ress-storage",
  "reth-chainspec",
+ "reth-evm",
+ "reth-evm-ethereum",
  "reth-primitives",
+ "reth-primitives-traits",
  "reth-provider",
  "reth-revm",
  "thiserror 2.0.9",

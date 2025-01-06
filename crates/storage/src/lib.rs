@@ -1,31 +1,38 @@
 use std::sync::{Arc, Mutex};
 
-use alloy_primitives::{Address, BlockNumber, B256, U256};
+use alloy_primitives::{keccak256, Address, BlockNumber, B256, U256};
+use alloy_rlp::Decodable;
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
-use ress_subprotocol::connection::CustomCommand;
+use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
 use reth_revm::primitives::{AccountInfo, Bytecode};
+use reth_trie::{Nibbles, TrieAccount, TrieNode};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub mod backends;
 pub mod errors;
 
-/// orchestract 3 different type of backends (in memory, disk, network)
+/// orchestrate 3 different type of backends (in-memory, disk, network)
 #[derive(Debug, Clone)]
 pub struct Storage {
+    pub chain_spec: Arc<ChainSpec>,
     pub memory: Arc<MemoryStorage>,
     pub disk: Arc<Mutex<DiskStorage>>,
     pub network: Arc<NetworkStorage>,
 }
 
 impl Storage {
-    pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
+    pub fn new(
+        network_peer_conn: UnboundedSender<CustomCommand>,
+        chain_spec: Arc<ChainSpec>,
+    ) -> Self {
         let memory = Arc::new(MemoryStorage::new());
         let disk = Arc::new(Mutex::new(DiskStorage::new("test.db")));
         let network = Arc::new(NetworkStorage::new(network_peer_conn));
         Self {
+            chain_spec,
             memory,
             disk,
             network,
@@ -38,12 +45,17 @@ impl Storage {
         self.memory.set_block_header(block_hash, header);
     }
 
+    /// get account info by block hash from witness
     pub fn get_account_info_by_hash(
         &self,
-        _block_hash: B256,
-        _address: Address,
+        block_hash: B256,
+        address: Address,
     ) -> Result<Option<AccountInfo>, StorageError> {
-        todo!()
+        // 1. first get witness from network provider
+        let witness = self.network.get_witness(block_hash).unwrap();
+        // 2. get account info from witness
+        // todo: use sparse merkle tree
+        self.get_account_info_from_witness(witness, address)
     }
 
     /// get bytecode from disk -> fallback network
@@ -75,8 +87,8 @@ impl Storage {
         self.memory.get_block_header(block_number)
     }
 
-    pub fn get_chain_config(&self) -> Result<ChainSpec, StorageError> {
-        todo!()
+    pub fn get_chain_config(&self) -> Arc<ChainSpec> {
+        self.chain_spec.clone()
     }
 
     pub fn get_block_header_by_hash(
@@ -84,6 +96,44 @@ impl Storage {
         block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
         self.memory.get_block_header_by_hash(block_hash)
+    }
+
+    pub fn get_account_info_from_witness(
+        &self,
+        witness: StateWitness,
+        address: Address,
+    ) -> Result<Option<AccountInfo>, StorageError> {
+        let hashed_address = &keccak256(address);
+        let nibbles = Nibbles::unpack(hashed_address);
+
+        for encoded in witness.values() {
+            let node = TrieNode::decode(&mut &encoded[..]);
+            match node {
+                Ok(trie_node) => {
+                    if let TrieNode::Leaf(leaf) = trie_node {
+                        if nibbles.ends_with(&leaf.key) {
+                            let account = TrieAccount::decode(&mut &leaf.value[..]);
+                            match account {
+                                Ok(account_node) => {
+                                    return Ok(Some(AccountInfo {
+                                        balance: account_node.balance,
+                                        nonce: account_node.nonce,
+                                        code_hash: account_node.code_hash,
+                                        code: None,
+                                    }));
+                                }
+                                Err(_) => continue,
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+
+        Ok(None)
     }
 }
 

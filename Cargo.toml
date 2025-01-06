@@ -72,6 +72,9 @@ reth-tracing = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf91
 reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-tasks = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth", rev = "ef033abaf9105f167a778e00411e005ba9a0271e" }
 alloy-primitives = { version = "0.8.11", default-features = false }
 alloy-eips = { version = "0.8.1", default-features = false }
 alloy-rpc-types-eth = { version = "0.8.1", default-features = false }

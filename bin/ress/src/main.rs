@@ -70,7 +70,7 @@ async fn main() -> eyre::Result<()> {
     // interact with the network
     let mut events = node.p2p_handler.network_handle.event_listener();
     while let Some(event) = events.next().await {
-        info!("Received event: {:?}", event);
+        info!(target: "ress","Received event: {:?}", event);
     }
 
     Ok(())
@@ -81,11 +81,11 @@ fn is_ports_alive(local_node: TestPeers) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    info!("auth server is_alive: {:?}", is_alive);
+    info!(target: "ress","auth server is_alive: {:?}", is_alive);
 
     let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    info!("network is_alive: {:?}", is_alive);
+    info!(target: "ress","network is_alive: {:?}", is_alive);
 }

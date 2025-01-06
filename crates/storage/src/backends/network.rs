@@ -18,7 +18,7 @@ impl NetworkStorage {
 
     /// fallbacked from disk
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        info!(target:"rlpx-subprotocol", "Request bytecode");
+        info!(target:"network storage", "Request bytecode");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Bytecode {
@@ -31,13 +31,13 @@ impl NetworkStorage {
             StorageError::Network(NetworkStorageError::ChannelReceive(e.to_string()))
         })?;
 
-        info!(target:"rlpx-subprotocol", ?response, "Bytecode received");
+        info!(target:"network storage", ?response, "Bytecode received");
         Ok(Some(response))
     }
 
     /// request to get StateWitness from block hash
-    pub async fn get_witness(&self, block_hash: B256) -> Result<StateWitness, StorageError> {
-        info!(target:"rlpx-subprotocol", "Request witness");
+    pub fn get_witness(&self, block_hash: B256) -> Result<StateWitness, StorageError> {
+        info!(target:"network storage", "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Witness {
@@ -45,9 +45,12 @@ impl NetworkStorage {
                 response: tx,
             })
             .unwrap();
-        let response = rx.await.unwrap();
+        // todo: rn witness is dummy
+        let response = tokio::task::block_in_place(|| rx.blocking_recv()).map_err(|e| {
+            StorageError::Network(NetworkStorageError::ChannelReceive(e.to_string()))
+        })?;
 
-        info!(target:"rlpx-subprotocol", ?response, "Witness received");
+        info!(target:"network storage", ?response, "Witness received");
         Ok(response)
     }
 }

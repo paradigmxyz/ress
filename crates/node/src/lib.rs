@@ -24,7 +24,10 @@ impl Node {
         // ================ initial update ==================
 
         // initiate state with parent hash
-        let storage = Arc::new(Storage::new(p2p_handler.network_peer_conn.clone()));
+        let storage = Arc::new(Storage::new(
+            p2p_handler.network_peer_conn.clone(),
+            Arc::clone(&chain_spec),
+        ));
 
         let consensus_engine = ConsensusEngine::new(
             chain_spec.as_ref(),

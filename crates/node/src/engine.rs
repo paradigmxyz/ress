@@ -19,8 +19,6 @@ use tracing::error;
 use tracing::info;
 
 /// ress consensus engine
-/// ### `BeaconEngineMessage::NewPayload`
-/// - determine required witness
 pub struct ConsensusEngine {
     eth_beacon_consensus: EthBeaconConsensus<ChainSpec>,
     payload_validator: EthereumEngineValidator,
@@ -59,8 +57,8 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                //  basic standalone payload validation is handled from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
                 // ===================== Additional Validation =====================
+                // basic standalone payload validation is handled from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
                 // additionally we need to verify new payload against parent header from our storeage
 
                 let parent_hash_from_payload = new_payload.parent_hash();
@@ -82,19 +80,15 @@ impl ConsensusEngine {
                     .eth_beacon_consensus
                     .validate_header_against_parent(&block, &parent_header)
                 {
-                    error!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.header.hash());
+                    error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
 
-                info!(
+                info!(target: "engine",
                     "received new payload on block number: {:?}",
                     block_number_from_payload
                 );
 
                 // ===================== Execution =====================
-
-                // testing purpose for bytecode
-                // let bytescode = storage.get_account_code(B256::random());
-                // info!("received bytecode:{:?}", bytescode);
 
                 let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
                 let _output = block_executor.execute(&block).unwrap();
