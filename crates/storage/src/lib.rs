@@ -10,6 +10,7 @@ use reth_primitives::{Header, SealedHeader};
 use reth_revm::primitives::{AccountInfo, Bytecode};
 use reth_trie::{Nibbles, TrieAccount, TrieNode};
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::info;
 
 pub mod backends;
 pub mod errors;
@@ -51,11 +52,17 @@ impl Storage {
         block_hash: B256,
         address: Address,
     ) -> Result<Option<AccountInfo>, StorageError> {
+        info!(
+            target = "storage",
+            "request witness for block hash: {:?}, address: {:?}", block_hash, address
+        );
         // 1. first get witness from network provider
         let witness = self.network.get_witness(block_hash).unwrap();
         // 2. get account info from witness
         // todo: use sparse merkle tree
-        self.get_account_info_from_witness(witness, address)
+        let acc_info = self.get_account_info_from_witness(witness, address);
+        info!(target = "storage", "decoded account info: {:?}", acc_info);
+        acc_info
     }
 
     /// get bytecode from disk -> fallback network
@@ -98,6 +105,7 @@ impl Storage {
         self.memory.get_block_header_by_hash(block_hash)
     }
 
+    // todo: will be later alter somehow with logic like `SparseStateTrie::from_witness()` and look up account from trie
     pub fn get_account_info_from_witness(
         &self,
         witness: StateWitness,
