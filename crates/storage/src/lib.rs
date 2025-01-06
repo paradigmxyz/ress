@@ -15,14 +15,14 @@ pub mod errors;
 /// orchestract 3 different type of backends (in memory, disk, network)
 pub struct Storage {
     pub memory: Arc<MemoryStorage>,
-    pub disk: Arc<DiskStorage>,
+    pub disk: DiskStorage,
     pub network: Arc<NetworkStorage>,
 }
 
 impl Storage {
     pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
         let memory = Arc::new(MemoryStorage::new());
-        let disk = Arc::new(DiskStorage::new("test.db"));
+        let disk = DiskStorage::new("test.db");
         let network = Arc::new(NetworkStorage::new(network_peer_conn));
         Self {
             memory,
@@ -77,7 +77,7 @@ impl Storage {
     ) -> Result<Option<SealedHeader>, StorageError> {
         // todo: get header from memeory
         // self.engine.get_block_header_by_hash(block_hash)
-        return Ok(Some(SealedHeader::default()));
+        Ok(Some(SealedHeader::default()))
     }
 }
 

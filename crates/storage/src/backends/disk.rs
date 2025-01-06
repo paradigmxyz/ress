@@ -78,10 +78,10 @@ mod tests {
         let code_hash = B256::random();
         let bytecode = Bytecode::LegacyRaw(Bytes::from_str("0xabcdef").unwrap());
 
-        let result = storage.update_account_code(code_hash.clone(), bytecode.clone());
+        let result = storage.update_account_code(code_hash, bytecode.clone());
         assert!(result.is_ok(), "Failed to update account code");
 
-        let retrieved_bytecode = storage.get_account_code(code_hash.clone()).unwrap();
+        let retrieved_bytecode = storage.get_account_code(code_hash).unwrap();
         assert!(
             retrieved_bytecode.is_some(),
             "Expected bytecode to be found"

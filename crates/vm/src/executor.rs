@@ -69,7 +69,7 @@ impl BlockExecutor {
             let receipt = Receipt {
                 tx_type: transaction.tx_type(),
                 success: result.is_success(),
-                cumulative_gas_used: cumulative_gas_used,
+                cumulative_gas_used,
                 logs: result.logs().to_vec(),
             };
             receipts.push(receipt);

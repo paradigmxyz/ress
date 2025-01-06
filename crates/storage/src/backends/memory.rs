@@ -12,6 +12,12 @@ pub struct MemoryStorage {
     canonical_hashes: RwLock<HashMap<BlockNumber, BlockHash>>,
 }
 
+impl Default for MemoryStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStorage {
     pub fn new() -> Self {
         Self {
@@ -65,6 +71,6 @@ impl MemoryStorage {
     ) -> Result<Option<SealedHeader>, StorageError> {
         // todo: get header from memeory
         // self.engine.get_block_header_by_hash(block_hash)
-        return Ok(Some(SealedHeader::default()));
+        Ok(Some(SealedHeader::default()))
     }
 }

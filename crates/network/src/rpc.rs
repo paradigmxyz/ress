@@ -70,7 +70,7 @@ impl RpcHandler {
             Box::<TokioTaskExecutor>::default(),
             client,
             EngineCapabilities::default(),
-            EthereumEngineValidator::new(chain_spec.clone().into()),
+            EthereumEngineValidator::new(chain_spec.clone()),
         );
         let module = AuthRpcModule::new(engine_api);
         let handle = module.start_server(config).await.unwrap();

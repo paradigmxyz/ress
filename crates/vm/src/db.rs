@@ -39,7 +39,7 @@ impl Database for WitnessState {
         Ok(self
             .storage
             .get_account_code(code_hash)?
-            .ok_or_else(|| StorageError::NoCodeForCodeHash)?)
+            .ok_or(StorageError::NoCodeForCodeHash)?)
     }
 
     #[doc = " Get storage value of address at index."]
@@ -47,7 +47,7 @@ impl Database for WitnessState {
         Ok(self
             .storage
             .get_storage_at_hash(self.block_hash, address, index.into())?
-            .unwrap_or_else(|| U256::ZERO))
+            .unwrap_or(U256::ZERO))
     }
 
     #[doc = " Get block hash by block number."]
@@ -56,7 +56,7 @@ impl Database for WitnessState {
             .storage
             .get_block_header(number)?
             .map(|header| header.hash_slow())
-            .ok_or_else(|| StorageError::BlockNotFound)?)
+            .ok_or(StorageError::BlockNotFound)?)
     }
 }
 
