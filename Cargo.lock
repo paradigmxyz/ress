@@ -5294,6 +5294,7 @@ dependencies = [
  "reth-network",
  "reth-network-api",
  "reth-node-ethereum",
+ "reth-primitives",
  "reth-rpc-api",
  "reth-rpc-engine-api",
  "reth-tokio-util",
@@ -5311,6 +5312,7 @@ dependencies = [
  "alloy-rpc-types-engine",
  "eyre",
  "reth-network",
+ "reth-primitives",
  "reth-transaction-pool",
  "serde_json",
 ]

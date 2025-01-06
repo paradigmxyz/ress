@@ -59,9 +59,15 @@ impl MemoryStorage {
 
     pub fn get_block_header(
         &self,
-        _block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Result<Option<Header>, StorageError> {
-        todo!()
+        let canonical_hashes = self.canonical_hashes.lock().unwrap();
+        if let Some(block_hash) = canonical_hashes.get(&block_number) {
+            let headers = self.headers.lock().unwrap();
+            Ok(headers.get(block_hash).cloned())
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn get_chain_config(&self) -> Result<ChainSpec, StorageError> {
@@ -70,10 +76,13 @@ impl MemoryStorage {
 
     pub fn get_block_header_by_hash(
         &self,
-        _block_hash: B256,
+        block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
-        // todo: get header from memeory
-        // self.engine.get_block_header_by_hash(block_hash)
-        Ok(Some(SealedHeader::default()))
+        let headers = self.headers.lock().unwrap();
+        if let Some(header) = headers.get(&block_hash) {
+            Ok(Some(SealedHeader::new(header.clone(), block_hash)))
+        } else {
+            Ok(None)
+        }
     }
 }

@@ -32,7 +32,9 @@ impl Storage {
         }
     }
 
-    pub fn set_block_header(&self, block_hash: B256, header: Header) {
+    /// set block hash and set block header
+    pub fn set_block(&self, block_hash: B256, header: Header) {
+        self.memory.set_block_hash(block_hash, header.number);
         self.memory.set_block_header(block_hash, header);
     }
 
@@ -68,9 +70,9 @@ impl Storage {
 
     pub fn get_block_header(
         &self,
-        _block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Result<Option<Header>, StorageError> {
-        todo!()
+        self.memory.get_block_header(block_number)
     }
 
     pub fn get_chain_config(&self) -> Result<ChainSpec, StorageError> {
@@ -79,11 +81,9 @@ impl Storage {
 
     pub fn get_block_header_by_hash(
         &self,
-        _block_hash: B256,
+        block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
-        // todo: get header from memeory
-        // self.engine.get_block_header_by_hash(block_hash)
-        Ok(Some(SealedHeader::default()))
+        self.memory.get_block_header_by_hash(block_hash)
     }
 }
 

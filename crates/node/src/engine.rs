@@ -15,8 +15,8 @@ use reth_primitives::Block;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::TransactionSigned;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tracing::error;
 use tracing::info;
-use tracing::warn;
 
 /// ress consensus engine
 /// ### `BeaconEngineMessage::NewPayload`
@@ -59,13 +59,10 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                info!("gm new payload");
-
                 //  basic standalone payload validation is handled from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
                 // ===================== Additional Validation =====================
                 // additionally we need to verify new payload against parent header from our storeage
 
-                let block_hash_from_payload = new_payload.block_hash();
                 let parent_hash_from_payload = new_payload.parent_hash();
                 let block_number_from_payload = new_payload.block_number();
                 let storage = self.storage.clone();
@@ -75,25 +72,22 @@ impl ConsensusEngine {
                     .unwrap()
                     .unwrap();
 
-                // todo: current payload from script error on ensure_well_formed_payload
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
                 let block = self
                     .payload_validator
                     .ensure_well_formed_payload(new_payload, sidecar)
                     .unwrap();
 
-                info!("hi block had well formed");
-
                 if let Err(e) = self
                     .eth_beacon_consensus
                     .validate_header_against_parent(&block, &parent_header)
                 {
-                    warn!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.header.hash());
+                    error!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
 
                 info!(
-                    "received new payload, block hash: {:?} on block number :{:?}",
-                    block_hash_from_payload, block_number_from_payload
+                    "received new payload on block number: {:?}",
+                    block_number_from_payload
                 );
 
                 // ===================== Execution =====================
