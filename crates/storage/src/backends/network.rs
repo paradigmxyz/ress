@@ -6,6 +6,7 @@ use tracing::info;
 
 use crate::errors::{NetworkStorageError, StorageError};
 
+#[derive(Debug, Clone)]
 pub struct NetworkStorage {
     network_peer_conn: UnboundedSender<CustomCommand>,
 }

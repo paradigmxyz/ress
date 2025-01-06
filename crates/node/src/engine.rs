@@ -1,7 +1,8 @@
+use std::sync::Arc;
+
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use ress_storage::Storage;
-use ress_subprotocol::connection::CustomCommand;
 use ress_vm::executor::BlockExecutor;
 use reth_beacon_consensus::EthBeaconConsensus;
 use reth_chainspec::ChainSpec;
@@ -14,7 +15,6 @@ use reth_primitives::Block;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::TransactionSigned;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 use tracing::warn;
 
@@ -24,14 +24,14 @@ use tracing::warn;
 pub struct ConsensusEngine {
     eth_beacon_consensus: EthBeaconConsensus<ChainSpec>,
     payload_validator: EthereumEngineValidator,
-    network_peer_conn: UnboundedSender<CustomCommand>,
+    storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
 }
 
 impl ConsensusEngine {
     pub fn new(
         chain_spec: &ChainSpec,
-        network_peer_conn: UnboundedSender<CustomCommand>,
+        storage: Arc<Storage>,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
@@ -40,7 +40,7 @@ impl ConsensusEngine {
         Self {
             eth_beacon_consensus,
             payload_validator,
-            network_peer_conn,
+            storage,
             from_beacon_engine,
         }
     }
@@ -68,9 +68,8 @@ impl ConsensusEngine {
                 let block_hash_from_payload = new_payload.block_hash();
                 let parent_hash_from_payload = new_payload.parent_hash();
                 let block_number_from_payload = new_payload.block_number();
+                let storage = self.storage.clone();
 
-                // initiate state with parent hash
-                let storage = Storage::new(self.network_peer_conn.clone());
                 let parent_header = storage
                     .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()

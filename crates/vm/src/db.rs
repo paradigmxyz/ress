@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::{map::HashMap, Address, B256, U256};
 use ress_storage::{errors::StorageError, Storage};
 use reth_revm::{
@@ -8,7 +10,7 @@ use reth_revm::{
 use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessState {
-    pub storage: Storage,
+    pub storage: Arc<Storage>,
     pub block_hash: B256,
 }
 

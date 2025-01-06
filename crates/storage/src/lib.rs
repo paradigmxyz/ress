@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use alloy_primitives::{Address, BlockNumber, B256, U256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
@@ -13,22 +13,27 @@ pub mod backends;
 pub mod errors;
 
 /// orchestract 3 different type of backends (in memory, disk, network)
+#[derive(Debug, Clone)]
 pub struct Storage {
     pub memory: Arc<MemoryStorage>,
-    pub disk: DiskStorage,
+    pub disk: Arc<Mutex<DiskStorage>>,
     pub network: Arc<NetworkStorage>,
 }
 
 impl Storage {
     pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
         let memory = Arc::new(MemoryStorage::new());
-        let disk = DiskStorage::new("test.db");
+        let disk = Arc::new(Mutex::new(DiskStorage::new("test.db")));
         let network = Arc::new(NetworkStorage::new(network_peer_conn));
         Self {
             memory,
             disk,
             network,
         }
+    }
+
+    pub fn set_block_header(&self, block_hash: B256, header: Header) {
+        self.memory.set_block_header(block_hash, header);
     }
 
     pub fn get_account_info_by_hash(
@@ -41,11 +46,12 @@ impl Storage {
 
     /// get bytecode from disk -> fallback network
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        if let Some(bytecode) = self.disk.get_account_code(code_hash)? {
+        let disk = self.disk.lock().unwrap();
+        if let Some(bytecode) = disk.get_account_code(code_hash)? {
             return Ok(Some(bytecode));
         }
         if let Some(bytecode) = self.network.get_account_code(code_hash)? {
-            self.disk.update_account_code(code_hash, bytecode.clone())?;
+            disk.update_account_code(code_hash, bytecode.clone())?;
             return Ok(Some(bytecode));
         }
         Ok(None)

@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use alloy_primitives::b256;
+use alloy_primitives::{b256, B256};
 use alloy_rpc_types::engine::ExecutionPayloadV3;
 use clap::Parser;
 use futures::StreamExt;
@@ -39,26 +39,14 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
 
     let node = Node::launch_test_node(local_node, MAINNET.clone()).await;
+    is_ports_alive(local_node);
+    let storage = node.storage.get_account_code(B256::random());
+    info!("i accessed storage:{:?}", storage);
+
+    // for demo, we first need to dump 21555422 - 256 ~ 21555422 blocks to storage before send msg
 
     // =================================================================
-    // debugging for port liveness of auth server and network
-
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!("auth server is_alive: {:?}", is_alive);
-
-    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
-        Ok(_listener) => false,
-        Err(_) => true,
-    };
-    info!("network is_alive: {:?}", is_alive);
-
-    // =================================================================
-    // I'm trying to send some rpc request to Engine API
-
-    // example block 21555422
+    // for demo, we imagine consensus client send block 21555422 payload
     let new_payload: ExecutionPayloadV3 = read_example_payload("./fixtures/mainnet-21555422.json")?;
     let versioned_hashes = vec![];
     let parent_beacon_block_root =
@@ -85,4 +73,18 @@ async fn main() -> eyre::Result<()> {
     }
 
     Ok(())
+}
+
+fn is_ports_alive(local_node: TestPeers) {
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_authserver_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("auth server is_alive: {:?}", is_alive);
+
+    let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
+        Ok(_listener) => false,
+        Err(_) => true,
+    };
+    info!("network is_alive: {:?}", is_alive);
 }

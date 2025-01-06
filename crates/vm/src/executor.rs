@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::B256;
 use ress_storage::Storage;
 use reth_chainspec::ChainSpec;
@@ -16,7 +18,7 @@ pub struct BlockExecutor {
 }
 
 impl BlockExecutor {
-    pub fn new(storage: Storage, block_hash: B256) -> Self {
+    pub fn new(storage: Arc<Storage>, block_hash: B256) -> Self {
         Self {
             state: StateBuilder::new_with_database(WitnessState {
                 storage,
