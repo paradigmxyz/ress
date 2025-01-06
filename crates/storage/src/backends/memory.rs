@@ -6,12 +6,15 @@ use std::{
 use alloy_primitives::{Address, BlockHash, BlockNumber, B256, U256};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
-use reth_revm::primitives::AccountInfo;
+use reth_revm::{db::DbAccount, primitives::AccountInfo};
 
 use crate::errors::StorageError;
 
 #[derive(Debug, Clone)]
 pub struct MemoryStorage {
+    /// Account info where None means it is not existing. Not existing state is needed for Pre TANGERINE forks.
+    /// `code` is always `None`, and bytecode can be found in `contracts`.
+    pub accounts: Arc<Mutex<HashMap<Address, DbAccount>>>,
     pub headers: Arc<Mutex<HashMap<BlockHash, Header>>>,
     pub canonical_hashes: Arc<Mutex<HashMap<BlockNumber, BlockHash>>>,
 }
@@ -25,6 +28,7 @@ impl Default for MemoryStorage {
 impl MemoryStorage {
     pub fn new() -> Self {
         Self {
+            accounts: Arc::new(Mutex::new(HashMap::new())),
             headers: Arc::new(Mutex::new(HashMap::new())),
             canonical_hashes: Arc::new(Mutex::new(HashMap::new())),
         }
