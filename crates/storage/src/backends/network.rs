@@ -1,4 +1,5 @@
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
+use ress_common::provider::ProviderWrapper;
 use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
 use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
@@ -31,8 +32,16 @@ impl NetworkStorage {
             StorageError::Network(NetworkStorageError::ChannelReceive(e.to_string()))
         })?;
 
+        // todo: for testing so we call provider. rpc, address, block number how i can link with code hash?
+        let provider = ProviderWrapper::new("https://ethereum-rpc.publicnode.com".to_string());
+        let bytes = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async { provider.get_code(Address::random(), None).await })
+        });
+
+        let bytecode = Bytecode::LegacyRaw(bytes.unwrap());
         info!(target:"network storage", ?response, "Bytecode received");
-        Ok(Some(response))
+        Ok(Some(bytecode))
     }
 
     /// request to get StateWitness from block hash

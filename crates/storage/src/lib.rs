@@ -71,6 +71,7 @@ impl Storage {
         if let Some(bytecode) = disk.get_account_code(code_hash)? {
             return Ok(Some(bytecode));
         }
+
         if let Some(bytecode) = self.network.get_account_code(code_hash)? {
             disk.update_account_code(code_hash, bytecode.clone())?;
             return Ok(Some(bytecode));

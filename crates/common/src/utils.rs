@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use alloy_rpc_types::engine::ExecutionPayloadV3;
+use alloy_rpc_types_engine::payload::ExecutionPayloadV3;
 use reth_primitives::Header;
 
 pub fn read_example_payload(file_path: &str) -> eyre::Result<ExecutionPayloadV3> {

@@ -39,6 +39,7 @@ jsonrpsee-core = "0.24"
 parking_lot = "0.12"
 assert_matches = "1.5.0"
 serde_json = "1.0.1"
+reqwest = { version = "0.12", features = ["json"] }
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }
 
@@ -81,5 +82,7 @@ alloy-rpc-types-eth = { version = "0.8.1", default-features = false }
 alloy-rpc-types = { version = "0.8.1", default-features = false }
 alloy-rpc-types-engine = { version = "0.8.1", default-features = false }
 alloy-serde = { version = "0.8.1", default-features = false }
+alloy-provider = { version = "0.8.1", default-features = false }
 alloy-trie = { version = "0.7.6", default-features = false }
+alloy-transport-http = { version = "0.8.1", default-features = false }
 alloy-rlp = "0.3.10"
