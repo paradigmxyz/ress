@@ -6,7 +6,7 @@ use eyre::OptionExt;
 use ress_storage::Storage;
 use reth_chainspec::ChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
-use reth_evm_ethereum::EthEvmConfig;
+use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{Receipt, SealedBlock};
 use reth_primitives_traits::transaction::signed::SignedTransaction;
 use reth_provider::BlockExecutionOutput;
@@ -19,32 +19,22 @@ use reth_revm::{
 use crate::{db::WitnessState, errors::EvmError};
 
 pub struct BlockExecutor {
-    state: State<WitnessState>,
-    eth_evm_config: EthEvmConfig,
+    strategy: EthExecutionStrategy<WitnessState, EthEvmConfig>,
 }
 
 impl BlockExecutor {
     /// specific block's executor by initiate with parent block post execution state and hash
-    pub fn new(storage: Arc<Storage>, block_hash: B256) -> Self {
+    pub fn new(storage: Arc<Storage>, block_hash: B256, chain_spec: Arc<ChainSpec>) -> Self {
         let eth_evm_config = EthEvmConfig::new(storage.chain_spec.clone());
-        Self {
-            state: StateBuilder::new_with_database(WitnessState {
-                storage,
-                block_hash,
-            })
-            .with_bundle_update()
-            .without_state_clear()
-            .build(),
-            eth_evm_config,
-        }
-    }
-
-    pub fn database(&self) -> Option<&Storage> {
-        Some(&self.state.database.storage)
-    }
-
-    pub fn chain_config(&self) -> Arc<ChainSpec> {
-        self.state.database.storage.get_chain_config()
+        let state = StateBuilder::new_with_database(WitnessState {
+            storage,
+            block_hash,
+        })
+        .with_bundle_update()
+        .without_state_clear()
+        .build();
+        let strategy = EthExecutionStrategy::new(state, chain_spec, eth_evm_config);
+        Self { strategy }
     }
 
     pub fn execute(
