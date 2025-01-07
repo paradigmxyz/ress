@@ -5,9 +5,9 @@ use alloy_primitives::{B256, U256};
 use eyre::OptionExt;
 use ress_storage::Storage;
 use reth_chainspec::ChainSpec;
-use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
+use reth_evm::{execute::BlockExecutionStrategy, ConfigureEvm, ConfigureEvmEnv};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
-use reth_primitives::{Receipt, SealedBlock};
+use reth_primitives::{BlockWithSenders, Receipt, SealedBlock};
 use reth_primitives_traits::transaction::signed::SignedTransaction;
 use reth_provider::BlockExecutionOutput;
 use reth_revm::{
@@ -41,13 +41,18 @@ impl BlockExecutor {
         &mut self,
         block: &SealedBlock,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
+        // todo: is this correct
+        // let total_difficulty = self
+        //     .chain_config()
+        //     .final_paris_total_difficulty(block.number)
+        //     .unwrap();
+        //TODO: smth like this
+        self.strategy.apply_pre_execution_changes(
+            &BlockWithSenders::new(block.unseal(), block.senders().unwrap()).unwrap(),
+            U256::ZERO,
+        );
         let mut receipts = Vec::new();
         let mut cumulative_gas_used = 0;
-        // todo: is this correct
-        let total_difficulty = self
-            .chain_config()
-            .final_paris_total_difficulty(block.number)
-            .unwrap();
 
         for transaction in block.body.transactions.iter() {
             let header = &block.header;
