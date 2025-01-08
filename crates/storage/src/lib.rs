@@ -56,13 +56,17 @@ impl Storage {
             target = "storage",
             "request witness for block hash: {:?}, address: {:?}", block_hash, address
         );
-        // 1. first get witness from network provider
-        let witness = self.network.get_witness(block_hash).unwrap();
-        // 2. get account info from witness
-        // todo: use sparse merkle tree
-        let acc_info = self.get_account_info_from_witness(witness, address);
-        info!(target = "storage", "decoded account info: {:?}", acc_info);
-        acc_info
+        // 1. first check if info in memory
+        if let Some(account_info) = self.memory.get_account_info_by_hash(block_hash, address)? {
+            return Ok(Some(account_info));
+        } else {
+            let witness = self.network.get_witness(block_hash).unwrap();
+            // 2. get account info from witness
+            // todo: use sparse merkle tree
+            let acc_info = self.get_account_info_from_witness(witness, address);
+            info!(target = "storage", "decoded account info: {:?}", acc_info);
+            acc_info
+        }
     }
 
     /// get bytecode from disk -> fallback network
@@ -83,7 +87,7 @@ impl Storage {
         &self,
         _block_hash: B256,
         _address: Address,
-        _storage_key: B256,
+        _storage_key: U256,
     ) -> Result<Option<U256>, StorageError> {
         todo!()
     }

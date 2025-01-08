@@ -17,8 +17,9 @@ pub enum WitnessStateProviderError {
     BytecodeProviderError(#[from] StorageError),
 }
 
+// todo
 impl From<WitnessStateProviderError> for ProviderError {
-    fn from(err: WitnessStateProviderError) -> Self {
+    fn from(_err: WitnessStateProviderError) -> Self {
         ProviderError::UnsupportedProvider
     }
 }

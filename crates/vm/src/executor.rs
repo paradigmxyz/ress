@@ -1,23 +1,11 @@
-use std::sync::Arc;
-
-use alloy_eips::eip1559::INITIAL_BASE_FEE;
 use alloy_primitives::{B256, U256};
-use eyre::OptionExt;
 use ress_storage::Storage;
-use reth_chainspec::ChainSpec;
-use reth_evm::{
-    execute::{BlockExecutionStrategy, ExecuteOutput},
-    ConfigureEvm, ConfigureEvmEnv,
-};
+use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{BlockWithSenders, Receipt, SealedBlock};
-use reth_primitives_traits::transaction::signed::SignedTransaction;
 use reth_provider::BlockExecutionOutput;
-use reth_revm::{
-    db::State,
-    primitives::{BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, TxEnv},
-    StateBuilder,
-};
+use reth_revm::StateBuilder;
+use std::sync::Arc;
 
 use crate::{db::WitnessState, errors::EvmError};
 
@@ -27,8 +15,9 @@ pub struct BlockExecutor {
 
 impl BlockExecutor {
     /// specific block's executor by initiate with parent block post execution state and hash
-    pub fn new(storage: Arc<Storage>, block_hash: B256, chain_spec: Arc<ChainSpec>) -> Self {
-        let eth_evm_config = EthEvmConfig::new(storage.chain_spec.clone());
+    pub fn new(storage: Arc<Storage>, block_hash: B256) -> Self {
+        let chain_spec = storage.chain_spec.clone();
+        let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state = StateBuilder::new_with_database(WitnessState {
             storage,
             block_hash,
@@ -40,6 +29,7 @@ impl BlockExecutor {
         Self { strategy }
     }
 
+    /// from `BasicBlockExecutor`'s execute
     pub fn execute(
         &mut self,
         block: &SealedBlock,

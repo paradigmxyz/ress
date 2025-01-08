@@ -5476,6 +5476,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
+ "parking_lot",
  "ress-common",
  "ress-network",
  "ress-subprotocol",
