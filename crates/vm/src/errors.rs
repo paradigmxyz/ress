@@ -1,4 +1,5 @@
 use ress_storage::errors::StorageError;
+use reth_provider::ProviderError;
 
 /// Database error type.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -14,6 +15,13 @@ pub enum WitnessStateProviderError {
     /// Error from StorageError
     #[error(transparent)]
     BytecodeProviderError(#[from] StorageError),
+}
+
+// todo
+impl From<WitnessStateProviderError> for ProviderError {
+    fn from(_err: WitnessStateProviderError) -> Self {
+        ProviderError::UnsupportedProvider
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
