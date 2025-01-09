@@ -1,15 +1,40 @@
+use std::sync::Arc;
+
 use alloy_primitives::{map::HashMap, Address, B256, U256};
 use ress_storage::{errors::StorageError, Storage};
 use reth_revm::{
-    primitives::{Account, AccountInfo, Bytecode},
+    primitives::{Account, AccountInfo, Bytecode, KECCAK_EMPTY},
     Database, DatabaseCommit,
 };
 
 use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessState {
-    pub storage: Storage,
+    pub storage: Arc<Storage>,
     pub block_hash: B256,
+}
+
+impl WitnessState {
+    /// Inserts the account's code into the cache.
+    ///
+    /// Accounts objects and code are stored separately in the cache, this will take the code from the account and instead map it to the code hash.
+    ///
+    /// Note: This will not insert into the underlying external database.
+    pub fn insert_contract(&mut self, account: &mut AccountInfo) {
+        if let Some(code) = &account.code {
+            if !code.is_empty() {
+                if account.code_hash == KECCAK_EMPTY {
+                    account.code_hash = code.hash_slow();
+                }
+                let disk = self.storage.disk.lock().unwrap();
+                disk.update_account_code(account.code_hash, code.clone())
+                    .unwrap();
+            }
+        }
+        if account.code_hash.is_zero() {
+            account.code_hash = KECCAK_EMPTY;
+        }
+    }
 }
 
 impl Database for WitnessState {
@@ -46,7 +71,7 @@ impl Database for WitnessState {
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         Ok(self
             .storage
-            .get_storage_at_hash(self.block_hash, address, index.into())?
+            .get_storage_at_hash(self.block_hash, address, index)?
             .unwrap_or(U256::ZERO))
     }
 
@@ -60,6 +85,7 @@ impl Database for WitnessState {
     }
 }
 
+// from https://github.com/bluealloy/revm/blob/04688b769bd7ffe66eccf5a255e13bb8502fa451/crates/database/src/in_memory_db.rs#L164
 impl DatabaseCommit for WitnessState {
     #[doc = " Commit changes to the database."]
     fn commit(&mut self, _changes: HashMap<Address, Account>) {

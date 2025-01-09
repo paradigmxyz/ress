@@ -1,51 +1,82 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use alloy_primitives::{Address, BlockNumber, B256, U256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
+use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
 use reth_revm::primitives::{AccountInfo, Bytecode};
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::info;
 
 pub mod backends;
 pub mod errors;
 
-/// orchestract 3 different type of backends (in memory, disk, network)
+/// orchestrate 3 different type of backends (in-memory, disk, network)
+#[derive(Debug, Clone)]
 pub struct Storage {
+    pub chain_spec: Arc<ChainSpec>,
     pub memory: Arc<MemoryStorage>,
-    pub disk: DiskStorage,
+    pub disk: Arc<Mutex<DiskStorage>>,
     pub network: Arc<NetworkStorage>,
 }
 
 impl Storage {
-    pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
+    pub fn new(
+        network_peer_conn: UnboundedSender<CustomCommand>,
+        chain_spec: Arc<ChainSpec>,
+    ) -> Self {
         let memory = Arc::new(MemoryStorage::new());
-        let disk = DiskStorage::new("test.db");
+        let disk = Arc::new(Mutex::new(DiskStorage::new("test.db")));
         let network = Arc::new(NetworkStorage::new(network_peer_conn));
         Self {
+            chain_spec,
             memory,
             disk,
             network,
         }
     }
 
+    /// set block hash and set block header
+    pub fn set_block(&self, block_hash: B256, header: Header) {
+        self.memory.set_block_hash(block_hash, header.number);
+        self.memory.set_block_header(block_hash, header);
+    }
+
+    /// get account info by block hash from witness
     pub fn get_account_info_by_hash(
         &self,
-        _block_hash: B256,
-        _address: Address,
+        block_hash: B256,
+        address: Address,
     ) -> Result<Option<AccountInfo>, StorageError> {
-        todo!()
+        info!(
+            target = "storage",
+            "request witness for block hash: {:?}, address: {:?}", block_hash, address
+        );
+        // 1. first check if info in memory
+        if let Some(account_info) = self.memory.get_account_info_by_hash(block_hash, address)? {
+            Ok(Some(account_info))
+        } else {
+            let witness = self.network.get_witness(block_hash).unwrap();
+            // 2. get account info from witness
+            // todo: use sparse merkle tree
+            let acc_info = self.get_account_info_from_witness(witness, address);
+            info!(target = "storage", "decoded account info: {:?}", acc_info);
+            acc_info
+        }
     }
 
     /// get bytecode from disk -> fallback network
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        if let Some(bytecode) = self.disk.get_account_code(code_hash)? {
+        let disk = self.disk.lock().unwrap();
+        if let Some(bytecode) = disk.get_account_code(code_hash)? {
             return Ok(Some(bytecode));
         }
+
         if let Some(bytecode) = self.network.get_account_code(code_hash)? {
-            self.disk.update_account_code(code_hash, bytecode.clone())?;
+            disk.update_account_code(code_hash, bytecode.clone())?;
             return Ok(Some(bytecode));
         }
         Ok(None)
@@ -53,31 +84,46 @@ impl Storage {
 
     pub fn get_storage_at_hash(
         &self,
-        _block_hash: B256,
-        _address: Address,
-        _storage_key: B256,
+        block_hash: B256,
+        address: Address,
+        storage_key: U256,
     ) -> Result<Option<U256>, StorageError> {
-        todo!()
+        if let Some(storage_value) =
+            self.memory
+                .get_storage_at_hash(block_hash, address, storage_key)?
+        {
+            Ok(Some(storage_value))
+        } else {
+            // q. how to get storage value from the witness
+            todo!()
+        }
     }
 
     pub fn get_block_header(
         &self,
-        _block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> Result<Option<Header>, StorageError> {
-        todo!()
+        self.memory.get_block_header(block_number)
     }
 
-    pub fn get_chain_config(&self) -> Result<ChainSpec, StorageError> {
-        todo!()
+    pub fn get_chain_config(&self) -> Arc<ChainSpec> {
+        self.chain_spec.clone()
     }
 
     pub fn get_block_header_by_hash(
         &self,
-        _block_hash: B256,
+        block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
-        // todo: get header from memeory
-        // self.engine.get_block_header_by_hash(block_hash)
-        Ok(Some(SealedHeader::default()))
+        self.memory.get_block_header_by_hash(block_hash)
+    }
+
+    // todo: will be later alter somehow with logic like `SparseStateTrie::from_witness()` and look up account from trie
+    pub fn get_account_info_from_witness(
+        &self,
+        _witness: ExecutionWitness,
+        _address: Address,
+    ) -> Result<Option<AccountInfo>, StorageError> {
+        todo!()
     }
 }
 

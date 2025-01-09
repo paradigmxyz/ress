@@ -5,6 +5,8 @@ use rusqlite::{Connection, OptionalExtension, Result};
 use crate::errors::StorageError;
 
 // todo: for now for simplicity using sqlite, mb later move kv storage like libmbdx
+
+#[derive(Debug)]
 pub struct DiskStorage {
     conn: Connection,
 }

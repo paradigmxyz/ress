@@ -5,11 +5,13 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+ress-primitives.workspace = true
 ress-common.workspace = true
 ress-network.workspace = true
 ress-subprotocol.workspace = true
 
 alloy-primitives.workspace = true
+alloy-rlp.workspace = true
 alloy-trie.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
@@ -21,6 +23,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true
 rusqlite.workspace = true
+parking_lot.workspace = true
 
 [dev-dependencies]
 tempfile = "3.3"

@@ -5,13 +5,21 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-primitives.workspace = true
+# ress
+ress-primitives = { workspace = true, features = ["serde"] }
+
+# reth
 reth-eth-wire.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-revm.workspace = true
+
+# alloy
+alloy-primitives.workspace = true
+
+# misc
+futures.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
-futures.workspace = true
 serde.workspace = true
 bincode.workspace = true

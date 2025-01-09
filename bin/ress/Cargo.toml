@@ -19,6 +19,7 @@ reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-chainspec.workspace = true
+reth-primitives.workspace = true
 
 clap.workspace = true
 jsonrpsee-core.workspace = true
