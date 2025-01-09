@@ -16,6 +16,8 @@ use reth_node_api::PayloadValidator;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
+use reth_primitives::SealedBlock;
+use reth_primitives::SealedHeader;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
@@ -60,12 +62,14 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                // ===================== Additional Validation =====================
-                // basic standalone payload validation is handled from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
-                // additionally we need to verify new payload against parent header from our storeage
+                // ===================== Validation =====================
 
                 // q: total_difficulty
-                let total_difficulty = U256::MAX;
+                let total_difficulty = self
+                    .storage
+                    .chain_spec
+                    .get_final_paris_total_difficulty()
+                    .unwrap();
                 let parent_hash_from_payload = payload.parent_hash();
                 let storage = self.storage.clone();
                 let parent_header = storage
@@ -78,23 +82,7 @@ impl ConsensusEngine {
                     .payload_validator
                     .ensure_well_formed_payload(payload, sidecar)
                     .unwrap();
-                // q. total_difficulty
-                if let Err(e) = self
-                    .consensus
-                    .validate_header_with_total_difficulty(&block, total_difficulty)
-                {
-                    error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
-                }
-                if let Err(e) = self
-                    .consensus
-                    .validate_header_against_parent(&block, &parent_header)
-                {
-                    error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
-                }
-                if let Err(e) = self.consensus.validate_block_pre_execution(&block) {
-                    error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
-                }
-
+                self.validate_header(&block, total_difficulty, parent_header);
                 info!(target: "engine", "received valid new payload");
 
                 // ===================== Execution =====================
@@ -107,7 +95,7 @@ impl ConsensusEngine {
                 };
                 let output = block_executor.execute(&block, total_difficulty).unwrap();
 
-                // ===================== Post Validation, Execution =====================
+                // ===================== Post Validation =====================
 
                 self.consensus
                     .validate_block_post_execution(
@@ -140,6 +128,33 @@ impl ConsensusEngine {
                 // Implement transition configuration handling
                 todo!()
             }
+        }
+    }
+
+    /// validate new payload's block via consensus
+    fn validate_header(
+        &self,
+        block: &SealedBlock,
+        total_difficulty: U256,
+        parent_header: SealedHeader,
+    ) {
+        if let Err(e) = self.consensus.validate_header(&block) {
+            error!(target: "engine", "Failed to validate header {}: {e}", block.header.hash());
+        }
+        if let Err(e) = self
+            .consensus
+            .validate_header_with_total_difficulty(&block, total_difficulty)
+        {
+            error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
+        }
+        if let Err(e) = self
+            .consensus
+            .validate_header_against_parent(&block, &parent_header)
+        {
+            error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
+        }
+        if let Err(e) = self.consensus.validate_block_pre_execution(&block) {
+            error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
         }
     }
 }
