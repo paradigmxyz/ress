@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+ress-primitives.workspace = true
 ress-storage.workspace = true
 
 alloy-primitives.workspace = true
@@ -20,5 +21,7 @@ reth-evm-ethereum.workspace = true
 reth-evm.workspace = true
 reth-trie-sparse.workspace = true
 
+# misc
+parking_lot.workspace = true
 thiserror.workspace = true
 eyre.workspace = true

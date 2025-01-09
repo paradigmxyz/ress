@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use alloy_primitives::{Address, BlockHash, BlockNumber, B256, U256};
+use alloy_primitives::{BlockHash, BlockNumber, B256};
 use parking_lot::RwLock;
 use reth_primitives::{Header, SealedHeader};
-use reth_revm::{db::DbAccount, primitives::AccountInfo};
 
 use crate::errors::StorageError;
 
@@ -12,10 +11,8 @@ pub struct MemoryStorage {
     inner: Arc<RwLock<MemoryStorageInner>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemoryStorageInner {
-    // map with account and storage
-    accounts: HashMap<Address, DbAccount>,
     headers: HashMap<BlockHash, Header>,
     canonical_hashes: HashMap<BlockNumber, BlockHash>,
 }
@@ -29,7 +26,6 @@ impl Default for MemoryStorageInner {
 impl MemoryStorageInner {
     pub fn new() -> Self {
         Self {
-            accounts: HashMap::new(),
             headers: HashMap::new(),
             canonical_hashes: HashMap::new(),
         }
@@ -57,35 +53,6 @@ impl MemoryStorage {
     pub fn set_block_header(&self, block_hash: B256, header: Header) {
         let mut inner = self.inner.write();
         inner.headers.insert(block_hash, header);
-    }
-
-    // q: why blockhash is needed? aren't we storing latest block's state only memory?
-    pub fn get_account_info_by_hash(
-        &self,
-        _block_hash: B256,
-        address: Address,
-    ) -> Result<Option<AccountInfo>, StorageError> {
-        let inner = self.inner.read();
-        if let Some(db_account) = inner.accounts.get(&address) {
-            Ok(Some(db_account.info.clone()))
-        } else {
-            Ok(None)
-        }
-    }
-
-    // q: why blockhash is needed? aren't we storing latest block's state only memory?
-    pub fn get_storage_at_hash(
-        &self,
-        _block_hash: B256,
-        address: Address,
-        storage_key: U256,
-    ) -> Result<Option<U256>, StorageError> {
-        let inner = self.inner.read();
-        if let Some(db_account) = inner.accounts.get(&address) {
-            Ok(db_account.storage.get(&storage_key).copied())
-        } else {
-            Ok(None)
-        }
     }
 
     pub fn get_block_header(

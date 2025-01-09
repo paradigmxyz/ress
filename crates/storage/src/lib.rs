@@ -1,15 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use alloy_primitives::{Address, BlockNumber, B256, U256};
+use alloy_primitives::{BlockNumber, B256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
-use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
-use reth_revm::primitives::{AccountInfo, Bytecode};
+use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::info;
 
 pub mod backends;
 pub mod errors;
@@ -45,31 +43,8 @@ impl Storage {
         self.memory.set_block_header(block_hash, header);
     }
 
-    /// get account info by block hash from witness
-    pub fn get_account_info_by_hash(
-        &self,
-        block_hash: B256,
-        address: Address,
-    ) -> Result<Option<AccountInfo>, StorageError> {
-        info!(
-            target = "storage",
-            "request witness for block hash: {:?}, address: {:?}", block_hash, address
-        );
-        // 1. first check if info in memory
-        if let Some(account_info) = self.memory.get_account_info_by_hash(block_hash, address)? {
-            Ok(Some(account_info))
-        } else {
-            let witness = self.network.get_witness(block_hash).unwrap();
-            // 2. get account info from witness
-            // todo: use sparse merkle tree
-            let acc_info = self.get_account_info_from_witness(witness, address);
-            info!(target = "storage", "decoded account info: {:?}", acc_info);
-            acc_info
-        }
-    }
-
     /// get bytecode from disk -> fallback network
-    pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
+    pub fn code_by_hash(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
         let disk = self.disk.lock().unwrap();
         if let Some(bytecode) = disk.get_account_code(code_hash)? {
             return Ok(Some(bytecode));
@@ -80,23 +55,6 @@ impl Storage {
             return Ok(Some(bytecode));
         }
         Ok(None)
-    }
-
-    pub fn get_storage_at_hash(
-        &self,
-        block_hash: B256,
-        address: Address,
-        storage_key: U256,
-    ) -> Result<Option<U256>, StorageError> {
-        if let Some(storage_value) =
-            self.memory
-                .get_storage_at_hash(block_hash, address, storage_key)?
-        {
-            Ok(Some(storage_value))
-        } else {
-            // q. how to get storage value from the witness
-            todo!()
-        }
     }
 
     pub fn get_block_header(
@@ -115,15 +73,6 @@ impl Storage {
         block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
         self.memory.get_block_header_by_hash(block_hash)
-    }
-
-    // todo: will be later alter somehow with logic like `SparseStateTrie::from_witness()` and look up account from trie
-    pub fn get_account_info_from_witness(
-        &self,
-        _witness: ExecutionWitness,
-        _address: Address,
-    ) -> Result<Option<AccountInfo>, StorageError> {
-        todo!()
     }
 }
 

@@ -1,4 +1,3 @@
-use alloy_primitives::B256;
 use ress_storage::Storage;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
@@ -15,10 +14,10 @@ pub struct BlockExecutor {
 
 impl BlockExecutor {
     /// specific block's executor by initiate with parent block post execution state and hash
-    pub fn new(storage: Arc<Storage>, block_hash: B256) -> Self {
+    pub fn new(db: WitnessDatabase, storage: Arc<Storage>) -> Self {
         let chain_spec = storage.chain_spec.clone();
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
-        let state = StateBuilder::new_with_database(WitnessDatabase { block_hash })
+        let state = StateBuilder::new_with_database(db)
             .with_bundle_update()
             .without_state_clear()
             .build();

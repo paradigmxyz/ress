@@ -6,6 +6,7 @@ edition.workspace = true
 
 [dependencies]
 # ress
+ress-primitives.workspace = true
 ress-common.workspace = true
 ress-subprotocol.workspace = true
 ress-network.workspace = true
@@ -21,6 +22,7 @@ reth-consensus.workspace = true
 reth-node-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-builder.workspace = true
+reth-trie-sparse.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

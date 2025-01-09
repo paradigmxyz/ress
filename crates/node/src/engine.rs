@@ -3,7 +3,9 @@ use std::sync::Arc;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
+use ress_primitives::witness::ExecutionWitness;
 use ress_storage::Storage;
+use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
 use reth_chainspec::ChainSpec;
 use reth_consensus::Consensus;
@@ -20,12 +22,15 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 
+use reth_trie_sparse::SparseStateTrie;
+use reth_trie_sparse::SparseTrie;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
+    witness: ExecutionWitness,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     payload_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
@@ -44,6 +49,7 @@ impl ConsensusEngine {
             EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
         );
         Self {
+            witness: ExecutionWitness::default(),
             consensus,
             payload_validator,
             storage,
@@ -88,9 +94,22 @@ impl ConsensusEngine {
                 self.validate_header(&block, total_difficulty, parent_header);
                 info!(target: "engine", "received valid new payload");
 
+                // ===================== Witness =====================
+
+                let execution_witness = self.witness.clone();
+                let state_root = block.state_root;
+                let mut trie = SparseStateTrie::from_state(SparseTrie::blind());
+                trie.reveal_witness(state_root, execution_witness.state_witness.clone())
+                    .unwrap();
+                let db = WitnessDatabase::new(
+                    Arc::new(trie),
+                    execution_witness.block_hashes,
+                    storage.clone(),
+                );
+
                 // ===================== Execution =====================
 
-                let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
+                let mut block_executor = BlockExecutor::new(db, storage);
                 let senders = block.senders().unwrap();
                 let block = BlockWithSenders {
                     block: block.unseal(),
