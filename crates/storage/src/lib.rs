@@ -1,14 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use alloy_primitives::{keccak256, Address, BlockNumber, B256, U256};
-use alloy_rlp::Decodable;
+use alloy_primitives::{Address, BlockNumber, B256, U256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
 use errors::StorageError;
-use ress_subprotocol::{connection::CustomCommand, protocol::proto::StateWitness};
+use ress_primitives::witness::ExecutionWitness;
+use ress_subprotocol::connection::CustomCommand;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
 use reth_revm::primitives::{AccountInfo, Bytecode};
-use reth_trie::{Nibbles, TrieAccount, TrieNode};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
@@ -121,40 +120,10 @@ impl Storage {
     // todo: will be later alter somehow with logic like `SparseStateTrie::from_witness()` and look up account from trie
     pub fn get_account_info_from_witness(
         &self,
-        witness: StateWitness,
-        address: Address,
+        _witness: ExecutionWitness,
+        _address: Address,
     ) -> Result<Option<AccountInfo>, StorageError> {
-        let hashed_address = &keccak256(address);
-        let nibbles = Nibbles::unpack(hashed_address);
-
-        for encoded in witness.values() {
-            let node = TrieNode::decode(&mut &encoded[..]);
-            match node {
-                Ok(trie_node) => {
-                    if let TrieNode::Leaf(leaf) = trie_node {
-                        if nibbles.ends_with(&leaf.key) {
-                            let account = TrieAccount::decode(&mut &leaf.value[..]);
-                            match account {
-                                Ok(account_node) => {
-                                    return Ok(Some(AccountInfo {
-                                        balance: account_node.balance,
-                                        nonce: account_node.nonce,
-                                        code_hash: account_node.code_hash,
-                                        code: None,
-                                    }));
-                                }
-                                Err(_) => continue,
-                            }
-                        }
-
-                        continue;
-                    }
-                }
-                Err(_) => continue,
-            }
-        }
-
-        Ok(None)
+        todo!()
     }
 }
 

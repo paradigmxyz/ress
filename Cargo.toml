@@ -5,15 +5,28 @@ edition = "2021"
 
 [workspace]
 members = [
-    "crates/subprotocol",
     "bin/ress",
     "bin/reth",
-    "crates/vm",
-    "crates/storage",
-    "crates/network",
     "crates/common",
+    "crates/network",
     "crates/node",
+    "crates/primitives",
+    "crates/storage",
+    "crates/subprotocol",
+    "crates/vm",
 ]
+
+# Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
+# https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
+[workspace.lints]
+rust.missing_debug_implementations = "warn"
+rust.missing_docs = "warn"
+rust.rust_2018_idioms = { level = "deny", priority = -1 }
+rust.unreachable_pub = "warn"
+rust.unused_must_use = "deny"
+rustdoc.all = "warn"
 
 [workspace.dependencies]
 ress-node = { path = "crates/node" }
@@ -22,6 +35,7 @@ ress-storage = { path = "crates/storage" }
 ress-network = { path = "crates/network" }
 ress-common = { path = "crates/common" }
 ress-vm = { path = "crates/vm" }
+ress-primitives = { path = "crates/primitives" }
 
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.39", features = ["full"] }

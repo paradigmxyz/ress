@@ -1,7 +1,7 @@
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
-use crate::protocol::proto::StateWitness;
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
+use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_revm::primitives::Bytecode;
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ pub enum CustomCommand {
         /// target block hash that we want to get witness from
         block_hash: BlockHash,
         /// The response will be sent to this channel.
-        response: oneshot::Sender<StateWitness>,
+        response: oneshot::Sender<ExecutionWitness>,
     },
     /// Get bytecode for specific codehash
     Bytecode {
@@ -50,7 +50,7 @@ pub struct CustomRlpxConnection {
     peer_node_type: Option<NodeType>,
 
     pending_is_valid_connection: Option<oneshot::Sender<bool>>,
-    pending_witness: Option<oneshot::Sender<StateWitness>>,
+    pending_witness: Option<oneshot::Sender<ExecutionWitness>>,
     pending_bytecode: Option<oneshot::Sender<Bytecode>>,
 }
 
@@ -155,8 +155,10 @@ impl Stream for CustomRlpxConnection {
                     )]);
                     state_witness.insert(B256::ZERO, [0x00].into());
 
+                    let execution_witness =
+                        ExecutionWitness::new(state_witness, Default::default());
                     return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::witness_res(state_witness).encoded(),
+                        CustomRlpxProtoMessage::witness_res(execution_witness).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::WitnessRes(msg) => {

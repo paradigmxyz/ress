@@ -138,22 +138,22 @@ impl ConsensusEngine {
         total_difficulty: U256,
         parent_header: SealedHeader,
     ) {
-        if let Err(e) = self.consensus.validate_header(&block) {
+        if let Err(e) = self.consensus.validate_header(block) {
             error!(target: "engine", "Failed to validate header {}: {e}", block.header.hash());
         }
         if let Err(e) = self
             .consensus
-            .validate_header_with_total_difficulty(&block, total_difficulty)
+            .validate_header_with_total_difficulty(block, total_difficulty)
         {
             error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
         }
         if let Err(e) = self
             .consensus
-            .validate_header_against_parent(&block, &parent_header)
+            .validate_header_against_parent(block, &parent_header)
         {
             error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
         }
-        if let Err(e) = self.consensus.validate_block_pre_execution(&block) {
+        if let Err(e) = self.consensus.validate_block_pre_execution(block) {
             error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
         }
     }

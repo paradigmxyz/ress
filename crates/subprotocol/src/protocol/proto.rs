@@ -3,9 +3,9 @@
 
 use alloy_primitives::{
     bytes::{Buf, BufMut, BytesMut},
-    map::HashMap,
     BlockHash, Bytes, B256,
 };
+use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::{protocol::Protocol, Capability};
 use reth_revm::primitives::Bytecode;
 
@@ -35,7 +35,7 @@ pub(crate) enum CustomRlpxProtoMessageKind {
 
     // B. witness
     WitnessReq(BlockHash),
-    WitnessRes(StateWitness),
+    WitnessRes(ExecutionWitness),
 
     // C. bytecode
     BytecodeReq(B256),
@@ -47,10 +47,6 @@ pub enum NodeType {
     Stateful,
     Stateless,
 }
-
-/// hashmap representation of multiple mpt state proof
-/// `keccak(rlp(node)) -> rlp(nod)`
-pub type StateWitness = HashMap<B256, Bytes>;
 
 impl NodeType {
     /// `NodeType` to bytes
@@ -113,7 +109,7 @@ impl CustomRlpxProtoMessage {
     }
 
     /// Response Witness
-    pub fn witness_res(msg: StateWitness) -> Self {
+    pub fn witness_res(msg: ExecutionWitness) -> Self {
         Self {
             message_type: CustomRlpxProtoMessageId::WitnessRes,
             message: CustomRlpxProtoMessageKind::WitnessRes(msg),
@@ -186,7 +182,7 @@ impl CustomRlpxProtoMessage {
                 CustomRlpxProtoMessageKind::WitnessReq(B256::from_slice(&buf[..]))
             }
             CustomRlpxProtoMessageId::WitnessRes => {
-                let deserialize: StateWitness =
+                let deserialize: ExecutionWitness =
                     bincode::deserialize(&buf[..]).expect("Failed to serialize message");
                 CustomRlpxProtoMessageKind::WitnessRes(deserialize)
             }
