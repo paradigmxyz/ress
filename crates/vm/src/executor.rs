@@ -1,4 +1,4 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use ress_storage::Storage;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
@@ -33,18 +33,13 @@ impl BlockExecutor {
     pub fn execute(
         &mut self,
         block: &BlockWithSenders,
-        total_difficulty: U256,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
-        self.strategy
-            .apply_pre_execution_changes(block, total_difficulty)
-            .unwrap();
-        let ExecuteOutput { receipts, gas_used } = self
-            .strategy
-            .execute_transactions(block, total_difficulty)
-            .unwrap();
+        self.strategy.apply_pre_execution_changes(block).unwrap();
+        let ExecuteOutput { receipts, gas_used } =
+            self.strategy.execute_transactions(block).unwrap();
         let requests = self
             .strategy
-            .apply_post_execution_changes(block, total_difficulty, &receipts)
+            .apply_post_execution_changes(block, &receipts)
             .unwrap();
         let state = self.strategy.finish();
 

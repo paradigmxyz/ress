@@ -5440,7 +5440,9 @@ dependencies = [
  "reth-node-api",
  "reth-node-ethereum",
  "reth-primitives",
+ "reth-primitives-traits",
  "reth-rpc-builder",
+ "thiserror 2.0.9",
  "tokio",
  "tracing",
 ]

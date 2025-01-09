@@ -8,6 +8,7 @@ use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
 
 pub mod engine;
+pub mod errors;
 
 pub struct Node {
     pub p2p_handler: P2pHandler,

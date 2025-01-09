@@ -7,6 +7,7 @@ use ress_storage::Storage;
 use ress_vm::executor::BlockExecutor;
 use reth_chainspec::ChainSpec;
 use reth_consensus::Consensus;
+use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
@@ -17,14 +18,15 @@ use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
-use reth_primitives::SealedHeader;
+use reth_primitives_traits::SealedHeader;
+
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
-    consensus: Arc<dyn FullConsensus>,
+    consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     payload_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
@@ -38,8 +40,9 @@ impl ConsensusEngine {
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
         let payload_validator = EthereumEngineValidator::new(chain_spec.clone().into());
-        let consensus: Arc<dyn FullConsensus> =
-            Arc::new(EthBeaconConsensus::new(chain_spec.clone().into()));
+        let consensus: Arc<dyn FullConsensus<Error = ConsensusError>> = Arc::new(
+            EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
+        );
         Self {
             consensus,
             payload_validator,
@@ -93,7 +96,7 @@ impl ConsensusEngine {
                     block: block.unseal(),
                     senders,
                 };
-                let output = block_executor.execute(&block, total_difficulty).unwrap();
+                let output = block_executor.execute(&block).unwrap();
 
                 // ===================== Post Validation =====================
 
@@ -138,23 +141,24 @@ impl ConsensusEngine {
         total_difficulty: U256,
         parent_header: SealedHeader,
     ) {
-        if let Err(e) = self.consensus.validate_header(block) {
-            error!(target: "engine", "Failed to validate header {}: {e}", block.header.hash());
+        let header = block.sealed_header();
+        if let Err(e) = self.consensus.validate_header(header) {
+            error!(target: "engine", "Failed to validate header: {e}");
         }
         if let Err(e) = self
             .consensus
-            .validate_header_with_total_difficulty(block, total_difficulty)
+            .validate_header_with_total_difficulty(header, total_difficulty)
         {
-            error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
+            error!(target: "engine", "Failed to validate header against totoal difficulty: {e}");
         }
         if let Err(e) = self
             .consensus
-            .validate_header_against_parent(block, &parent_header)
+            .validate_header_against_parent(header, &parent_header)
         {
-            error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
+            error!(target: "engine", "Failed to validate header against parent: {e}");
         }
         if let Err(e) = self.consensus.validate_block_pre_execution(block) {
-            error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
+            error!(target: "engine", "Failed to pre vavalidate header : {e}");
         }
     }
 }
