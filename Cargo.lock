@@ -5512,6 +5512,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-provider",
  "reth-revm",
+ "reth-trie-sparse",
  "thiserror 2.0.9",
 ]
 

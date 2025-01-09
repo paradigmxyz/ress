@@ -7,10 +7,10 @@ use reth_provider::BlockExecutionOutput;
 use reth_revm::StateBuilder;
 use std::sync::Arc;
 
-use crate::{db::WitnessState, errors::EvmError};
+use crate::{db::WitnessDatabase, errors::EvmError};
 
 pub struct BlockExecutor {
-    strategy: EthExecutionStrategy<WitnessState, EthEvmConfig>,
+    strategy: EthExecutionStrategy<WitnessDatabase, EthEvmConfig>,
 }
 
 impl BlockExecutor {
@@ -18,13 +18,10 @@ impl BlockExecutor {
     pub fn new(storage: Arc<Storage>, block_hash: B256) -> Self {
         let chain_spec = storage.chain_spec.clone();
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
-        let state = StateBuilder::new_with_database(WitnessState {
-            storage,
-            block_hash,
-        })
-        .with_bundle_update()
-        .without_state_clear()
-        .build();
+        let state = StateBuilder::new_with_database(WitnessDatabase { block_hash })
+            .with_bundle_update()
+            .without_state_clear()
+            .build();
         let strategy = EthExecutionStrategy::new(state, chain_spec, eth_evm_config);
         Self { strategy }
     }
