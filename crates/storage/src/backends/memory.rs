@@ -59,7 +59,7 @@ impl MemoryStorage {
         inner.headers.insert(block_hash, header);
     }
 
-    // todo: why blockhash is needed? aren't we storing latest block's state only memory?
+    // q: why blockhash is needed? aren't we storing latest block's state only memory?
     pub fn get_account_info_by_hash(
         &self,
         _block_hash: B256,
@@ -73,7 +73,7 @@ impl MemoryStorage {
         }
     }
 
-    // todo: why blockhash is needed? aren't we storing latest block's state only memory?
+    // q: why blockhash is needed? aren't we storing latest block's state only memory?
     pub fn get_storage_at_hash(
         &self,
         _block_hash: B256,

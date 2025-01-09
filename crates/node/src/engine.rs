@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy_primitives::U256;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use ress_storage::Storage;
@@ -14,9 +15,7 @@ use reth_node_api::BeaconEngineMessage;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
-use reth_primitives::Block;
 use reth_primitives::BlockWithSenders;
-use reth_primitives::TransactionSigned;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
@@ -57,7 +56,7 @@ impl ConsensusEngine {
     async fn handle_beacon_message(&mut self, msg: BeaconEngineMessage<EthEngineTypes>) {
         match msg {
             BeaconEngineMessage::NewPayload {
-                payload: new_payload,
+                payload,
                 sidecar,
                 tx,
             } => {
@@ -65,58 +64,54 @@ impl ConsensusEngine {
                 // basic standalone payload validation is handled from AuthServer's `EthereumEngineValidator` inside there `ExecutionPayloadValidator`
                 // additionally we need to verify new payload against parent header from our storeage
 
-                let parent_hash_from_payload = new_payload.parent_hash();
-                let block_number_from_payload = new_payload.block_number();
+                // q: total_difficulty
+                let total_difficulty = U256::MAX;
+                let parent_hash_from_payload = payload.parent_hash();
                 let storage = self.storage.clone();
-
                 let parent_header = storage
                     .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()
                     .unwrap();
-
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
+                // q. is there any other way to retrieve block object from payload without using payload validator?
                 let block = self
                     .payload_validator
-                    .ensure_well_formed_payload(new_payload, sidecar)
+                    .ensure_well_formed_payload(payload, sidecar)
                     .unwrap();
-
+                // q. total_difficulty
                 if let Err(e) = self
                     .consensus
-                    .validate_header_with_total_difficulty(&block, alloy_primitives::U256::MAX)
+                    .validate_header_with_total_difficulty(&block, total_difficulty)
                 {
                     error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
                 }
-
                 if let Err(e) = self
                     .consensus
                     .validate_header_against_parent(&block, &parent_header)
                 {
                     error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
-
                 if let Err(e) = self.consensus.validate_block_pre_execution(&block) {
                     error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
                 }
 
-                info!(target: "engine",
-                    "received valid new payload on block number: {:?}",
-                    block_number_from_payload
-                );
+                info!(target: "engine", "received valid new payload");
 
                 // ===================== Execution =====================
 
                 let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
-                let output = block_executor.execute(&block).unwrap();
                 let senders = block.senders().unwrap();
-                let block: Block<TransactionSigned> = block.unseal();
-                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
+                let block = BlockWithSenders {
+                    block: block.unseal(),
+                    senders,
+                };
+                let output = block_executor.execute(&block, total_difficulty).unwrap();
 
                 // ===================== Post Validation, Execution =====================
 
-                // todo: rn error
                 self.consensus
                     .validate_block_post_execution(
-                        &unsealed_block,
+                        &block,
                         PostExecutionInput::new(&output.receipts, &output.requests),
                     )
                     .unwrap();

@@ -85,11 +85,19 @@ impl Storage {
 
     pub fn get_storage_at_hash(
         &self,
-        _block_hash: B256,
-        _address: Address,
-        _storage_key: U256,
+        block_hash: B256,
+        address: Address,
+        storage_key: U256,
     ) -> Result<Option<U256>, StorageError> {
-        todo!()
+        if let Some(storage_value) =
+            self.memory
+                .get_storage_at_hash(block_hash, address, storage_key)?
+        {
+            Ok(Some(storage_value))
+        } else {
+            // q. how to get storage value from the witness
+            todo!()
+        }
     }
 
     pub fn get_block_header(

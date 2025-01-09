@@ -2,7 +2,7 @@ use alloy_primitives::{B256, U256};
 use ress_storage::Storage;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
-use reth_primitives::{BlockWithSenders, Receipt, SealedBlock};
+use reth_primitives::{BlockWithSenders, Receipt};
 use reth_provider::BlockExecutionOutput;
 use reth_revm::StateBuilder;
 use std::sync::Arc;
@@ -32,22 +32,19 @@ impl BlockExecutor {
     /// from `BasicBlockExecutor`'s execute
     pub fn execute(
         &mut self,
-        block: &SealedBlock,
+        block: &BlockWithSenders,
+        total_difficulty: U256,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
-        //TODO: smth like this, rn mocked
-        let block =
-            BlockWithSenders::new(block.clone().unseal(), block.senders().unwrap()).unwrap();
-        let total_difficulty = U256::ZERO;
         self.strategy
-            .apply_pre_execution_changes(&block, total_difficulty)
+            .apply_pre_execution_changes(block, total_difficulty)
             .unwrap();
         let ExecuteOutput { receipts, gas_used } = self
             .strategy
-            .execute_transactions(&block, total_difficulty)
+            .execute_transactions(block, total_difficulty)
             .unwrap();
         let requests = self
             .strategy
-            .apply_post_execution_changes(&block, total_difficulty, &receipts)
+            .apply_post_execution_changes(block, total_difficulty, &receipts)
             .unwrap();
         let state = self.strategy.finish();
 
