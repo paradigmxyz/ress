@@ -13,7 +13,9 @@ pub struct MemoryStorage {
 
 #[derive(Debug)]
 pub struct MemoryStorageInner {
+    /// keep historical headers for validations
     headers: HashMap<BlockHash, Header>,
+    /// keep historical 256 block's hash
     canonical_hashes: HashMap<BlockNumber, BlockHash>,
 }
 
@@ -45,6 +47,11 @@ impl MemoryStorage {
         }
     }
 
+    pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
+        let mut inner = self.inner.write();
+        inner.canonical_hashes = block_hashes;
+    }
+
     pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
         let mut inner = self.inner.write();
         inner.canonical_hashes.insert(block_number, block_hash);
@@ -62,6 +69,18 @@ impl MemoryStorage {
         let inner = self.inner.read();
         if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
             Ok(inner.headers.get(block_hash).cloned())
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StorageError> {
+        let inner = self.inner.read();
+        if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
+            Ok(Some(*block_hash))
         } else {
             Ok(None)
         }

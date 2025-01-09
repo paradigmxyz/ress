@@ -80,6 +80,7 @@ impl ConsensusEngine {
                     .get_final_paris_total_difficulty()
                     .unwrap();
                 let parent_hash_from_payload = payload.parent_hash();
+                let block_hash = payload.block_hash();
                 let storage = self.storage.clone();
                 let parent_header = storage
                     .get_block_header_by_hash(parent_hash_from_payload)
@@ -96,16 +97,14 @@ impl ConsensusEngine {
 
                 // ===================== Witness =====================
 
-                let execution_witness = self.witness.clone();
+                let execution_witness = storage.get_witness(block_hash).unwrap();
+                let execution_witness_block_hashes = execution_witness.clone().block_hashes;
                 let state_root = block.state_root;
                 let mut trie = SparseStateTrie::from_state(SparseTrie::blind());
                 trie.reveal_witness(state_root, execution_witness.state_witness.clone())
                     .unwrap();
-                let db = WitnessDatabase::new(
-                    Arc::new(trie),
-                    execution_witness.block_hashes,
-                    storage.clone(),
-                );
+                storage.overwrite_block_hashes(execution_witness_block_hashes);
+                let db = WitnessDatabase::new(Arc::new(trie), storage.clone());
 
                 // ===================== Execution =====================
 
@@ -125,6 +124,9 @@ impl ConsensusEngine {
                         PostExecutionInput::new(&output.receipts, &output.requests),
                     )
                     .unwrap();
+
+                // ===================== Update state =====================
+                self.witness = execution_witness;
 
                 tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)))
                     .unwrap();

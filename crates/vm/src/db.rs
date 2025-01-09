@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, B256, U256};
+use alloy_primitives::{keccak256, Address, Bytes, B256, U256};
 use ress_storage::Storage;
 use reth_revm::{
     primitives::{AccountInfo, Bytecode},
@@ -12,21 +12,12 @@ use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessDatabase {
     trie: Arc<SparseStateTrie>,
-    block_hashes: HashMap<BlockNumber, B256>,
     storage: Arc<Storage>,
 }
 
 impl WitnessDatabase {
-    pub fn new(
-        trie: Arc<SparseStateTrie>,
-        block_hashes: HashMap<BlockNumber, B256>,
-        storage: Arc<Storage>,
-    ) -> Self {
-        Self {
-            trie,
-            block_hashes,
-            storage,
-        }
+    pub fn new(trie: Arc<SparseStateTrie>, storage: Arc<Storage>) -> Self {
+        Self { trie, storage }
     }
 }
 
@@ -62,6 +53,6 @@ impl Database for WitnessDatabase {
 
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        Ok(self.block_hashes.get(&number).unwrap().to_owned())
+        Ok(self.storage.get_block_hash(number).unwrap().unwrap())
     }
 }
