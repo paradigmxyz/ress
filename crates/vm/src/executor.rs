@@ -48,8 +48,8 @@ impl BlockExecutor {
         let mut cumulative_gas_used = 0;
         // let mut bundle_state = get_state_transitions(state);
 
-        for transaction in block.body.transactions.iter() {
-            let _block_header = &block.header;
+        for transaction in block.body().transactions.iter() {
+            let _block_header = &block.header();
             // todo: turn block header into block env
             let block_env = BlockEnv::default();
             // todo: turn tx into tx env
@@ -75,7 +75,7 @@ impl BlockExecutor {
             receipts.push(receipt);
         }
 
-        if let Some(_withdrawals) = &block.body.withdrawals {
+        if let Some(_withdrawals) = &block.body().withdrawals {
             //todo: process withdrawl
         }
 

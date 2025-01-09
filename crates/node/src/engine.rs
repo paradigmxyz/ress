@@ -3,11 +3,11 @@ use alloy_rpc_types_engine::PayloadStatusEnum;
 use ress_storage::Storage;
 use ress_subprotocol::connection::CustomCommand;
 use ress_vm::executor::BlockExecutor;
-use reth_beacon_consensus::EthBeaconConsensus;
 use reth_chainspec::ChainSpec;
 use reth_consensus::HeaderValidator;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::PayloadValidator;
+use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::Block;
@@ -87,9 +87,9 @@ impl ConsensusEngine {
 
                 if let Err(e) = self
                     .eth_beacon_consensus
-                    .validate_header_against_parent(&block, &parent_header)
+                    .validate_header_against_parent(block.sealed_header(), &parent_header)
                 {
-                    warn!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.header.hash());
+                    warn!(target: "engine::tree", "Failed to validate header {} against parent: {e}", block.hash());
                 }
 
                 info!(
