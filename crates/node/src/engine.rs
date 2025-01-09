@@ -6,7 +6,10 @@ use ress_storage::Storage;
 use ress_vm::executor::BlockExecutor;
 use reth_beacon_consensus::EthBeaconConsensus;
 use reth_chainspec::ChainSpec;
+use reth_consensus::Consensus;
+use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
+use reth_consensus::PostExecutionInput;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::node::EthereumEngineValidator;
@@ -20,7 +23,7 @@ use tracing::info;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
-    eth_beacon_consensus: EthBeaconConsensus<ChainSpec>,
+    consensus: Arc<dyn FullConsensus>,
     payload_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
@@ -34,9 +37,10 @@ impl ConsensusEngine {
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
         let payload_validator = EthereumEngineValidator::new(chain_spec.clone().into());
-        let eth_beacon_consensus = EthBeaconConsensus::new(chain_spec.clone().into());
+        let consensus: Arc<dyn FullConsensus> =
+            Arc::new(EthBeaconConsensus::new(chain_spec.clone().into()));
         Self {
-            eth_beacon_consensus,
+            consensus,
             payload_validator,
             storage,
             from_beacon_engine,
@@ -77,37 +81,48 @@ impl ConsensusEngine {
                     .unwrap();
 
                 if let Err(e) = self
-                    .eth_beacon_consensus
+                    .consensus
+                    .validate_header_with_total_difficulty(&block, alloy_primitives::U256::MAX)
+                {
+                    error!(target: "engine", "Failed to validate header {} against totoal difficulty: {e}", block.header.hash());
+                }
+
+                if let Err(e) = self
+                    .consensus
                     .validate_header_against_parent(&block, &parent_header)
                 {
                     error!(target: "engine", "Failed to validate header {} against parent: {e}", block.header.hash());
                 }
 
+                if let Err(e) = self.consensus.validate_block_pre_execution(&block) {
+                    error!(target: "engine", "Failed to pre vavalidate header {} : {e}", block.header.hash());
+                }
+
                 info!(target: "engine",
-                    "received new payload on block number: {:?}",
+                    "received valid new payload on block number: {:?}",
                     block_number_from_payload
                 );
 
                 // ===================== Execution =====================
 
                 let mut block_executor = BlockExecutor::new(storage, parent_hash_from_payload);
-                let _output = block_executor.execute(&block).unwrap();
+                let output = block_executor.execute(&block).unwrap();
                 let senders = block.senders().unwrap();
                 let block: Block<TransactionSigned> = block.unseal();
-                let _unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
+                let unsealed_block: BlockWithSenders<Block> = BlockWithSenders { block, senders };
 
                 // ===================== Post Validation, Execution =====================
 
                 // todo: rn error
-                // let _ = self
-                //     .eth_beacon_consensus
-                //     .validate_block_post_execution(
-                //         &unsealed_block,
-                //         PostExecutionInput::new(&output.receipts, &output.requests),
-                //     )
-                //     .unwrap();
+                self.consensus
+                    .validate_block_post_execution(
+                        &unsealed_block,
+                        PostExecutionInput::new(&output.receipts, &output.requests),
+                    )
+                    .unwrap();
 
-                let _ = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)));
+                tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)))
+                    .unwrap();
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,

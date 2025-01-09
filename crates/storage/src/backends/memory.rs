@@ -20,6 +20,12 @@ pub struct MemoryStorageInner {
     canonical_hashes: HashMap<BlockNumber, BlockHash>,
 }
 
+impl Default for MemoryStorageInner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStorageInner {
     pub fn new() -> Self {
         Self {

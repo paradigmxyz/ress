@@ -58,7 +58,7 @@ impl Storage {
         );
         // 1. first check if info in memory
         if let Some(account_info) = self.memory.get_account_info_by_hash(block_hash, address)? {
-            return Ok(Some(account_info));
+            Ok(Some(account_info))
         } else {
             let witness = self.network.get_witness(block_hash).unwrap();
             // 2. get account info from witness
