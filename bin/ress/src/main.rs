@@ -41,19 +41,18 @@ async fn main() -> eyre::Result<()> {
 
     // ============================== DEMO ===================================
 
-    // for demo, we first need to dump 21555422 - 256 ~ 21555422 blocks to storage before send msg
+    // for demo, we first need to dump 21592411 - 256 ~ 21592411 blocks to storage before send msg
     let parent_block_hash =
-        B256::from_str("0x2f825f87203d0a411af9275f555ae4071413688136c694643a65e8df452ec2db")
-            .unwrap();
-    let header = read_example_header("./fixtures/header/mainnet-21555421.json")?;
+        B256::from_str("77b8cb14ead0df5a77367c14c9f0ed7248e26bbc43145443877266cdbb86e332").unwrap();
+    let header = read_example_header("./fixtures/header/mainnet-21592410.json")?;
     node.storage.set_block(parent_block_hash, header);
 
-    // for demo, we imagine consensus client send block 21555422 payload
+    // for demo, we imagine consensus client send block 21592411 payload
     let new_payload: ExecutionPayloadV3 =
-        read_example_payload("./fixtures/payload/mainnet-21555422.json")?;
+        read_example_payload("./fixtures/payload/mainnet-21592411.json")?;
     let versioned_hashes = vec![];
     let parent_beacon_block_root =
-        b256!("e8e81982655244a28f4419613b2812c7615bed7b8dcf605c00793bb5f89d1c2c");
+        b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
     // Send new events to execution client -> called `Result::unwrap()` on an `Err` value: RequestTimeout
     tokio::spawn(async move {
         let _ = EngineApiClient::<EthEngineTypes>::new_payload_v3(

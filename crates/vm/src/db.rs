@@ -11,12 +11,12 @@ use reth_trie_sparse::SparseStateTrie;
 use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessDatabase {
-    trie: Arc<SparseStateTrie>,
+    trie: SparseStateTrie,
     storage: Arc<Storage>,
 }
 
 impl WitnessDatabase {
-    pub fn new(trie: Arc<SparseStateTrie>, storage: Arc<Storage>) -> Self {
+    pub fn new(trie: SparseStateTrie, storage: Arc<Storage>) -> Self {
         Self { trie, storage }
     }
 }

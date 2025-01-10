@@ -97,6 +97,7 @@ impl ConsensusEngine {
 
                 // ===================== Witness =====================
 
+                // fetch new witness
                 let execution_witness = storage.get_witness(block_hash).unwrap();
                 let execution_witness_block_hashes = execution_witness.clone().block_hashes;
                 let state_root = block.state_root;
@@ -104,7 +105,7 @@ impl ConsensusEngine {
                 trie.reveal_witness(state_root, execution_witness.state_witness.clone())
                     .unwrap();
                 storage.overwrite_block_hashes(execution_witness_block_hashes);
-                let db = WitnessDatabase::new(Arc::new(trie), storage.clone());
+                let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================
 
