@@ -85,6 +85,7 @@ impl ConsensusEngine {
                     .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()
                     .unwrap();
+                let state_root_of_parent = parent_header.state_root;
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
                 // q. is there any other way to retrieve block object from payload without using payload validator?
                 let block = self
@@ -99,16 +100,9 @@ impl ConsensusEngine {
                 // fetch new witness
                 let execution_witness = storage.get_witness(block_hash).unwrap();
                 let execution_witness_block_hashes = execution_witness.clone().block_hashes;
-                let state_root = block.state_root;
                 let mut trie = SparseStateTrie::default().with_updates(true);
-                trie.reveal_witness(state_root, &execution_witness.state_witness)
+                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)
                     .unwrap();
-                info!(
-                    "root:{:?}, state root:{:?}, trie: {:?}",
-                    trie.root(),
-                    state_root,
-                    trie
-                );
                 storage.overwrite_block_hashes(execution_witness_block_hashes);
                 let db = WitnessDatabase::new(trie, storage.clone());
 
