@@ -5372,7 +5372,6 @@ dependencies = [
  "reth-network",
  "reth-network-api",
  "reth-node-ethereum",
- "reth-primitives",
  "reth-rpc-api",
  "reth-rpc-engine-api",
  "reth-tokio-util",
@@ -5386,10 +5385,7 @@ name = "ress-common"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types",
  "alloy-rpc-types-engine",
- "alloy-transport-http",
  "eyre",
  "reqwest",
  "ress-primitives",

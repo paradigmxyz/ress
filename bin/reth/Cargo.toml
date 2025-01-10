@@ -5,13 +5,17 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# ress
 ress-subprotocol.workspace = true
 
-eyre.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+# reth
 reth.workspace = true
 reth-node-builder.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
+
+# misc
+eyre.workspace = true
+tokio.workspace = true
+tracing.workspace = true

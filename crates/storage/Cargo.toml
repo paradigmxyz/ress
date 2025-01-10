@@ -5,20 +5,25 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# ress
 ress-primitives.workspace = true
 ress-common.workspace = true
 ress-network.workspace = true
 ress-subprotocol.workspace = true
 
+# alloy
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-trie.workspace = true
+
+# reth
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 reth-chainspec.workspace = true
 reth-primitives.workspace = true
 reth-revm.workspace = true
 
+# misc
 thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true

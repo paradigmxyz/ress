@@ -5,22 +5,25 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# ress
 ress-subprotocol.workspace = true
 ress-node.workspace = true
 ress-common.workspace = true
 
-
+# alloy
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-rpc-types.workspace = true
+
+# reth
 reth-rpc-api.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-chainspec.workspace = true
-reth-primitives.workspace = true
 
+# misc
 clap.workspace = true
 jsonrpsee-core.workspace = true
 eyre.workspace = true

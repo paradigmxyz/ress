@@ -5,9 +5,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# ress
 ress-primitives.workspace = true
 ress-storage.workspace = true
 
+# alloy
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-trie.workspace = true

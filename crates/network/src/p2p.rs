@@ -110,7 +110,6 @@ impl P2pHandler {
         // =================================================================
 
         //  Type message subprotocol
-        // TODO: for now we initiate original node type on protocol state above, but after conenction we send msg to trigger connection validation. Is there a way to explicitly mention node type one time?
         let (tx, rx) = tokio::sync::oneshot::channel();
         peer_conn
             .send(CustomCommand::NodeType {

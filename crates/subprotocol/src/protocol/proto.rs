@@ -27,7 +27,6 @@ pub(crate) enum CustomRlpxProtoMessageId {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum CustomRlpxProtoMessageKind {
-    // TODO: unsure how to disconnect after connection had established
     Disconnect,
 
     // A. node type
