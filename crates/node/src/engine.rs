@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -21,6 +19,7 @@ use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
+use std::sync::Arc;
 
 use reth_trie_sparse::SparseStateTrie;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -97,7 +96,6 @@ impl ConsensusEngine {
 
                 // ===================== Witness =====================
 
-                // fetch new witness
                 let execution_witness = storage.get_witness(block_hash).unwrap();
                 let execution_witness_block_hashes = execution_witness.clone().block_hashes;
                 let mut trie = SparseStateTrie::default().with_updates(true);

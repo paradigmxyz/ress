@@ -10,6 +10,8 @@ ress-storage.workspace = true
 
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
+alloy-trie.workspace = true
+alloy-rlp.workspace = true
 
 # reth
 reth-revm.workspace = true
@@ -25,3 +27,4 @@ reth-trie-sparse.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true
 eyre.workspace = true
+tracing.workspace = true

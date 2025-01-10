@@ -5507,6 +5507,8 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
  "eyre",
  "parking_lot",
  "ress-primitives",
@@ -5520,6 +5522,7 @@ dependencies = [
  "reth-revm",
  "reth-trie-sparse",
  "thiserror 2.0.9",
+ "tracing",
 ]
 
 [[package]]
