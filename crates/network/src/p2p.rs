@@ -105,13 +105,11 @@ impl P2pHandler {
                 to_connection
             }
         };
-
-        info!(target:"rlpx-subprotocol",  "Connection established!");
+        info!(target:"rlpx-subprotocol",  "connection established!");
 
         // =================================================================
 
-        // Step 1. Type message subprotocol
-        info!(target:"rlpx-subprotocol", "1️⃣ check connection valiadation");
+        //  Type message subprotocol
         // TODO: for now we initiate original node type on protocol state above, but after conenction we send msg to trigger connection validation. Is there a way to explicitly mention node type one time?
         let (tx, rx) = tokio::sync::oneshot::channel();
         peer_conn
@@ -122,7 +120,7 @@ impl P2pHandler {
             .unwrap();
         let response = rx.await.unwrap();
         assert!(response);
-        info!(target:"rlpx-subprotocol",?response, "Connection validation finished");
+        info!(target:"rlpx-subprotocol",?response, "connection validation finished");
 
         peer_conn
     }

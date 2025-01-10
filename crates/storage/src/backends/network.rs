@@ -3,7 +3,7 @@ use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
 use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::info;
+use tracing::debug;
 
 use crate::errors::{NetworkStorageError, StorageError};
 
@@ -19,7 +19,7 @@ impl NetworkStorage {
 
     /// fallbacked from disk
     pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        info!(target:"network storage", "Request bytecode");
+        debug!(target:"network storage", "Request bytecode");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Bytecode {
@@ -32,13 +32,13 @@ impl NetworkStorage {
             StorageError::Network(NetworkStorageError::ChannelReceive(e.to_string()))
         })?;
 
-        info!(target:"network storage", ?response, "Bytecode received");
+        debug!(target:"network storage", "Bytecode received");
         Ok(Some(response))
     }
 
     /// request to get StateWitness from block hash
     pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
-        info!(target:"rlpx-subprotocol", "Request witness");
+        debug!(target:"network storage", "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn
             .send(CustomCommand::Witness {
@@ -50,7 +50,7 @@ impl NetworkStorage {
             StorageError::Network(NetworkStorageError::ChannelReceive(e.to_string()))
         })?;
 
-        info!(target:"network storage", "Witness received");
+        debug!(target:"network storage", "Witness received");
         Ok(response)
     }
 }

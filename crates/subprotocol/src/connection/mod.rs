@@ -11,6 +11,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::debug;
 
 pub(crate) mod handler;
 
@@ -126,7 +127,7 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
                     // TODO: get witness from other full node peers, rn hardcoded
-                    println!("🟢 requested witness for blockhash {}!", block_hash);
+                    debug!("requested witness for blockhash: {}", block_hash);
                     let witness =
                         read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
                     let state_witness = witness.state;
@@ -145,7 +146,7 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
                     // TODO: get bytecode from other full node peers, rn hardcoded
-                    println!("🟢 requested bytes for codehash {}!", code_hash);
+                    debug!("requested bytes for codehash: {}", code_hash);
                     let witness =
                         read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
                     let code_bytes = witness

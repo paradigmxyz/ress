@@ -11,7 +11,7 @@ use reth_node_ethereum::EthEngineTypes;
 use reth_rpc_api::EngineApiClient;
 use std::net::TcpListener;
 use std::str::FromStr;
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -34,12 +34,12 @@ async fn main() -> eyre::Result<()> {
         _ => unreachable!(),
     };
 
-    // =================================================================
+    // =============================== Launch Node ==================================
 
     let node = Node::launch_test_node(local_node, MAINNET.clone()).await;
     is_ports_alive(local_node);
 
-    // ============================== DEMO ===================================
+    // ============================== DEMO ==========================================
 
     // for demo, we first need to dump 21592411 - 256 ~ 21592411 blocks to storage before send msg
     let parent_block_hash =
@@ -80,11 +80,11 @@ fn is_ports_alive(local_node: TestPeers) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    info!(target: "ress","auth server is_alive: {:?}", is_alive);
+    debug!(target: "ress","auth server is_alive: {:?}", is_alive);
 
     let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    info!(target: "ress","network is_alive: {:?}", is_alive);
+    debug!(target: "ress","network is_alive: {:?}", is_alive);
 }
