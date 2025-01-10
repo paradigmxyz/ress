@@ -51,14 +51,15 @@ impl Database for WitnessDatabase {
     #[doc = " Get storage value of address at index."]
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         info!("request for storage:{}, index: {}", address, index);
-        let storage_value = self
+        let storage_value = match self
             .trie
             .get_storage_slot_value(&keccak256(address), &keccak256(B256::from(index)))
-            .unwrap();
-
-        let decoded = U256::decode(&mut storage_value.as_slice()).unwrap();
-        info!("storage value {:?}", decoded);
-        Ok(decoded)
+        {
+            Some(value) => U256::decode(&mut value.as_slice()).unwrap(),
+            None => U256::ZERO,
+        };
+        info!("storage value {:?}", storage_value);
+        Ok(storage_value)
     }
 
     #[doc = " Get account code by its hash."]

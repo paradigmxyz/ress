@@ -123,6 +123,8 @@ impl ConsensusEngine {
                 // ===================== Update state =====================
                 self.witness = execution_witness;
 
+                info!("🎉 lgtm");
+
                 tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)))
                     .unwrap();
             }
