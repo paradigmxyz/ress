@@ -7,6 +7,7 @@ edition.workspace = true
 [dependencies]
 # ress
 ress-primitives = { workspace = true, features = ["serde"] }
+ress-common.workspace = true
 
 # reth
 reth-eth-wire.workspace = true

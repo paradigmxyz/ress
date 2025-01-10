@@ -1,13 +1,12 @@
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
-use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
+use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
+use ress_common::utils::read_example_witness;
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_revm::primitives::Bytecode;
-use std::collections::HashMap;
 use std::{
     pin::Pin,
-    str::FromStr,
     task::{ready, Context, Poll},
 };
 use tokio::sync::oneshot;
@@ -77,7 +76,6 @@ impl Stream for CustomRlpxConnection {
                         node_type,
                         response,
                     } => {
-                        print!("👀");
                         this.peer_node_type = Some(node_type.clone());
                         this.pending_is_valid_connection = Some(response);
                         Poll::Ready(Some(CustomRlpxProtoMessage::node_type(node_type).encoded()))
@@ -86,7 +84,6 @@ impl Stream for CustomRlpxConnection {
                         block_hash,
                         response,
                     } => {
-                        print!("⭐️");
                         this.pending_witness = Some(response);
                         Poll::Ready(Some(
                             CustomRlpxProtoMessage::witness_req(block_hash).encoded(),
@@ -96,7 +93,6 @@ impl Stream for CustomRlpxConnection {
                         code_hash,
                         response,
                     } => {
-                        print!("🚀");
                         this.pending_bytecode = Some(response);
                         Poll::Ready(Some(
                             CustomRlpxProtoMessage::bytecode_req(code_hash).encoded(),
@@ -115,12 +111,9 @@ impl Stream for CustomRlpxConnection {
 
             match msg.message {
                 CustomRlpxProtoMessageKind::NodeType(node_type) => {
-                    print!("👀👀👀");
                     if !is_valid_node_type_connection(&this.original_node_type, &node_type) {
-                        println!("🔴 invalid conenction!");
                         return Poll::Ready(Some(CustomRlpxProtoMessage::disconnect().encoded()));
                     } else {
-                        println!("🟢 valid conenction!");
                         if let Some(sender) = this.pending_is_valid_connection.take() {
                             sender.send(true).ok();
                         }
@@ -132,28 +125,11 @@ impl Stream for CustomRlpxConnection {
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
-                    // TODO: get state witness from other full node peers
-                    println!("🟢 requested for blockhash {}!", block_hash);
-
-                    // TODO [mock]
-                    let mut state_witness = HashMap::from_iter(vec![(
-                        B256::from_str("0xc8ed2e88eb4f392010421e1279bc6daf555783bd0dcf8fcc64cf2b2da99f191a")
-                            .unwrap(),
-                        Bytes::from_str("0xd580c22001c220018080808080808080808080808080").unwrap(),
-                    ),(
-                        B256::from_str("0xce8c4b060e961e285a1c2d6af956fae96986f946102f23b71506524eea9e2450")
-                            .unwrap(),
-                        Bytes::from_str("0xc22001").unwrap(),
-                    ),(
-                        B256::from_str("0x5655f0253ad63e4f18d39fc2bfbf96f445184f547391df04bf1e40a47603aae6")
-                            .unwrap(),
-                      Bytes::from_str("0xf86aa12035f8e0fb36d119637a1f9b03ca5c35ce5640413aa9d321b5fd836dd5afd764bcb846f8448080a0359525f4e6e459e5619b726371e527549a1bc34d3ebd535fb881691399224dffa0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470").unwrap(),
-                    ),(
-                        B256::from_str("0x359525f4e6e459e5619b726371e527549a1bc34d3ebd535fb881691399224dff")
-                            .unwrap(),
-                      Bytes::from_str("0xf7a01000000000000000000000000000000000000000000000000000000000000000d580c22001c220018080808080808080808080808080").unwrap(),
-                    )]);
-                    state_witness.insert(B256::ZERO, [0x00].into());
+                    // TODO: get witness from other full node peers, rn hardcoded
+                    println!("🟢 requested witness for blockhash {}!", block_hash);
+                    let witness =
+                        read_example_witness("./fixtures/witness/mainnet-21592410.json").unwrap();
+                    let state_witness = witness.state;
 
                     let execution_witness =
                         ExecutionWitness::new(state_witness, Default::default());
@@ -168,11 +144,15 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
-                    // TODO: get bytecode from other full node peers
-                    println!("🟢 requested for codehash {}!", code_hash);
-                    // [mock]
-                    let bytecode: Bytecode =
-                        Bytecode::LegacyRaw(Bytes::from_str("0xabcd").unwrap());
+                    // TODO: get bytecode from other full node peers, rn hardcoded
+                    println!("🟢 requested bytes for codehash {}!", code_hash);
+                    let witness =
+                        read_example_witness("./fixtures/witness/mainnet-21592410.json").unwrap();
+                    let code_bytes = witness
+                        .codes
+                        .get(&code_hash)
+                        .expect("no bytes found from codehash");
+                    let bytecode: Bytecode = Bytecode::LegacyRaw(code_bytes.clone());
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
                     ));
