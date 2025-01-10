@@ -9,7 +9,7 @@ use reth_revm::{
     Database,
 };
 use reth_trie_sparse::SparseStateTrie;
-use tracing::info;
+use tracing::debug;
 
 use crate::errors::WitnessStateProviderError;
 
@@ -30,18 +30,17 @@ impl Database for WitnessDatabase {
 
     #[doc = " Get basic account information."]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        info!("request for basic:{}", address);
+        debug!("request for basic for address: {}", address);
         match self.trie.get_account_value(&keccak256(address)) {
             Some(bytes) => {
                 let account = TrieAccount::decode(&mut bytes.as_slice()).unwrap();
-                info!("trie account :{:?}", account);
                 let account_info = AccountInfo {
                     balance: account.balance,
                     nonce: account.nonce,
                     code_hash: account.code_hash,
                     code: None,
                 };
-                info!("account info;{:?}", account_info);
+                debug!("account info: {:?}", account_info);
                 Ok(Some(account_info))
             }
             None => Ok(None),
@@ -50,7 +49,7 @@ impl Database for WitnessDatabase {
 
     #[doc = " Get storage value of address at index."]
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        info!("request for storage:{}, index: {}", address, index);
+        debug!("request for storage: {}, index: {}", address, index);
         let storage_value = match self
             .trie
             .get_storage_slot_value(&keccak256(address), &keccak256(B256::from(index)))
@@ -58,18 +57,19 @@ impl Database for WitnessDatabase {
             Some(value) => U256::decode(&mut value.as_slice()).unwrap(),
             None => U256::ZERO,
         };
-        info!("storage value {:?}", storage_value);
+        debug!("storage value {:?}", storage_value);
         Ok(storage_value)
     }
 
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        info!("request for code_hash:{}", code_hash);
+        debug!("request for code_hash: {}", code_hash);
         Ok(self.storage.code_by_hash(code_hash).unwrap().unwrap())
     }
 
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
+        debug!("request for blockhash: {}", number);
         Ok(self.storage.get_block_hash(number).unwrap().unwrap())
     }
 }
