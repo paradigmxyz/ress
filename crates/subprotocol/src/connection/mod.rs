@@ -128,7 +128,7 @@ impl Stream for CustomRlpxConnection {
                     // TODO: get witness from other full node peers, rn hardcoded
                     println!("🟢 requested witness for blockhash {}!", block_hash);
                     let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592410.json").unwrap();
+                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
                     let state_witness = witness.state;
 
                     let execution_witness =
@@ -147,7 +147,7 @@ impl Stream for CustomRlpxConnection {
                     // TODO: get bytecode from other full node peers, rn hardcoded
                     println!("🟢 requested bytes for codehash {}!", code_hash);
                     let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592410.json").unwrap();
+                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
                     let code_bytes = witness
                         .codes
                         .get(&code_hash)

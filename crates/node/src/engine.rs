@@ -23,7 +23,6 @@ use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 
 use reth_trie_sparse::SparseStateTrie;
-use reth_trie_sparse::SparseTrie;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
@@ -101,9 +100,15 @@ impl ConsensusEngine {
                 let execution_witness = storage.get_witness(block_hash).unwrap();
                 let execution_witness_block_hashes = execution_witness.clone().block_hashes;
                 let state_root = block.state_root;
-                let mut trie = SparseStateTrie::from_state(SparseTrie::blind());
-                trie.reveal_witness(state_root, execution_witness.state_witness.clone())
+                let mut trie = SparseStateTrie::default().with_updates(true);
+                trie.reveal_witness(state_root, &execution_witness.state_witness)
                     .unwrap();
+                info!(
+                    "root:{:?}, state root:{:?}, trie: {:?}",
+                    trie.root(),
+                    state_root,
+                    trie
+                );
                 storage.overwrite_block_hashes(execution_witness_block_hashes);
                 let db = WitnessDatabase::new(trie, storage.clone());
 
@@ -111,10 +116,7 @@ impl ConsensusEngine {
 
                 let mut block_executor = BlockExecutor::new(db, storage);
                 let senders = block.senders().unwrap();
-                let block = BlockWithSenders {
-                    block: block.unseal(),
-                    senders,
-                };
+                let block = BlockWithSenders::new(block.unseal(), senders).unwrap();
                 let output = block_executor.execute(&block).unwrap();
 
                 // ===================== Post Validation =====================
