@@ -41,6 +41,7 @@ async fn main() -> eyre::Result<()> {
 
     // ============================== DEMO ==========================================
 
+    // 1. new payload
     // for demo, we first need to dump 21592411 - 256 ~ 21592411 blocks to storage before send msg
     let parent_block_hash =
         B256::from_str("77b8cb14ead0df5a77367c14c9f0ed7248e26bbc43145443877266cdbb86e332").unwrap();
@@ -54,15 +55,53 @@ async fn main() -> eyre::Result<()> {
     let parent_beacon_block_root =
         b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
     // Send new events to execution client -> called `Result::unwrap()` on an `Err` value: RequestTimeout
-    tokio::spawn(async move {
-        let _ = EngineApiClient::<EthEngineTypes>::new_payload_v3(
-            &node.authserver_handler.http_client(),
-            new_payload,
-            versioned_hashes,
-            parent_beacon_block_root,
-        )
-        .await;
-    });
+    let new_payload_handle = {
+        let execution_client = node.authserver_handler.http_client();
+        tokio::spawn(async move {
+            // Send `new_payload_v3`
+            let res = EngineApiClient::<EthEngineTypes>::new_payload_v3(
+                &execution_client,
+                new_payload,
+                versioned_hashes,
+                parent_beacon_block_root,
+            )
+            .await;
+            println!("NewPayload response: {:?}", res);
+        })
+    };
+
+    // Wait for the spawned task to complete:
+    let _ = new_payload_handle.await;
+
+    // 2. new payload
+
+    let head_block_hash = b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
+    let safe_block_hash = b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
+    let finalized_block_hash =
+        b256!("b4f0f62dd56d57c266332be9a87eb3332be4e22198f8124ce44660b1454dab25");
+
+    let state = alloy_rpc_types_engine::ForkchoiceState {
+        head_block_hash,
+        safe_block_hash,
+        finalized_block_hash,
+    };
+
+    let fork_choice_update_handle = {
+        let execution_client = node.authserver_handler.http_client();
+        tokio::spawn(async move {
+            // Send `fork_choice_update_v3`
+            let res = EngineApiClient::<EthEngineTypes>::fork_choice_updated_v3(
+                &execution_client,
+                state,
+                None,
+            )
+            .await;
+            println!("Forkchoiceupdate response: {:?}", res);
+        })
+    };
+
+    // Wait for the spawned task to complete:
+    let _ = fork_choice_update_handle.await;
 
     // =================================================================
 

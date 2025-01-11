@@ -12,7 +12,7 @@ pub mod errors;
 
 pub struct Node {
     pub p2p_handler: P2pHandler,
-    pub authserver_handler: Arc<AuthServerHandle>,
+    pub authserver_handler: AuthServerHandle,
     consensus_engine_handle: tokio::task::JoinHandle<()>,
     pub storage: Arc<Storage>,
 }
@@ -35,9 +35,7 @@ impl Node {
             Arc::clone(&storage),
             rpc_handler.from_beacon_engine,
         );
-        let consensus_engine_handle = tokio::spawn(async move {
-            consensus_engine.run().await;
-        });
+        let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
 
         Self {
             p2p_handler,

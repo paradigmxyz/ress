@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 // todo: add execution rpc later
 pub struct RpcHandler {
     //  auth server handler
-    pub authserver_handle: Arc<AuthServerHandle>,
+    pub authserver_handle: AuthServerHandle,
 
     // beacon engine receiver
     pub from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
@@ -29,7 +29,7 @@ impl RpcHandler {
             Self::launch_auth_server(id.get_jwt_key(), id.get_authserver_addr(), chain_spec).await;
 
         Self {
-            authserver_handle: Arc::new(authserver_handle),
+            authserver_handle,
             from_beacon_engine,
         }
     }

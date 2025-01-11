@@ -1,3 +1,4 @@
+use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -33,6 +34,17 @@ pub struct ConsensusEngine {
     payload_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+    node_state: NodeState,
+}
+
+#[derive(Default)]
+pub struct NodeState {
+    /// Hash of the head block last set by fork choice update
+    head_block_hash: Option<B256>,
+    /// Hash of the safe block last set by fork choice update
+    safe_block_hash: Option<B256>,
+    /// Hash of finalized block last set by fork choice update
+    finalized_block_hash: Option<B256>,
 }
 
 impl ConsensusEngine {
@@ -52,6 +64,7 @@ impl ConsensusEngine {
             payload_validator,
             storage,
             from_beacon_engine,
+            node_state: NodeState::default(),
         }
     }
 
@@ -134,16 +147,18 @@ impl ConsensusEngine {
                 version: _,
                 tx: _,
             } => {
-                // `safe_block_hash` ?
-                let _safe_block_hash = state.safe_block_hash;
+                info!(
+                    "New fork choice head: {:#x}, safe: {:#x}, finalized: {:#x}.",
+                    state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
+                );
 
-                // N + 1 hash
-                // let new_head_hash = state.head_block_hash;
-                // let finalized_block_hash = state.finalized_block_hash;
+                let safe_block_hash = state.safe_block_hash;
+                let head_block_hash = state.head_block_hash;
+                let finalized_block_hash = state.finalized_block_hash;
 
-                // FCU msg update head block + also clean up block hashes stored in memeory up to finalized block
-                // let mut witness_provider = self.witness_provider.lock().await;
-                // self.finalized_block_number = Some(finalized_block_hash);
+                self.node_state.head_block_hash = Some(head_block_hash);
+                self.node_state.safe_block_hash = Some(safe_block_hash);
+                self.node_state.finalized_block_hash = Some(finalized_block_hash);
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
                 // Implement transition configuration handling
