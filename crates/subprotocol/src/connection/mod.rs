@@ -126,13 +126,12 @@ impl Stream for CustomRlpxConnection {
                     return Poll::Ready(None);
                 }
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
-                    // TODO: get witness from other full node peers, rn hardcoded
+                    // TODO: get witness from other full node peers, rn from file
                     debug!("requested witness for blockhash: {}", block_hash);
                     let witness = read_example_witness(WITNESS_PATH).unwrap();
                     let state_witness = witness.state;
 
-                    let execution_witness =
-                        ExecutionWitness::new(state_witness, Default::default());
+                    let execution_witness = ExecutionWitness::new(state_witness);
                     return Poll::Ready(Some(
                         CustomRlpxProtoMessage::witness_res(execution_witness).encoded(),
                     ));
@@ -144,7 +143,7 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
-                    // TODO: get bytecode from other full node peers, rn hardcoded
+                    // TODO: get bytecode from other full node peers, rn from file
                     debug!("requested bytes for codehash: {}", code_hash);
                     let witness = read_example_witness(WITNESS_PATH).unwrap();
                     let code_bytes = witness

@@ -119,25 +119,32 @@ impl ConsensusEngine {
 
                 // ====
                 // todo: i think we needed to have the headers ready before running
-                // let parent_header = storage
-                //     .get_block_header_by_hash(parent_hash_from_payload)
-                //     .unwrap()
-                //     .unwrap();
-                // temp with `block_provider`
-                let ws_rpc_url = std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env");
-                let block_provider = RpcBlockProvider::new(ws_rpc_url);
-                let header = &block_provider
-                    .get_block(payload.block_number() - 1)
-                    .await
+                let parent_header = match storage
+                    .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()
-                    .header;
-                let parent_header: SealedHeader =
-                    SealedHeader::new(header.clone().into_consensus(), parent_hash_from_payload);
+                {
+                    Some(header) => header,
+                    None => {
+                        info!("parent header not found, fetching..");
+                        // temp with `block_provider`
+                        let ws_rpc_url =
+                            std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env");
+                        let block_provider = RpcBlockProvider::new(ws_rpc_url);
+                        let header = &block_provider
+                            .get_block(payload.block_number() - 1)
+                            .await
+                            .unwrap()
+                            .header;
+                        storage.set_block(header.hash, header.clone().into_consensus());
+                        SealedHeader::new(header.clone().into_consensus(), parent_hash_from_payload)
+                    }
+                };
+
+                // let storage_hash = storage.memory.get_blockhashes();
+                // info!("hash stored:{:?}", storage_hash);
                 // ====
 
                 let state_root_of_parent = parent_header.state_root;
-                // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
-                // q. is there any other way to retrieve block object from payload without using payload validator?
                 let block = self
                     .payload_validator
                     .ensure_well_formed_payload(payload, sidecar)
@@ -148,11 +155,9 @@ impl ConsensusEngine {
                 // ===================== Witness =====================
 
                 let execution_witness = storage.get_witness(block_hash).unwrap();
-                let execution_witness_block_hashes = execution_witness.clone().block_hashes;
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)
                     .unwrap();
-                storage.overwrite_block_hashes(execution_witness_block_hashes);
                 let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================

@@ -62,4 +62,11 @@ impl TestPeers {
             TestPeers::Peer2 => TestPeers::Peer1,
         }
     }
+
+    pub fn get_etherscan_api(&self) -> String {
+        match self {
+            TestPeers::Peer1 => std::env::var("ETHERSCAN_API_KEY1").expect("need api key"),
+            TestPeers::Peer2 => std::env::var("ETHERSCAN_API_KEY2").expect("need api key"),
+        }
+    }
 }

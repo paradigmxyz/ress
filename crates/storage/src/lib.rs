@@ -51,6 +51,10 @@ impl Storage {
         self.memory.set_block_header(block_hash, header);
     }
 
+    pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
+        self.memory.set_block_hash(block_hash, block_number);
+    }
+
     /// overwrite block hashes mapping
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
         self.memory.overwrite_block_hashes(block_hashes);

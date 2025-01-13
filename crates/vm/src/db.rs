@@ -70,6 +70,11 @@ impl Database for WitnessDatabase {
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         debug!("request for blockhash: {}", number);
-        Ok(self.storage.get_block_hash(number).unwrap().unwrap())
+        let err_msg = format!("couldn't found block hash of {}", number);
+        Ok(self
+            .storage
+            .get_block_hash(number)
+            .unwrap()
+            .expect(&err_msg))
     }
 }

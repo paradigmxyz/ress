@@ -1,9 +1,11 @@
+use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
+use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
 use futures::StreamExt;
 use ress_common::test_utils::TestPeers;
 use ress_node::Node;
 use reth_chainspec::MAINNET;
-use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
+use reth_consensus_debug_client::{DebugConsensusClient, EtherscanBlockProvider};
 use reth_network::NetworkEventListenerProvider;
 use reth_node_ethereum::EthEngineTypes;
 use std::net::TcpListener;
@@ -37,18 +39,43 @@ async fn main() -> eyre::Result<()> {
 
     let node = Node::launch_test_node(local_node, MAINNET.clone()).await;
     is_ports_alive(local_node);
+
     // ============================== DEMO ==========================================
 
-    // todo : we need to probably have logic to fill necessary headers before running consensus client
-    // 1. rpc call latest number
-    //2.  rpc 256 https :
-    // 3. storage.set(headers)
-    let block_provider =
-        RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env"));
-    let rpc_consensus_client =
-        DebugConsensusClient::new(node.authserver_handler.clone(), Arc::new(block_provider));
+    // initalize necessary headers/hashes
+    let rpc_block_provider = ProviderBuilder::new()
+        .network::<AnyNetwork>()
+        .on_http(std::env::var("RPC_URL").expect("need rpc").parse()?);
+    let latest_block_number = rpc_block_provider.get_block_number().await.unwrap();
+    info!(
+        "prefetching block number {} to {}..",
+        latest_block_number - 255,
+        latest_block_number + 1
+    );
+    for block_number in latest_block_number - 255..=latest_block_number + 1 {
+        let block = rpc_block_provider
+            .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
+            .await
+            .unwrap()
+            .unwrap();
+        let block_hash = block.header.hash;
+        let block_header = block
+            .header
+            .clone()
+            .into_consensus()
+            .into_header_with_defaults();
+        node.storage.set_block(block_hash, block_header);
+    }
+    let etherscan_block_provider = EtherscanBlockProvider::new(
+        "https://api.etherscan.io/api".to_string(),
+        local_node.get_etherscan_api().parse()?,
+    );
+    let rpc_consensus_client = DebugConsensusClient::new(
+        node.authserver_handler.clone(),
+        Arc::new(etherscan_block_provider),
+    );
     tokio::spawn(async move {
-        info!("rpc consensus client run");
+        info!("Running debug consensus client...");
         rpc_consensus_client.run::<EthEngineTypes>().await;
     });
 
