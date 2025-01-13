@@ -1,5 +1,9 @@
 use alloy_primitives::B256;
 use alloy_primitives::U256;
+use alloy_provider::network::primitives::BlockTransactionsKind;
+use alloy_provider::network::AnyNetwork;
+use alloy_provider::Provider;
+use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
@@ -14,8 +18,6 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
-use reth_consensus_debug_client::BlockProvider;
-use reth_consensus_debug_client::RpcBlockProvider;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
@@ -127,22 +129,26 @@ impl ConsensusEngine {
                     None => {
                         info!("parent header not found, fetching..");
                         // temp with `block_provider`
-                        let ws_rpc_url =
-                            std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env");
-                        let block_provider = RpcBlockProvider::new(ws_rpc_url);
-                        let header = &block_provider
-                            .get_block(payload.block_number() - 1)
+                        let rpc_block_provider = ProviderBuilder::new()
+                            .network::<AnyNetwork>()
+                            .on_http(std::env::var("RPC_URL").expect("need rpc").parse().unwrap());
+                        let block = &rpc_block_provider
+                            .get_block_by_number(
+                                (payload.block_number() - 1).into(),
+                                BlockTransactionsKind::Hashes,
+                            )
                             .await
                             .unwrap()
-                            .header;
-                        storage.set_block(header.hash, header.clone().into_consensus());
-                        SealedHeader::new(header.clone().into_consensus(), parent_hash_from_payload)
+                            .unwrap();
+                        let block_header = block
+                            .header
+                            .clone()
+                            .into_consensus()
+                            .into_header_with_defaults();
+                        storage.set_block_hash(block_header.hash_slow(), block_header.number);
+                        SealedHeader::new(block_header, parent_hash_from_payload)
                     }
                 };
-
-                // let storage_hash = storage.memory.get_blockhashes();
-                // info!("hash stored:{:?}", storage_hash);
-                // ====
 
                 let state_root_of_parent = parent_header.state_root;
                 let block = self
