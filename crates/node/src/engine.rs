@@ -3,6 +3,7 @@ use alloy_primitives::U256;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
+use ress_common::constant::WITNESS_PATH;
 use ress_primitives::witness::ExecutionWitness;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
@@ -101,9 +102,8 @@ impl ConsensusEngine {
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .unwrap();
-                let file_path = format!("./fixtures/latest-witness.json");
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
-                std::fs::write(file_path, json_data).expect("Unable to write file");
+                std::fs::write(WITNESS_PATH, json_data).expect("Unable to write file");
                 info!("fetched node witness");
 
                 // ===================== Validation =====================

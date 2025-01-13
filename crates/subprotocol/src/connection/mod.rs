@@ -1,7 +1,7 @@
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
 use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
-use ress_common::utils::read_example_witness;
+use ress_common::{constant::WITNESS_PATH, utils::read_example_witness};
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_revm::primitives::Bytecode;
@@ -128,8 +128,7 @@ impl Stream for CustomRlpxConnection {
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
                     // TODO: get witness from other full node peers, rn hardcoded
                     debug!("requested witness for blockhash: {}", block_hash);
-                    let file_path = format!("./fixtures/latest-witness.json");
-                    let witness = read_example_witness(&file_path).unwrap();
+                    let witness = read_example_witness(WITNESS_PATH).unwrap();
                     let state_witness = witness.state;
 
                     let execution_witness =
@@ -147,8 +146,7 @@ impl Stream for CustomRlpxConnection {
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
                     // TODO: get bytecode from other full node peers, rn hardcoded
                     debug!("requested bytes for codehash: {}", code_hash);
-                    let file_path = format!("./fixtures/latest-witness.json");
-                    let witness = read_example_witness(&file_path).unwrap();
+                    let witness = read_example_witness(WITNESS_PATH).unwrap();
                     let code_bytes = witness
                         .codes
                         .get(&code_hash)
