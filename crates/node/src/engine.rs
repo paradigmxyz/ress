@@ -21,6 +21,7 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use std::sync::Arc;
+use tracing::debug;
 
 use reth_trie_sparse::SparseStateTrie;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -93,6 +94,10 @@ impl ConsensusEngine {
                 let parent_hash_from_payload = payload.parent_hash();
                 let block_hash = payload.block_hash();
                 let storage = self.storage.clone();
+                debug!(
+                    "request parent_hash_from_payload:{}",
+                    parent_hash_from_payload
+                );
                 let parent_header = storage
                     .get_block_header_by_hash(parent_hash_from_payload)
                     .unwrap()
@@ -151,6 +156,8 @@ impl ConsensusEngine {
                     "New fork choice head: {:#x}, safe: {:#x}, finalized: {:#x}.",
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
+
+                // TODO: smth like EngineApiTreeHandler.on_forkchoice_updated validation is needed. Should i just leverage EngineApiTreeHandler struct
 
                 let safe_block_hash = state.safe_block_hash;
                 let head_block_hash = state.head_block_hash;

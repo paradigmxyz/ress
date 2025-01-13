@@ -5357,6 +5357,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
  "assert_matches",
@@ -5370,6 +5371,7 @@ dependencies = [
  "ress-node",
  "ress-subprotocol",
  "reth-chainspec",
+ "reth-consensus-debug-client",
  "reth-network",
  "reth-network-api",
  "reth-node-ethereum",
