@@ -10,7 +10,7 @@ use reth_network::NetworkEventListenerProvider;
 use reth_node_ethereum::EthEngineTypes;
 use std::net::TcpListener;
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -95,11 +95,11 @@ fn is_ports_alive(local_node: TestPeers) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    debug!(target: "ress","auth server is_alive: {:?}", is_alive);
+    info!(target: "ress","auth server is_alive: {:?}", is_alive);
 
     let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
         Ok(_listener) => false,
         Err(_) => true,
     };
-    debug!(target: "ress","network is_alive: {:?}", is_alive);
+    info!(target: "ress","network is_alive: {:?}", is_alive);
 }

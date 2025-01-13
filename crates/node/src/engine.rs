@@ -8,7 +8,6 @@ use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::constant::WITNESS_PATH;
-use ress_primitives::witness::ExecutionWitness;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
@@ -37,12 +36,17 @@ use tracing::info;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
-    witness: ExecutionWitness,
+    pending_state: Option<Arc<PendingState>>,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     payload_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     node_state: NodeState,
+}
+
+pub struct PendingState {
+    header: SealedHeader,
+    block_hash: B256,
 }
 
 #[derive(Default)]
@@ -67,7 +71,7 @@ impl ConsensusEngine {
             EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
         );
         Self {
-            witness: ExecutionWitness::default(),
+            pending_state: None,
             consensus,
             payload_validator,
             storage,
@@ -155,6 +159,7 @@ impl ConsensusEngine {
                     .payload_validator
                     .ensure_well_formed_payload(payload, sidecar)
                     .unwrap();
+                let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
                 info!(target: "engine", "received valid new payload");
 
@@ -170,7 +175,7 @@ impl ConsensusEngine {
 
                 let mut block_executor = BlockExecutor::new(db, storage);
                 let senders = block.senders().unwrap();
-                let block = BlockWithSenders::new(block.unseal(), senders).unwrap();
+                let block = BlockWithSenders::new(block.clone().unseal(), senders).unwrap();
                 let output = block_executor.execute(&block).unwrap();
 
                 // ===================== Post Validation =====================
@@ -183,7 +188,10 @@ impl ConsensusEngine {
                     .unwrap();
 
                 // ===================== Update state =====================
-                self.witness = execution_witness;
+                self.pending_state = Some(Arc::new(PendingState {
+                    header: payload_header.clone(),
+                    block_hash,
+                }));
 
                 info!("🎉 lgtm");
 
@@ -200,6 +208,17 @@ impl ConsensusEngine {
                     "New fork choice head: {:#x}, safe: {:#x}, finalized: {:#x}.",
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
+
+                let pending_state = self
+                    .pending_state
+                    .clone()
+                    .expect("must have pending state on fcu");
+
+                self.storage.set_block(
+                    pending_state.block_hash,
+                    pending_state.header.clone().unseal(),
+                );
+                self.storage.remove_oldest_block();
 
                 // TODO: smth like EngineApiTreeHandler.on_forkchoice_updated validation is needed. Should i just leverage EngineApiTreeHandler struct
 

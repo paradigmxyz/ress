@@ -45,6 +45,10 @@ impl Storage {
         self.network.get_witness(block_hash)
     }
 
+    pub fn remove_oldest_block(&self) {
+        self.memory.remove_oldest_block();
+    }
+
     /// set block hash and set block header
     pub fn set_block(&self, block_hash: B256, header: Header) {
         self.memory.set_block_hash(block_hash, header.number);

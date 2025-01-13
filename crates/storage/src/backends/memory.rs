@@ -47,6 +47,17 @@ impl MemoryStorage {
         }
     }
 
+    pub fn remove_oldest_block(&self) {
+        let mut inner = self.inner.write();
+
+        if let Some(&oldest_block_number) = inner.canonical_hashes.keys().min() {
+            let block_hash = inner.canonical_hashes.remove(&oldest_block_number);
+            if let Some(block_hash) = block_hash {
+                inner.headers.remove(&block_hash);
+            }
+        }
+    }
+
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
         let mut inner = self.inner.write();
         inner.canonical_hashes = block_hashes;
