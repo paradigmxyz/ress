@@ -23,6 +23,7 @@ reth-consensus-debug-client.workspace = true
 reth-node-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-builder.workspace = true
+reth-rpc-api.workspace = true
 reth-trie-sparse.workspace = true
 
 
@@ -37,3 +38,4 @@ tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 jsonrpsee-http-client.workspace = true
+serde_json.workspace = true

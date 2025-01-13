@@ -128,8 +128,8 @@ impl Stream for CustomRlpxConnection {
                 CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
                     // TODO: get witness from other full node peers, rn hardcoded
                     debug!("requested witness for blockhash: {}", block_hash);
-                    let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
+                    let file_path = format!("./fixtures/latest-witness.json");
+                    let witness = read_example_witness(&file_path).unwrap();
                     let state_witness = witness.state;
 
                     let execution_witness =
@@ -147,8 +147,8 @@ impl Stream for CustomRlpxConnection {
                 CustomRlpxProtoMessageKind::BytecodeReq(code_hash) => {
                     // TODO: get bytecode from other full node peers, rn hardcoded
                     debug!("requested bytes for codehash: {}", code_hash);
-                    let witness =
-                        read_example_witness("./fixtures/witness/mainnet-21592411.json").unwrap();
+                    let file_path = format!("./fixtures/latest-witness.json");
+                    let witness = read_example_witness(&file_path).unwrap();
                     let code_bytes = witness
                         .codes
                         .get(&code_hash)

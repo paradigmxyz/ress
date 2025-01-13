@@ -1,8 +1,5 @@
 use alloy_primitives::B256;
 use alloy_primitives::U256;
-use alloy_provider::network::AnyNetwork;
-use alloy_provider::network::Ethereum;
-use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
@@ -26,6 +23,7 @@ use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
+use reth_rpc_api::DebugApiClient;
 use std::sync::Arc;
 use tracing::debug;
 
@@ -89,22 +87,30 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                // let client = HttpClientBuilder::default()
-                //     .build("https://reth-ethereum.ithaca.xyz/rpc/")
-                //     .unwrap();
-
                 info!("New payload: {:?}", payload.block_number());
+                let block_hash = payload.block_hash();
+
+                // ===================== Witness =====================
+
+                //todo: temporary
+                let client = HttpClientBuilder::default()
+                    .max_response_size(50 * 1024 * 1024)
+                    .build(std::env::var("RPC_URL").expect("RPC_URL"))
+                    .unwrap();
+                let witness_from_rpc =
+                    DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
+                        .await
+                        .unwrap();
+                let file_path = format!("./fixtures/latest-witness.json");
+                let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
+                std::fs::write(file_path, json_data).expect("Unable to write file");
+                info!("fetched node witness");
 
                 // ===================== Validation =====================
 
-                // q: total_difficulty
-                let total_difficulty = self
-                    .storage
-                    .chain_spec
-                    .get_final_paris_total_difficulty()
-                    .unwrap();
+                let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-                let block_hash = payload.block_hash();
+
                 let storage = self.storage.clone();
                 debug!(
                     "request parent_hash_from_payload:{}",
@@ -118,8 +124,8 @@ impl ConsensusEngine {
                 //     .unwrap()
                 //     .unwrap();
                 // temp with `block_provider`
-                let block_provider =
-                    RpcBlockProvider::new("wss://ethereum-rpc.publicnode.com".to_string());
+                let ws_rpc_url = std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env");
+                let block_provider = RpcBlockProvider::new(ws_rpc_url);
                 let header = &block_provider
                     .get_block(payload.block_number() - 1)
                     .await

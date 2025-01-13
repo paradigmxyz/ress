@@ -37,6 +37,7 @@ rand.workspace = true
 futures.workspace = true
 parking_lot.workspace = true
 assert_matches.workspace = true
+dotenvy.workspace = true
 
 
 [dev-dependencies]

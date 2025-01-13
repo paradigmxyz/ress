@@ -2285,6 +2285,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aac81fa3e28d21450aa4d2ac065992ba96a1d7303efbce51a95f4fd175b67562"
 
 [[package]]
+name = "dotenvy"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5362,6 +5368,7 @@ dependencies = [
  "alloy-rpc-types-engine",
  "assert_matches",
  "clap",
+ "dotenvy",
  "eyre",
  "futures",
  "jsonrpsee-core",
@@ -5445,8 +5452,10 @@ dependencies = [
  "reth-node-ethereum",
  "reth-primitives",
  "reth-primitives-traits",
+ "reth-rpc-api",
  "reth-rpc-builder",
  "reth-trie-sparse",
+ "serde_json",
  "thiserror 2.0.9",
  "tokio",
  "tracing",

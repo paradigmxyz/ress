@@ -21,6 +21,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt::init();
+    dotenvy::dotenv()?;
+
     // =================================================================
 
     // <for testing purpose>
@@ -35,12 +37,14 @@ async fn main() -> eyre::Result<()> {
 
     let node = Node::launch_test_node(local_node, MAINNET.clone()).await;
     is_ports_alive(local_node);
-
     // ============================== DEMO ==========================================
 
     // todo : we need to probably have logic to fill necessary headers before running consensus client
-
-    let block_provider = RpcBlockProvider::new("wss://ethereum-rpc.publicnode.com".to_string());
+    // 1. rpc call latest number
+    //2.  rpc 256 https :
+    // 3. storage.set(headers)
+    let block_provider =
+        RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need `WS_RPC_URL` env"));
     let rpc_consensus_client =
         DebugConsensusClient::new(node.authserver_handler.clone(), Arc::new(block_provider));
     tokio::spawn(async move {
