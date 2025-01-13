@@ -38,12 +38,14 @@ async fn main() -> eyre::Result<()> {
 
     // ============================== DEMO ==========================================
 
+    // todo : we need to probably have logic to fill necessary headers before running consensus client
+
     let block_provider = RpcBlockProvider::new("wss://ethereum-rpc.publicnode.com".to_string());
     let rpc_consensus_client =
         DebugConsensusClient::new(node.authserver_handler.clone(), Arc::new(block_provider));
     tokio::spawn(async move {
-        rpc_consensus_client.run::<EthEngineTypes>().await;
         info!("rpc consensus client run");
+        rpc_consensus_client.run::<EthEngineTypes>().await;
     });
 
     // =================================================================

@@ -1,7 +1,11 @@
 use alloy_primitives::B256;
 use alloy_primitives::U256;
+use alloy_provider::network::AnyNetwork;
+use alloy_provider::network::Ethereum;
+use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
+use jsonrpsee_http_client::HttpClientBuilder;
 use ress_primitives::witness::ExecutionWitness;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
@@ -12,6 +16,8 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
+use reth_consensus_debug_client::BlockProvider;
+use reth_consensus_debug_client::RpcBlockProvider;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
@@ -83,6 +89,12 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
+                // let client = HttpClientBuilder::default()
+                //     .build("https://reth-ethereum.ithaca.xyz/rpc/")
+                //     .unwrap();
+
+                info!("New payload: {:?}", payload.block_number());
+
                 // ===================== Validation =====================
 
                 // q: total_difficulty
@@ -98,10 +110,25 @@ impl ConsensusEngine {
                     "request parent_hash_from_payload:{}",
                     parent_hash_from_payload
                 );
-                let parent_header = storage
-                    .get_block_header_by_hash(parent_hash_from_payload)
+
+                // ====
+                // todo: i think we needed to have the headers ready before running
+                // let parent_header = storage
+                //     .get_block_header_by_hash(parent_hash_from_payload)
+                //     .unwrap()
+                //     .unwrap();
+                // temp with `block_provider`
+                let block_provider =
+                    RpcBlockProvider::new("wss://ethereum-rpc.publicnode.com".to_string());
+                let header = &block_provider
+                    .get_block(payload.block_number() - 1)
+                    .await
                     .unwrap()
-                    .unwrap();
+                    .header;
+                let parent_header: SealedHeader =
+                    SealedHeader::new(header.clone().into_consensus(), parent_hash_from_payload);
+                // ====
+
                 let state_root_of_parent = parent_header.state_root;
                 // to retrieve `SealedBlock` object we using `ensure_well_formed_payload`
                 // q. is there any other way to retrieve block object from payload without using payload validator?

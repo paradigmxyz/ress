@@ -19,16 +19,21 @@ reth-primitives-traits.workspace = true
 reth-chainspec.workspace = true
 reth-engine-primitives.workspace = true
 reth-consensus.workspace = true
+reth-consensus-debug-client.workspace = true
 reth-node-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-builder.workspace = true
 reth-trie-sparse.workspace = true
 
+
 # alloy
 alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
+alloy-provider.workspace = true
+
 
 # misc
 tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
+jsonrpsee-http-client.workspace = true
