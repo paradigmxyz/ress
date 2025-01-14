@@ -170,11 +170,13 @@ impl ConsensusEngine {
                 let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================
-
+                info!("start execution");
+                let start_time = std::time::Instant::now();
                 let mut block_executor = BlockExecutor::new(db, storage);
                 let senders = block.senders().unwrap();
                 let block = BlockWithSenders::new(block.clone().unseal(), senders).unwrap();
                 let output = block_executor.execute(&block).unwrap();
+                info!("end execution in {:?}", start_time.elapsed());
 
                 // ===================== Post Validation =====================
 

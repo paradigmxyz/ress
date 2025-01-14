@@ -58,6 +58,24 @@ impl MemoryStorage {
         }
     }
 
+    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
+        let inner = self.inner.read();
+        (target_block.saturating_sub(255)..=target_block).all(|block_number| {
+            inner.canonical_hashes.contains_key(&block_number)
+                && inner.headers.contains_key(
+                    inner
+                        .canonical_hashes
+                        .get(&block_number)
+                        .unwrap_or(&BlockHash::default()),
+                )
+        })
+    }
+
+    pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
+        let mut inner = self.inner.write();
+        inner.headers = block_headers;
+    }
+
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
         let mut inner = self.inner.write();
         inner.canonical_hashes = block_hashes;

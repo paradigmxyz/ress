@@ -65,6 +65,30 @@ impl Storage {
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
+    /// overwrite block headers mapping
+    pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
+        self.memory.overwrite_block_headers(block_headers);
+    }
+
+    pub fn overwrite_blocks(&self, block_headers: Vec<Header>) {
+        let mut block_hashes = HashMap::new();
+        let mut block_headers_map = HashMap::new();
+
+        for header in block_headers {
+            let block_number = header.number;
+            let block_hash = header.hash_slow();
+            block_hashes.insert(block_number, block_hash);
+            block_headers_map.insert(block_hash, header);
+        }
+
+        self.overwrite_block_hashes(block_hashes);
+        self.overwrite_block_headers(block_headers_map);
+    }
+
+    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
+        self.memory.is_canonical_blocks_exist(target_block)
+    }
+
     pub fn get_block_hash(
         &self,
         block_number: BlockNumber,

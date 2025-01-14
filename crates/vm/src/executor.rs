@@ -38,7 +38,6 @@ impl BlockExecutor {
             .apply_post_execution_changes(block, &receipts)
             .unwrap();
         let state = self.strategy.finish();
-
         Ok(BlockExecutionOutput {
             state,
             receipts,

@@ -60,7 +60,7 @@ async fn main() -> eyre::Result<()> {
     // Parallel download
     let headers = futures::stream::iter(range)
         .map(|block_number| {
-            let provider = rpc_block_provider.clone(); // Clone the provider for each concurrent task
+            let provider = rpc_block_provider.clone();
             async move {
                 let block_header = provider
                     .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
@@ -76,10 +76,9 @@ async fn main() -> eyre::Result<()> {
         .buffer_unordered(25)
         .try_collect::<Vec<_>>()
         .await?;
-
-    for header in headers {
-        node.storage.set_block(header);
-    }
+    let storage = node.storage;
+    storage.overwrite_blocks(headers);
+    assert!(storage.is_canonical_blocks_exist(latest_block_number));
 
     // ================ CONSENSUS CLIENT ================
 
