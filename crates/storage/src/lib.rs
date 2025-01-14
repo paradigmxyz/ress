@@ -50,9 +50,10 @@ impl Storage {
     }
 
     /// set block hash and set block header
-    pub fn set_block(&self, block_hash: B256, header: Header) {
-        self.memory.set_block_hash(block_hash, header.number);
-        self.memory.set_block_header(block_hash, header);
+    pub fn set_block(&self, header: Header) {
+        self.memory
+            .set_block_hash(header.hash_slow(), header.number);
+        self.memory.set_block_header(header.hash_slow(), header);
     }
 
     pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {

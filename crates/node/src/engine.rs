@@ -18,6 +18,7 @@ use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
 use reth_node_api::BeaconEngineMessage;
+use reth_node_api::OnForkChoiceUpdated;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
@@ -26,11 +27,11 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_api::DebugApiClient;
-use std::sync::Arc;
-use tracing::debug;
-
 use reth_trie_sparse::SparseStateTrie;
+use std::result::Result::Ok;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tracing::debug;
 use tracing::error;
 use tracing::info;
 
@@ -46,7 +47,6 @@ pub struct ConsensusEngine {
 
 pub struct PendingState {
     header: SealedHeader,
-    block_hash: B256,
 }
 
 #[derive(Default)]
@@ -190,19 +190,21 @@ impl ConsensusEngine {
                 // ===================== Update state =====================
                 self.pending_state = Some(Arc::new(PendingState {
                     header: payload_header.clone(),
-                    block_hash,
                 }));
 
                 info!("🎉 lgtm");
 
-                tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)))
-                    .unwrap();
+                tx.send(Ok(PayloadStatus::new(
+                    PayloadStatusEnum::Valid,
+                    self.node_state.head_block_hash,
+                )))
+                .unwrap();
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
                 payload_attrs: _,
                 version: _,
-                tx: _,
+                tx,
             } => {
                 info!(
                     "New fork choice head: {:#x}, safe: {:#x}, finalized: {:#x}.",
@@ -214,10 +216,8 @@ impl ConsensusEngine {
                     .clone()
                     .expect("must have pending state on fcu");
 
-                self.storage.set_block(
-                    pending_state.block_hash,
-                    pending_state.header.clone().unseal(),
-                );
+                self.storage
+                    .set_block(pending_state.header.clone().unseal());
                 self.storage.remove_oldest_block();
 
                 // TODO: smth like EngineApiTreeHandler.on_forkchoice_updated validation is needed. Should i just leverage EngineApiTreeHandler struct
@@ -229,6 +229,11 @@ impl ConsensusEngine {
                 self.node_state.head_block_hash = Some(head_block_hash);
                 self.node_state.safe_block_hash = Some(safe_block_hash);
                 self.node_state.finalized_block_hash = Some(finalized_block_hash);
+
+                tx.send(Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+                    PayloadStatusEnum::Valid,
+                ))))
+                .unwrap();
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
                 // Implement transition configuration handling

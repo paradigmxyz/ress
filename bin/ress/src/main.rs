@@ -43,37 +43,33 @@ async fn main() -> eyre::Result<()> {
     // ============================== DEMO ==========================================
 
     // initalize necessary headers/hashes
+    // todo: there could be gap between new payload and this prefetching latest block number
     let rpc_block_provider = ProviderBuilder::new()
         .network::<AnyNetwork>()
         .on_http(std::env::var("RPC_URL").expect("need rpc").parse()?);
-    let latest_block_number = rpc_block_provider.get_block_number().await.unwrap();
+    let latest_block_number = rpc_block_provider.get_block_number().await?;
     info!(
         "prefetching block number {} to {}..",
         latest_block_number - 255,
         latest_block_number + 1
     );
     for block_number in latest_block_number - 255..=latest_block_number + 1 {
-        let block = rpc_block_provider
+        let block_header = rpc_block_provider
             .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
-            .await
-            .unwrap()
-            .unwrap();
-        let block_hash = block.header.hash;
-        let block_header = block
+            .await?
+            .expect("no block fetched from rpc")
             .header
             .clone()
             .into_consensus()
             .into_header_with_defaults();
-        node.storage.set_block(block_hash, block_header);
+        node.storage.set_block(block_header);
     }
     let etherscan_block_provider = EtherscanBlockProvider::new(
         "https://api.etherscan.io/api".to_string(),
         local_node.get_etherscan_api().parse()?,
     );
-    let rpc_consensus_client = DebugConsensusClient::new(
-        node.authserver_handler.clone(),
-        Arc::new(etherscan_block_provider),
-    );
+    let rpc_consensus_client =
+        DebugConsensusClient::new(node.authserver_handler, Arc::new(etherscan_block_provider));
     tokio::spawn(async move {
         info!("Running debug consensus client...");
         rpc_consensus_client.run::<EthEngineTypes>().await;
