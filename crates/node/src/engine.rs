@@ -31,7 +31,6 @@ use reth_trie_sparse::SparseStateTrie;
 use std::result::Result::Ok;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::debug;
 use tracing::error;
 use tracing::info;
 
@@ -94,12 +93,15 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                info!("New payload: {:?}", payload.block_number());
+                info!(
+                    "👋 new payload: {:?}, fetching witness...",
+                    payload.block_number()
+                );
                 let block_hash = payload.block_hash();
 
                 // ===================== Witness =====================
 
-                //todo: temporary
+                // todo: we will get witness from fullnode connection later
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
@@ -108,20 +110,16 @@ impl ConsensusEngine {
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .unwrap();
+                // todo: we just overwrite witness with latest data, which as we running 2 nodes on demo this cus issue
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
                 std::fs::write(WITNESS_PATH, json_data).expect("Unable to write file");
-                info!("fetched node witness");
+                info!("🟢 we got witness");
 
                 // ===================== Validation =====================
 
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-
                 let storage = self.storage.clone();
-                debug!(
-                    "request parent_hash_from_payload:{}",
-                    parent_hash_from_payload
-                );
 
                 // ====
                 // todo: i think we needed to have the headers ready before running
@@ -131,8 +129,8 @@ impl ConsensusEngine {
                 {
                     Some(header) => header,
                     None => {
-                        info!("parent header not found, fetching..");
-                        // temp with `block_provider`
+                        // this should not happen actually
+                        info!("‼ parent header not found, fetching..");
                         let rpc_block_provider = ProviderBuilder::new()
                             .network::<AnyNetwork>()
                             .on_http(std::env::var("RPC_URL").expect("need rpc").parse().unwrap());
@@ -161,7 +159,7 @@ impl ConsensusEngine {
                     .unwrap();
                 let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
-                info!(target: "engine", "received valid new payload");
+                info!("🟢 new payload is valid");
 
                 // ===================== Witness =====================
 
@@ -192,7 +190,7 @@ impl ConsensusEngine {
                     header: payload_header.clone(),
                 }));
 
-                info!("🎉 lgtm");
+                info!("🎉 executed new payload successfully");
 
                 tx.send(Ok(PayloadStatus::new(
                     PayloadStatusEnum::Valid,
@@ -207,7 +205,7 @@ impl ConsensusEngine {
                 tx,
             } => {
                 info!(
-                    "New fork choice head: {:#x}, safe: {:#x}, finalized: {:#x}.",
+                    "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
 
@@ -251,22 +249,22 @@ impl ConsensusEngine {
     ) {
         let header = block.sealed_header();
         if let Err(e) = self.consensus.validate_header(header) {
-            error!(target: "engine", "Failed to validate header: {e}");
+            error!("Failed to validate header: {e}");
         }
         if let Err(e) = self
             .consensus
             .validate_header_with_total_difficulty(header, total_difficulty)
         {
-            error!(target: "engine", "Failed to validate header against totoal difficulty: {e}");
+            error!("Failed to validate header against totoal difficulty: {e}");
         }
         if let Err(e) = self
             .consensus
             .validate_header_against_parent(header, &parent_header)
         {
-            error!(target: "engine", "Failed to validate header against parent: {e}");
+            error!("Failed to validate header against parent: {e}");
         }
         if let Err(e) = self.consensus.validate_block_pre_execution(block) {
-            error!(target: "engine", "Failed to pre vavalidate header : {e}");
+            error!("Failed to pre vavalidate header : {e}");
         }
     }
 }

@@ -36,7 +36,6 @@ impl P2pHandler {
             id.get_peer().get_peer_id(),
             id.get_peer().get_network_addr(),
         );
-        info!("added peer_id: {:?}", id.get_peer().get_peer_id());
 
         // get a handle to the network to interact with it
         let network_handle = subnetwork_handle.handle().clone();
@@ -78,12 +77,12 @@ impl P2pHandler {
             .unwrap();
 
         let subnetwork_peer_id = *subnetwork.peer_id();
-        let subnet_secret = subnetwork.secret_key();
         let subnetwork_peer_addr = subnetwork.local_addr();
 
-        info!("subnetwork_peer_id {}", subnetwork_peer_id);
-        info!("subnetwork_peer_addr {}", subnetwork_peer_addr);
-        info!("subnet_secret {:?}", subnet_secret);
+        info!(
+            "subnetwork | peer_id: {}, peer_addr: {} ",
+            subnetwork_peer_id, subnetwork_peer_addr
+        );
 
         (subnetwork, from_peer)
     }
@@ -105,7 +104,7 @@ impl P2pHandler {
                 to_connection
             }
         };
-        info!(target:"rlpx-subprotocol",  "connection established!");
+        info!("🟢 connection established with peer_id: {} ", peer_id);
 
         // =================================================================
 
@@ -119,8 +118,7 @@ impl P2pHandler {
             .unwrap();
         let response = rx.await.unwrap();
         assert!(response);
-        info!(target:"rlpx-subprotocol",?response, "connection validation finished");
-
+        info!(?response, "🟢 connection type valid");
         peer_conn
     }
 }
