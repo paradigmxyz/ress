@@ -120,7 +120,6 @@ impl ConsensusEngine {
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
-                // todo: we just overwrite witness with latest data, which as we running 2 nodes on demo this cus issue
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
 
                 std::fs::write(get_witness_path(block_hash), json_data)
@@ -247,6 +246,7 @@ impl ConsensusEngine {
                     assert!(self.storage.find_block_hash(state.finalized_block_hash));
                     assert!(self.storage.find_block_hash(state.safe_block_hash));
                     let header = pending_state.header.clone();
+                    // q. sometimes payload_attrs seems none.
                     // if payload_attrs.unwrap().timestamp() <= header.timestamp {
                     //     tx.send(Ok(OnForkChoiceUpdated::invalid_payload_attributes()))
                     //         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
