@@ -42,7 +42,7 @@ impl Storage {
     }
 
     pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
-        self.network.get_witness(block_hash)
+        Ok(self.network.get_witness(block_hash)?)
     }
 
     pub fn remove_oldest_block(&self) {
@@ -89,25 +89,27 @@ impl Storage {
         self.memory.is_canonical_blocks_exist(target_block)
     }
 
-    pub fn get_block_hash(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHash>, StorageError> {
+    pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         self.memory.get_block_hash(block_number)
     }
 
     /// get bytecode from disk -> fallback network
-    pub fn code_by_hash(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
+    pub fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
         let disk = self.disk.lock().unwrap();
         if let Some(bytecode) = disk.get_account_code(code_hash)? {
-            return Ok(Some(bytecode));
+            return Ok(bytecode);
         }
 
-        if let Some(bytecode) = self.network.get_account_code(code_hash)? {
+        let latest_block_hash = self.memory.get_latest_block_hash();
+
+        if let Some(bytecode) = self.network.get_account_code(
+            latest_block_hash.expect("need latest block hash"),
+            code_hash,
+        )? {
             disk.update_account_code(code_hash, bytecode.clone())?;
-            return Ok(Some(bytecode));
+            return Ok(bytecode);
         }
-        Ok(None)
+        Err(StorageError::NoCodeForCodeHash)
     }
 
     pub fn get_block_header(

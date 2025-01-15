@@ -60,7 +60,7 @@ impl MemoryStorage {
 
     pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
         let inner = self.inner.read();
-        (target_block.saturating_sub(255)..=target_block).all(|block_number| {
+        (target_block.saturating_sub(255)..target_block).all(|block_number| {
             inner.canonical_hashes.contains_key(&block_number)
                 && inner.headers.contains_key(
                     inner
@@ -69,6 +69,15 @@ impl MemoryStorage {
                         .unwrap_or(&BlockHash::default()),
                 )
         })
+    }
+
+    pub fn get_latest_block_hash(&self) -> Option<BlockHash> {
+        let inner = self.inner.read();
+        if let Some(&latest_block_number) = inner.canonical_hashes.keys().max() {
+            inner.canonical_hashes.get(&latest_block_number).copied()
+        } else {
+            None
+        }
     }
 
     pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
@@ -103,15 +112,12 @@ impl MemoryStorage {
         }
     }
 
-    pub fn get_block_hash(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHash>, StorageError> {
+    pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         let inner = self.inner.read();
         if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
-            Ok(Some(*block_hash))
+            Ok(*block_hash)
         } else {
-            Ok(None)
+            Err(StorageError::BlockNotFound)
         }
     }
 

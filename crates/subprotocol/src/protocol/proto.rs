@@ -8,6 +8,7 @@ use alloy_primitives::{
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::{protocol::Protocol, Capability};
 use reth_revm::primitives::Bytecode;
+use serde::{Deserialize, Serialize};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,7 +38,7 @@ pub(crate) enum CustomRlpxProtoMessageKind {
     WitnessRes(ExecutionWitness),
 
     // C. bytecode
-    BytecodeReq(B256),
+    BytecodeReq(BytecodeRequest),
     BytecodeRes(Bytecode),
 }
 
@@ -45,6 +46,21 @@ pub(crate) enum CustomRlpxProtoMessageKind {
 pub enum NodeType {
     Stateful,
     Stateless,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BytecodeRequest {
+    pub code_hash: B256,
+    pub block_hash: BlockHash,
+}
+
+impl BytecodeRequest {
+    pub fn new(code_hash: B256, block_hash: BlockHash) -> Self {
+        Self {
+            code_hash,
+            block_hash,
+        }
+    }
 }
 
 impl NodeType {
@@ -116,7 +132,7 @@ impl CustomRlpxProtoMessage {
     }
 
     /// Request Bytecode
-    pub fn bytecode_req(msg: B256) -> Self {
+    pub fn bytecode_req(msg: BytecodeRequest) -> Self {
         Self {
             message_type: CustomRlpxProtoMessageId::BytecodeReq,
             message: CustomRlpxProtoMessageKind::BytecodeReq(msg),
@@ -147,7 +163,8 @@ impl CustomRlpxProtoMessage {
                 buf.put(&serialized[..]);
             }
             CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
-                buf.put(&msg.0[..]);
+                let serialized = bincode::serialize(msg).expect("Failed to serialize message");
+                buf.put(&serialized[..]);
             }
             CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
                 buf.put(msg.bytes_slice());
@@ -186,7 +203,9 @@ impl CustomRlpxProtoMessage {
                 CustomRlpxProtoMessageKind::WitnessRes(deserialize)
             }
             CustomRlpxProtoMessageId::BytecodeReq => {
-                CustomRlpxProtoMessageKind::BytecodeReq(B256::from_slice(&buf[..]))
+                let deserialize: BytecodeRequest =
+                    bincode::deserialize(&buf[..]).expect("Failed to serialize message");
+                CustomRlpxProtoMessageKind::BytecodeReq(deserialize)
             }
             CustomRlpxProtoMessageId::BytecodeRes => CustomRlpxProtoMessageKind::BytecodeRes(
                 Bytecode::new_raw(Bytes::copy_from_slice(&buf[..])),

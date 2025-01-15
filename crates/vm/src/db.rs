@@ -64,17 +64,12 @@ impl Database for WitnessDatabase {
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
-        Ok(self.storage.code_by_hash(code_hash).unwrap().unwrap())
+        Ok(self.storage.code_by_hash(code_hash)?)
     }
 
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         debug!("request for blockhash: {}", number);
-        let err_msg = format!("couldn't found block hash of {}", number);
-        Ok(self
-            .storage
-            .get_block_hash(number)
-            .unwrap()
-            .expect(&err_msg))
+        Ok(self.storage.get_block_hash(number)?)
     }
 }

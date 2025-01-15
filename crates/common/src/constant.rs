@@ -1,1 +1,5 @@
-pub const WITNESS_PATH: &str = "./fixtures/latest-witness.json";
+use alloy_primitives::BlockHash;
+
+pub fn get_witness_path(block_hash: BlockHash) -> String {
+    format!("./fixtures/witness-{}.json", block_hash)
+}

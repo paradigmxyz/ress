@@ -7,7 +7,7 @@ use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
-use ress_common::constant::WITNESS_PATH;
+use ress_common::constant::get_witness_path;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
@@ -30,9 +30,12 @@ use reth_rpc_api::DebugApiClient;
 use reth_trie_sparse::SparseStateTrie;
 use std::result::Result::Ok;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
+
+use crate::errors::EngineError;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
@@ -82,11 +85,14 @@ impl ConsensusEngine {
     /// run engine to handle receiving consensus message.
     pub async fn run(mut self) {
         while let Some(beacon_msg) = self.from_beacon_engine.recv().await {
-            self.handle_beacon_message(beacon_msg).await;
+            self.handle_beacon_message(beacon_msg).await.unwrap();
         }
     }
 
-    async fn handle_beacon_message(&mut self, msg: BeaconEngineMessage<EthEngineTypes>) {
+    async fn handle_beacon_message(
+        &mut self,
+        msg: BeaconEngineMessage<EthEngineTypes>,
+    ) -> Result<(), EngineError> {
         match msg {
             BeaconEngineMessage::NewPayload {
                 payload,
@@ -97,29 +103,36 @@ impl ConsensusEngine {
                     "👋 new payload: {:?}, fetching witness...",
                     payload.block_number()
                 );
+                let storage = self.storage.clone();
+
                 let block_hash = payload.block_hash();
+                storage.set_block_hash(block_hash, payload.block_number());
 
                 // ===================== Witness =====================
 
                 // todo: we will get witness from fullnode connection later
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
+                    .request_timeout(Duration::from_secs(30))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
                     .unwrap();
                 let witness_from_rpc =
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
-                        .unwrap();
+                        .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
                 // todo: we just overwrite witness with latest data, which as we running 2 nodes on demo this cus issue
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
-                std::fs::write(WITNESS_PATH, json_data).expect("Unable to write file");
-                info!("🟢 we got witness");
+
+                std::fs::write(&get_witness_path(block_hash), json_data)
+                    .expect("Unable to write file");
+                info!(?block_hash, "🟢 we got witness");
 
                 // ===================== Validation =====================
 
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-                let storage = self.storage.clone();
+
+                assert!(storage.is_canonical_blocks_exist(payload.block_number()));
 
                 // ====
                 // todo: i think we needed to have the headers ready before running
@@ -163,7 +176,7 @@ impl ConsensusEngine {
 
                 // ===================== Witness =====================
 
-                let execution_witness = storage.get_witness(block_hash).unwrap();
+                let execution_witness = storage.get_witness(block_hash)?;
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)
                     .unwrap();
@@ -173,9 +186,9 @@ impl ConsensusEngine {
                 info!("start execution");
                 let start_time = std::time::Instant::now();
                 let mut block_executor = BlockExecutor::new(db, storage);
-                let senders = block.senders().unwrap();
+                let senders = block.senders().expect("no senders");
                 let block = BlockWithSenders::new(block.clone().unseal(), senders).unwrap();
-                let output = block_executor.execute(&block).unwrap();
+                let output = block_executor.execute(&block)?;
                 info!("end execution in {:?}", start_time.elapsed());
 
                 // ===================== Post Validation =====================
@@ -192,13 +205,16 @@ impl ConsensusEngine {
                     header: payload_header.clone(),
                 }));
 
-                info!("🎉 executed new payload successfully");
+                let latest_valid_hash = self
+                    .node_state
+                    .head_block_hash
+                    .unwrap_or(payload_header.parent_hash);
 
-                tx.send(Ok(PayloadStatus::new(
-                    PayloadStatusEnum::Valid,
-                    self.node_state.head_block_hash,
-                )))
-                .unwrap();
+                info!(?latest_valid_hash, "🎉 executed new payload");
+
+                tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                    .with_latest_valid_hash(latest_valid_hash)))
+                    .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
@@ -233,13 +249,15 @@ impl ConsensusEngine {
                 tx.send(Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
                     PayloadStatusEnum::Valid,
                 ))))
-                .unwrap();
+                .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
                 // Implement transition configuration handling
                 todo!()
             }
         }
+
+        Ok(())
     }
 
     /// validate new payload's block via consensus

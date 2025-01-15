@@ -1,5 +1,6 @@
 use eyre::ErrReport;
 use ress_storage::errors::StorageError;
+use reth_evm::execute::BlockExecutionError;
 use reth_provider::ProviderError;
 
 /// Database error type.
@@ -40,4 +41,7 @@ pub enum EvmError {
     Custom(String),
     #[error("{0}")]
     Precompile(String),
+
+    #[error("{0}")]
+    BlockExecution(#[from] BlockExecutionError),
 }

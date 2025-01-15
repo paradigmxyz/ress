@@ -30,13 +30,11 @@ impl BlockExecutor {
         &mut self,
         block: &BlockWithSenders,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
-        self.strategy.apply_pre_execution_changes(block).unwrap();
-        let ExecuteOutput { receipts, gas_used } =
-            self.strategy.execute_transactions(block).unwrap();
+        self.strategy.apply_pre_execution_changes(block)?;
+        let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
         let requests = self
             .strategy
-            .apply_post_execution_changes(block, &receipts)
-            .unwrap();
+            .apply_post_execution_changes(block, &receipts)?;
         let state = self.strategy.finish();
         Ok(BlockExecutionOutput {
             state,
