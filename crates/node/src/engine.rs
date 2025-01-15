@@ -113,7 +113,7 @@ impl ConsensusEngine {
                 // todo: we will get witness from fullnode connection later
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
-                    .request_timeout(Duration::from_secs(30))
+                    .request_timeout(Duration::from_secs(120))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
                     .unwrap();
                 let witness_from_rpc =
@@ -123,7 +123,7 @@ impl ConsensusEngine {
                 // todo: we just overwrite witness with latest data, which as we running 2 nodes on demo this cus issue
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
 
-                std::fs::write(&get_witness_path(block_hash), json_data)
+                std::fs::write(get_witness_path(block_hash), json_data)
                     .expect("Unable to write file");
                 info!(?block_hash, "🟢 we got witness");
 
@@ -227,29 +227,43 @@ impl ConsensusEngine {
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
 
-                let pending_state = self
-                    .pending_state
-                    .clone()
-                    .expect("must have pending state on fcu");
+                // self.payload_validator
+                //     .ensure_well_formed_attributes::<EthPayloadAttributes>(
+                //         version,
+                //         &(payload_attrs.unwrap() as EthPayloadAttributes),
+                //     );
 
-                self.storage
-                    .set_block(pending_state.header.clone().unseal());
-                self.storage.remove_oldest_block();
+                if state.head_block_hash.is_zero() {
+                    tx.send(Ok(OnForkChoiceUpdated::invalid_state()))
+                        .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                } else {
+                    let pending_state = self
+                        .pending_state
+                        .clone()
+                        .expect("must have pending state on fcu");
+                    // check head is same as pending state header from payload
+                    assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
+                    // check finalized bock hash and safe block hash all in storage
+                    assert!(self.storage.find_block_hash(state.finalized_block_hash));
+                    assert!(self.storage.find_block_hash(state.safe_block_hash));
+                    let header = pending_state.header.clone();
+                    // if payload_attrs.unwrap().timestamp() <= header.timestamp {
+                    //     tx.send(Ok(OnForkChoiceUpdated::invalid_payload_attributes()))
+                    //         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                    // } else {
+                    // update the state
+                    self.storage.set_block(header.clone().unseal());
+                    self.storage.remove_oldest_block();
+                    self.node_state.head_block_hash = Some(state.head_block_hash);
+                    self.node_state.safe_block_hash = Some(state.safe_block_hash);
+                    self.node_state.finalized_block_hash = Some(state.finalized_block_hash);
 
-                // TODO: smth like EngineApiTreeHandler.on_forkchoice_updated validation is needed. Should i just leverage EngineApiTreeHandler struct
-
-                let safe_block_hash = state.safe_block_hash;
-                let head_block_hash = state.head_block_hash;
-                let finalized_block_hash = state.finalized_block_hash;
-
-                self.node_state.head_block_hash = Some(head_block_hash);
-                self.node_state.safe_block_hash = Some(safe_block_hash);
-                self.node_state.finalized_block_hash = Some(finalized_block_hash);
-
-                tx.send(Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
-                    PayloadStatusEnum::Valid,
-                ))))
-                .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                    tx.send(Ok(OnForkChoiceUpdated::valid(
+                        PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                            .with_latest_valid_hash(state.head_block_hash),
+                    )))
+                    .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                }
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
                 // Implement transition configuration handling

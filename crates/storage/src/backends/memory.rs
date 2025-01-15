@@ -47,6 +47,14 @@ impl MemoryStorage {
         }
     }
 
+    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
+        let inner = self.inner.read();
+        inner
+            .canonical_hashes
+            .values()
+            .any(|&hash| hash == block_hash)
+    }
+
     pub fn remove_oldest_block(&self) {
         let mut inner = self.inner.write();
 

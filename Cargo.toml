@@ -70,6 +70,7 @@ reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "986c75
 
 ## consensus
 reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
+reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-consensus = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 

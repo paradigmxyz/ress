@@ -49,6 +49,10 @@ impl Storage {
         self.memory.remove_oldest_block();
     }
 
+    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
+        self.memory.find_block_hash(block_hash)
+    }
+
     /// set block hash and set block header
     pub fn set_block(&self, header: Header) {
         self.memory
