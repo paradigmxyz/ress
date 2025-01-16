@@ -18,6 +18,7 @@ use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
 use reth_node_api::BeaconEngineMessage;
+use reth_node_api::EngineValidator;
 use reth_node_api::OnForkChoiceUpdated;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
@@ -41,7 +42,7 @@ use crate::errors::EngineError;
 pub struct ConsensusEngine {
     pending_state: Option<Arc<PendingState>>,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
-    payload_validator: EthereumEngineValidator,
+    engine_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     node_state: NodeState,
@@ -68,14 +69,14 @@ impl ConsensusEngine {
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
-        let payload_validator = EthereumEngineValidator::new(chain_spec.clone().into());
+        let engine_validator = EthereumEngineValidator::new(chain_spec.clone().into());
         let consensus: Arc<dyn FullConsensus<Error = ConsensusError>> = Arc::new(
             EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
         );
         Self {
             pending_state: None,
             consensus,
-            payload_validator,
+            engine_validator,
             storage,
             from_beacon_engine,
             node_state: NodeState::default(),
@@ -113,7 +114,7 @@ impl ConsensusEngine {
                 // todo: we will get witness from fullnode connection later
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
-                    .request_timeout(Duration::from_secs(120))
+                    .request_timeout(Duration::from_secs(200))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
                     .unwrap();
                 let witness_from_rpc =
@@ -166,9 +167,8 @@ impl ConsensusEngine {
 
                 let state_root_of_parent = parent_header.state_root;
                 let block = self
-                    .payload_validator
-                    .ensure_well_formed_payload(payload, sidecar)
-                    .unwrap();
+                    .engine_validator
+                    .ensure_well_formed_payload(payload, sidecar)?;
                 let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
                 info!("🟢 new payload is valid");
@@ -217,8 +217,8 @@ impl ConsensusEngine {
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
-                payload_attrs: _,
-                version: _,
+                payload_attrs,
+                version,
                 tx,
             } => {
                 info!(
@@ -226,32 +226,36 @@ impl ConsensusEngine {
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
 
-                // self.payload_validator
-                //     .ensure_well_formed_attributes::<EthPayloadAttributes>(
-                //         version,
-                //         &(payload_attrs.unwrap() as EthPayloadAttributes),
-                //     );
+                let pending_state = self
+                    .pending_state
+                    .clone()
+                    .expect("must have pending state on fcu");
+                // check head is same as pending state header from payload
+                assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
+                // check finalized bock hash and safe block hash all in storage
+                assert!(self.storage.find_block_hash(state.finalized_block_hash));
+                assert!(self.storage.find_block_hash(state.safe_block_hash));
+                let header = pending_state.header.clone();
+
+                if payload_attrs.is_some() {
+                    let attrs = payload_attrs.expect("payload not none in this branch");
+                    EngineValidator::<EthEngineTypes>::ensure_well_formed_attributes(
+                        &self.engine_validator,
+                        version,
+                        &attrs,
+                    )?;
+
+                    EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
+                        &self.engine_validator,
+                        &attrs,
+                        &header,
+                    )?;
+                }
 
                 if state.head_block_hash.is_zero() {
                     tx.send(Ok(OnForkChoiceUpdated::invalid_state()))
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
                 } else {
-                    let pending_state = self
-                        .pending_state
-                        .clone()
-                        .expect("must have pending state on fcu");
-                    // check head is same as pending state header from payload
-                    assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
-                    // check finalized bock hash and safe block hash all in storage
-                    assert!(self.storage.find_block_hash(state.finalized_block_hash));
-                    assert!(self.storage.find_block_hash(state.safe_block_hash));
-                    let header = pending_state.header.clone();
-                    // q. sometimes payload_attrs seems none.
-                    // if payload_attrs.unwrap().timestamp() <= header.timestamp {
-                    //     tx.send(Ok(OnForkChoiceUpdated::invalid_payload_attributes()))
-                    //         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
-                    // } else {
-                    // update the state
                     self.storage.set_block(header.clone().unseal());
                     self.storage.remove_oldest_block();
                     self.node_state.head_block_hash = Some(state.head_block_hash);
