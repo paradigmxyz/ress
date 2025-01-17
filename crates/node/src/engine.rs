@@ -235,7 +235,6 @@ impl ConsensusEngine {
                 // check finalized bock hash and safe block hash all in storage
                 assert!(self.storage.find_block_hash(state.finalized_block_hash));
                 assert!(self.storage.find_block_hash(state.safe_block_hash));
-                let header = pending_state.header.clone();
 
                 if payload_attrs.is_some() {
                     let attrs = payload_attrs.expect("payload not none in this branch");
@@ -248,7 +247,7 @@ impl ConsensusEngine {
                     EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
                         &self.engine_validator,
                         &attrs,
-                        &header,
+                        &pending_state.header,
                     )?;
                 }
 
@@ -256,7 +255,8 @@ impl ConsensusEngine {
                     tx.send(Ok(OnForkChoiceUpdated::invalid_state()))
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
                 } else {
-                    self.storage.set_block(header.clone().unseal());
+                    self.storage
+                        .set_block(pending_state.header.clone().unseal());
                     self.storage.remove_oldest_block();
                     self.node_state.head_block_hash = Some(state.head_block_hash);
                     self.node_state.safe_block_hash = Some(state.safe_block_hash);
