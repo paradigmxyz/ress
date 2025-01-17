@@ -95,7 +95,6 @@ impl ConsensusEngine {
                     payload.block_number()
                 );
                 let storage = self.storage.clone();
-
                 let block_hash = payload.block_hash();
                 storage.set_block_hash(block_hash, payload.block_number());
 
@@ -112,12 +111,13 @@ impl ConsensusEngine {
                         .await
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
                 let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
-
                 std::fs::write(get_witness_path(block_hash), json_data)
                     .expect("Unable to write file");
                 info!(?block_hash, "🟢 we got witness");
 
                 // ===================== Validation =====================
+
+                // todo: invalid_ancestors check
 
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
@@ -127,8 +127,7 @@ impl ConsensusEngine {
                 // ====
                 // todo: i think we needed to have the headers ready before running
                 let parent_header = match storage
-                    .get_block_header_by_hash(parent_hash_from_payload)
-                    .unwrap()
+                    .get_block_header_by_hash(parent_hash_from_payload)?
                 {
                     Some(header) => header,
                     None => {
@@ -167,8 +166,7 @@ impl ConsensusEngine {
 
                 let execution_witness = storage.get_witness(block_hash)?;
                 let mut trie = SparseStateTrie::default().with_updates(true);
-                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)
-                    .unwrap();
+                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================
@@ -176,18 +174,17 @@ impl ConsensusEngine {
                 let start_time = std::time::Instant::now();
                 let mut block_executor = BlockExecutor::new(db, storage);
                 let senders = block.senders().expect("no senders");
-                let block = BlockWithSenders::new(block.clone().unseal(), senders).unwrap();
+                let block = BlockWithSenders::new(block.clone().unseal(), senders)
+                    .expect("cannot construct block");
                 let output = block_executor.execute(&block)?;
                 info!("end execution in {:?}", start_time.elapsed());
 
                 // ===================== Post Validation =====================
 
-                self.consensus
-                    .validate_block_post_execution(
-                        &block,
-                        PostExecutionInput::new(&output.receipts, &output.requests),
-                    )
-                    .unwrap();
+                self.consensus.validate_block_post_execution(
+                    &block,
+                    PostExecutionInput::new(&output.receipts, &output.requests),
+                )?;
 
                 // ===================== Update state =====================
                 self.pending_state = Some(Arc::new(PendingState {
@@ -217,17 +214,20 @@ impl ConsensusEngine {
                     "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
+                // todo: invalid_ancestors check
 
+                // check head is same as pending state header from payload
                 let pending_state = self
                     .pending_state
                     .clone()
                     .expect("must have pending state on fcu");
-                // check head is same as pending state header from payload
                 assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
+
                 // check finalized bock hash and safe block hash all in storage
                 assert!(self.storage.find_block_hash(state.finalized_block_hash));
                 assert!(self.storage.find_block_hash(state.safe_block_hash));
 
+                // payload attributes, version validation
                 if let Some(attrs) = payload_attrs {
                     EngineValidator::<EthEngineTypes>::ensure_well_formed_attributes(
                         &self.engine_validator,
