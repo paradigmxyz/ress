@@ -3,7 +3,7 @@ use crate::protocol::proto::BytecodeRequest;
 use super::protocol::proto::{CustomRlpxProtoMessage, CustomRlpxProtoMessageKind, NodeType};
 use alloy_primitives::{bytes::BytesMut, BlockHash, B256};
 use futures::{Stream, StreamExt};
-use ress_common::{constant::get_witness_path, utils::read_example_witness};
+use ress_common::utils::{get_witness_path, read_example_witness};
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_revm::primitives::Bytecode;

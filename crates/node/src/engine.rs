@@ -1,13 +1,13 @@
-use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_provider::network::primitives::BlockTransactionsKind;
 use alloy_provider::network::AnyNetwork;
 use alloy_provider::Provider;
 use alloy_provider::ProviderBuilder;
+use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
-use ress_common::constant::get_witness_path;
+use ress_common::utils::get_witness_path;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
@@ -45,21 +45,11 @@ pub struct ConsensusEngine {
     engine_validator: EthereumEngineValidator,
     storage: Arc<Storage>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
-    node_state: NodeState,
+    forkchoice_state: Option<ForkchoiceState>,
 }
 
 pub struct PendingState {
     header: SealedHeader,
-}
-
-#[derive(Default)]
-pub struct NodeState {
-    /// Hash of the head block last set by fork choice update
-    head_block_hash: Option<B256>,
-    /// Hash of the safe block last set by fork choice update
-    safe_block_hash: Option<B256>,
-    /// Hash of finalized block last set by fork choice update
-    finalized_block_hash: Option<B256>,
 }
 
 impl ConsensusEngine {
@@ -79,7 +69,7 @@ impl ConsensusEngine {
             engine_validator,
             storage,
             from_beacon_engine,
-            node_state: NodeState::default(),
+            forkchoice_state: None,
         }
     }
 
@@ -204,10 +194,10 @@ impl ConsensusEngine {
                     header: payload_header.clone(),
                 }));
 
-                let latest_valid_hash = self
-                    .node_state
-                    .head_block_hash
-                    .unwrap_or(payload_header.parent_hash);
+                let latest_valid_hash = match self.forkchoice_state {
+                    Some(fcu_state) => fcu_state.head_block_hash,
+                    None => parent_hash_from_payload,
+                };
 
                 info!(?latest_valid_hash, "🎉 executed new payload");
 
@@ -236,8 +226,7 @@ impl ConsensusEngine {
                 assert!(self.storage.find_block_hash(state.finalized_block_hash));
                 assert!(self.storage.find_block_hash(state.safe_block_hash));
 
-                if payload_attrs.is_some() {
-                    let attrs = payload_attrs.expect("payload not none in this branch");
+                if let Some(attrs) = payload_attrs {
                     EngineValidator::<EthEngineTypes>::ensure_well_formed_attributes(
                         &self.engine_validator,
                         version,
@@ -258,9 +247,7 @@ impl ConsensusEngine {
                     self.storage
                         .set_block(pending_state.header.clone().unseal());
                     self.storage.remove_oldest_block();
-                    self.node_state.head_block_hash = Some(state.head_block_hash);
-                    self.node_state.safe_block_hash = Some(state.safe_block_hash);
-                    self.node_state.finalized_block_hash = Some(state.finalized_block_hash);
+                    self.forkchoice_state = Some(state);
 
                     tx.send(Ok(OnForkChoiceUpdated::valid(
                         PayloadStatus::from_status(PayloadStatusEnum::Valid)

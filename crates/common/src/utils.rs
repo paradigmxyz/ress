@@ -1,5 +1,6 @@
 use std::{fs::File, io::Read};
 
+use alloy_primitives::BlockHash;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
 
 pub fn read_example_witness(file_path: &str) -> eyre::Result<ExecutionWitnessFromRpc> {
@@ -8,4 +9,8 @@ pub fn read_example_witness(file_path: &str) -> eyre::Result<ExecutionWitnessFro
     file.read_to_string(&mut contents)?;
     let example_header: ExecutionWitnessFromRpc = serde_json::from_str(&contents)?;
     Ok(example_header)
+}
+
+pub fn get_witness_path(block_hash: BlockHash) -> String {
+    format!("./fixtures/witness-{}.json", block_hash)
 }
