@@ -201,9 +201,11 @@ impl ConsensusEngine {
 
                 info!(?latest_valid_hash, "🎉 executed new payload");
 
-                tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                if let Err(e) = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
                     .with_latest_valid_hash(latest_valid_hash)))
-                    .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                {
+                    error!("Failed to send payload status: {:?}", e);
+                }
             }
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
@@ -241,19 +243,21 @@ impl ConsensusEngine {
                 }
 
                 if state.head_block_hash.is_zero() {
-                    tx.send(Ok(OnForkChoiceUpdated::invalid_state()))
-                        .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                    if let Err(e) = tx.send(Ok(OnForkChoiceUpdated::invalid_state())) {
+                        error!("Failed to send invalid state: {:?}", e);
+                    }
                 } else {
                     self.storage
                         .set_block(pending_state.header.clone().unseal());
                     self.storage.remove_oldest_block();
                     self.forkchoice_state = Some(state);
 
-                    tx.send(Ok(OnForkChoiceUpdated::valid(
+                    if let Err(e) = tx.send(Ok(OnForkChoiceUpdated::valid(
                         PayloadStatus::from_status(PayloadStatusEnum::Valid)
                             .with_latest_valid_hash(state.head_block_hash),
-                    )))
-                    .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                    ))) {
+                        error!("Failed to send valid state: {:?}", e);
+                    }
                 }
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
