@@ -5,7 +5,7 @@ use futures::{StreamExt, TryStreamExt};
 use ress_common::test_utils::TestPeers;
 use ress_node::Node;
 use reth_chainspec::MAINNET;
-use reth_consensus_debug_client::{DebugConsensusClient, EtherscanBlockProvider};
+use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
 use reth_node_ethereum::EthEngineTypes;
 use std::net::TcpListener;
@@ -82,12 +82,10 @@ async fn main() -> eyre::Result<()> {
 
     // ================ CONSENSUS CLIENT ================
 
-    let etherscan_block_provider = EtherscanBlockProvider::new(
-        "https://api.etherscan.io/api".to_string(),
-        local_node.get_etherscan_api().parse()?,
-    );
+    let ws_block_provider =
+        RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
     let rpc_consensus_client =
-        DebugConsensusClient::new(node.authserver_handler, Arc::new(etherscan_block_provider));
+        DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
     tokio::spawn(async move {
         info!("💨 running debug consensus client");
         rpc_consensus_client.run::<EthEngineTypes>().await;
@@ -109,7 +107,6 @@ fn is_ports_alive(local_node: TestPeers) {
         Err(_) => true,
     };
     info!(target: "ress","auth server is_alive: {:?}", is_alive);
-
     let is_alive = match TcpListener::bind(("0.0.0.0", local_node.get_network_addr().port())) {
         Ok(_listener) => false,
         Err(_) => true,
