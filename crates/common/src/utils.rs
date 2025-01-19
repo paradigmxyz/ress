@@ -1,7 +1,6 @@
-use std::{fs::File, io::Read};
-
 use alloy_primitives::BlockHash;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
+use std::{fs::File, io::Read};
 
 pub fn read_example_witness(file_path: &str) -> eyre::Result<ExecutionWitnessFromRpc> {
     let mut file = File::open(file_path)?;

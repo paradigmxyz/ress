@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
@@ -16,13 +13,13 @@ use tokio::sync::mpsc::UnboundedSender;
 pub mod backends;
 pub mod errors;
 
-/// orchestrate 3 different type of backends (in-memory, disk, network)
-#[derive(Debug, Clone)]
+/// Orchestrate 3 different type of backends (in-memory, disk, network)
+#[derive(Debug)]
 pub struct Storage {
     pub chain_spec: Arc<ChainSpec>,
-    pub memory: Arc<MemoryStorage>,
-    pub disk: Arc<Mutex<DiskStorage>>,
-    pub network: Arc<NetworkStorage>,
+    pub memory: MemoryStorage,
+    pub disk: DiskStorage,
+    pub network: NetworkStorage,
 }
 
 impl Storage {
@@ -30,9 +27,9 @@ impl Storage {
         network_peer_conn: UnboundedSender<CustomCommand>,
         chain_spec: Arc<ChainSpec>,
     ) -> Self {
-        let memory = Arc::new(MemoryStorage::new());
-        let disk = Arc::new(Mutex::new(DiskStorage::new("test.db")));
-        let network = Arc::new(NetworkStorage::new(network_peer_conn));
+        let memory = MemoryStorage::new();
+        let disk = DiskStorage::new("test.db");
+        let network = NetworkStorage::new(network_peer_conn);
         Self {
             chain_spec,
             memory,
@@ -97,23 +94,22 @@ impl Storage {
         self.memory.get_block_hash(block_number)
     }
 
-    /// get bytecode from disk -> fallback network
-    pub fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
-        let disk = self.disk.lock().unwrap();
-        if let Some(bytecode) = disk.get_account_code(code_hash)? {
+    /// Get contract bytecode from given codehash.
+    ///
+    /// First try fetch from disk and fallback to netowork if it doesn't exist.
+    pub fn get_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
+        if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
             return Ok(bytecode);
         }
-
         let latest_block_hash = self.memory.get_latest_block_hash();
-
-        if let Some(bytecode) = self.network.get_account_code(
+        if let Some(bytecode) = self.network.get_contract_bytecode(
             latest_block_hash.expect("need latest block hash"),
             code_hash,
         )? {
-            disk.update_account_code(code_hash, bytecode.clone())?;
+            self.disk.update_bytecode(code_hash, bytecode.clone())?;
             return Ok(bytecode);
         }
-        Err(StorageError::NoCodeForCodeHash)
+        Err(StorageError::NoCodeForCodeHash(code_hash))
     }
 
     pub fn get_block_header(

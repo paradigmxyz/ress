@@ -1,17 +1,15 @@
-use std::sync::Arc;
-
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
 use ress_storage::Storage;
+use reth_provider::ProviderError;
 use reth_revm::{
     primitives::{AccountInfo, Bytecode},
     Database,
 };
 use reth_trie_sparse::SparseStateTrie;
+use std::sync::Arc;
 use tracing::debug;
-
-use crate::errors::WitnessStateProviderError;
 
 pub struct WitnessDatabase {
     trie: SparseStateTrie,
@@ -26,7 +24,7 @@ impl WitnessDatabase {
 
 impl Database for WitnessDatabase {
     #[doc = " The witness state provider error type."]
-    type Error = WitnessStateProviderError;
+    type Error = ProviderError;
 
     #[doc = " Get basic account information."]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -64,12 +62,17 @@ impl Database for WitnessDatabase {
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
-        Ok(self.storage.code_by_hash(code_hash)?)
+        Ok(self
+            .storage
+            .get_contract_bytecode(code_hash)
+            .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))?)
     }
 
     #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         debug!("request for blockhash: {}", number);
-        Ok(self.storage.get_block_hash(number)?)
+        self.storage
+            .get_block_hash(number)
+            .map_err(|_| ProviderError::StateForNumberNotFound(number))
     }
 }

@@ -21,5 +21,6 @@ pub struct ExecutionWitnessFromRpc {
     /// the execution of the block.
     ///
     /// `keccak(address|slot) => address|slot`
+    #[serde(skip_serializing)]
     pub keys: B256HashMap<Bytes>,
 }

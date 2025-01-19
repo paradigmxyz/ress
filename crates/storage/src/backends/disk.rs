@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use alloy_primitives::{Bytes, B256};
+use parking_lot::Mutex;
 use reth_revm::primitives::Bytecode;
 use rusqlite::{Connection, OptionalExtension, Result};
 
@@ -8,28 +11,29 @@ use crate::errors::StorageError;
 
 #[derive(Debug)]
 pub struct DiskStorage {
-    conn: Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl DiskStorage {
     pub fn new(path: &str) -> Self {
-        let conn = Connection::open(path).unwrap();
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS account_code (
+        let conn = Arc::new(Mutex::new(Connection::open(path).unwrap()));
+        conn.lock()
+            .execute(
+                "CREATE TABLE IF NOT EXISTS account_code (
             id   INTEGER PRIMARY KEY,
             codehash STRING NOT NULL UNIQUE,
             bytecode BLOB
         )",
-            (),
-        )
-        .unwrap();
+                (),
+            )
+            .unwrap();
         Self { conn }
     }
 
     /// get bytecode from disk -> fall back network
-    pub fn get_account_code(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
-        let mut stmt = self
-            .conn
+    pub(crate) fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn
             .prepare("SELECT bytecode FROM account_code WHERE codehash = ?1")
             .unwrap();
         let bytecode: Option<Vec<u8>> = stmt
@@ -48,19 +52,19 @@ impl DiskStorage {
         }
     }
 
-    /// update bytecode in the database
-    pub fn update_account_code(
+    /// Update bytecode in the database
+    pub(crate) fn update_bytecode(
         &self,
         code_hash: B256,
         bytecode: Bytecode,
     ) -> Result<(), StorageError> {
-        self.conn
-            .execute(
-                "INSERT INTO account_code (codehash, bytecode) VALUES (?1, ?2)
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO account_code (codehash, bytecode) VALUES (?1, ?2)
             ON CONFLICT(codehash) DO UPDATE SET bytecode = excluded.bytecode",
-                rusqlite::params![code_hash.to_string(), bytecode.bytes_slice()],
-            )
-            .unwrap();
+            rusqlite::params![code_hash.to_string(), bytecode.bytes_slice()],
+        )
+        .unwrap();
         Ok(())
     }
 }
@@ -80,10 +84,10 @@ mod tests {
         let code_hash = B256::random();
         let bytecode = Bytecode::LegacyRaw(Bytes::from_str("0xabcdef").unwrap());
 
-        let result = storage.update_account_code(code_hash, bytecode.clone());
+        let result = storage.update_bytecode(code_hash, bytecode.clone());
         assert!(result.is_ok(), "Failed to update account code");
 
-        let retrieved_bytecode = storage.get_account_code(code_hash).unwrap();
+        let retrieved_bytecode = storage.get_bytecode(code_hash).unwrap();
         assert!(
             retrieved_bytecode.is_some(),
             "Expected bytecode to be found"
@@ -103,7 +107,7 @@ mod tests {
         let storage = DiskStorage::new(db_path.to_str().unwrap());
 
         let code_hash = B256::random();
-        let retrieved_bytecode = storage.get_account_code(code_hash).unwrap();
+        let retrieved_bytecode = storage.get_bytecode(code_hash).unwrap();
         assert!(
             retrieved_bytecode.is_none(),
             "Expected bytecode to be None for non-existent code hash"

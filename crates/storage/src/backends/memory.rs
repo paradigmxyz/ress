@@ -1,12 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
-
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use parking_lot::RwLock;
 use reth_primitives::{Header, SealedHeader};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::errors::StorageError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemoryStorage {
     inner: Arc<RwLock<MemoryStorageInner>>,
 }
@@ -125,7 +124,7 @@ impl MemoryStorage {
         if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
             Ok(*block_hash)
         } else {
-            Err(StorageError::BlockNotFound)
+            Err(StorageError::BlockNotFound(block_number))
         }
     }
 
