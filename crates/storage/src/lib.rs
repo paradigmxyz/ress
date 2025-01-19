@@ -57,12 +57,28 @@ impl Storage {
         self.memory.set_block_header(header.hash_slow(), header);
     }
 
+    pub fn set_block_header(&self, header: Header) {
+        self.memory.set_block_header(header.hash_slow(), header);
+    }
+
     pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
         self.memory.set_block_hash(block_hash, block_number);
     }
 
     /// overwrite block hashes mapping
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
+        self.memory.overwrite_block_hashes(block_hashes);
+    }
+
+    pub fn overwrite_block_hashes_by_headers(&self, block_headers: Vec<Header>) {
+        let mut block_hashes = HashMap::new();
+
+        for header in block_headers {
+            let block_number = header.number;
+            let block_hash = header.hash_slow();
+            block_hashes.insert(block_number, block_hash);
+        }
+
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
@@ -86,8 +102,8 @@ impl Storage {
         self.overwrite_block_headers(block_headers_map);
     }
 
-    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
-        self.memory.is_canonical_blocks_exist(target_block)
+    pub fn is_canonical_hashes_exist(&self, target_block: BlockNumber) -> bool {
+        self.memory.is_canonical_hashes_exist(target_block)
     }
 
     pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {

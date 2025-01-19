@@ -77,8 +77,11 @@ async fn main() -> eyre::Result<()> {
         .try_collect::<Vec<_>>()
         .await?;
     let storage = node.storage;
-    storage.overwrite_blocks(headers);
-    assert!(storage.is_canonical_blocks_exist(latest_block_number));
+    let parent_header = headers.last().unwrap().clone();
+    println!("latest header:{}", parent_header.number);
+    storage.overwrite_block_hashes_by_headers(headers);
+    storage.set_block_header(parent_header);
+    assert!(storage.is_canonical_hashes_exist(latest_block_number));
 
     // ================ CONSENSUS CLIENT ================
 

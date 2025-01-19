@@ -65,17 +65,10 @@ impl MemoryStorage {
         }
     }
 
-    pub fn is_canonical_blocks_exist(&self, target_block: BlockNumber) -> bool {
+    pub fn is_canonical_hashes_exist(&self, target_block: BlockNumber) -> bool {
         let inner = self.inner.read();
-        (target_block.saturating_sub(255)..target_block).all(|block_number| {
-            inner.canonical_hashes.contains_key(&block_number)
-                && inner.headers.contains_key(
-                    inner
-                        .canonical_hashes
-                        .get(&block_number)
-                        .unwrap_or(&BlockHash::default()),
-                )
-        })
+        (target_block.saturating_sub(255)..target_block)
+            .all(|block_number| inner.canonical_hashes.contains_key(&block_number))
     }
 
     pub fn get_latest_block_hash(&self) -> Option<BlockHash> {

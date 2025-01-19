@@ -62,10 +62,9 @@ impl Database for WitnessDatabase {
     #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
-        Ok(self
-            .storage
+        self.storage
             .get_contract_bytecode(code_hash)
-            .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))?)
+            .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))
     }
 
     #[doc = " Get block hash by block number."]

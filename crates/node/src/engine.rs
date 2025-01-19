@@ -8,6 +8,7 @@ use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
+use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
 use ress_storage::Storage;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
@@ -35,6 +36,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 use tracing::info;
+use tracing::warn;
 
 use crate::errors::EngineError;
 
@@ -103,16 +105,20 @@ impl ConsensusEngine {
                 // todo: we will get witness from fullnode connection later
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
-                    .request_timeout(Duration::from_secs(200))
+                    .request_timeout(Duration::from_secs(500))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
                     .unwrap();
                 let witness_from_rpc =
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
-                let json_data = serde_json::to_string(&witness_from_rpc).unwrap();
-                std::fs::write(get_witness_path(block_hash), json_data)
-                    .expect("Unable to write file");
+                let json_data = serde_json::to_string(&ExecutionWitnessFromRpc {
+                    state: witness_from_rpc.state,
+                    codes: witness_from_rpc.codes,
+                })
+                .unwrap();
+                let witness_path = get_witness_path(block_hash);
+                std::fs::write(witness_path, json_data).expect("Unable to write file");
                 info!(?block_hash, "🟢 we got witness");
 
                 // ===================== Validation =====================
@@ -122,7 +128,7 @@ impl ConsensusEngine {
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
 
-                assert!(storage.is_canonical_blocks_exist(payload.block_number()));
+                assert!(storage.is_canonical_hashes_exist(payload.block_number()));
 
                 // ====
                 // todo: i think we needed to have the headers ready before running
@@ -214,6 +220,7 @@ impl ConsensusEngine {
                     "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
                     state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
                 );
+
                 // todo: invalid_ancestors check
 
                 // check head is same as pending state header from payload
@@ -252,6 +259,10 @@ impl ConsensusEngine {
                     self.storage.remove_oldest_block();
                     self.forkchoice_state = Some(state);
 
+                    let witness_path = get_witness_path(state.head_block_hash);
+                    if let Err(e) = std::fs::remove_file(witness_path) {
+                        warn!("Unable to remove witness file: {:?}", e);
+                    }
                     if let Err(e) = tx.send(Ok(OnForkChoiceUpdated::valid(
                         PayloadStatus::from_status(PayloadStatusEnum::Valid)
                             .with_latest_valid_hash(state.head_block_hash),
