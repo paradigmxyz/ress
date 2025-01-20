@@ -5440,11 +5440,12 @@ dependencies = [
  "alloy-rpc-types-engine",
  "alloy-trie",
  "eyre",
+ "futures",
  "jsonrpsee-http-client",
  "ress-common",
  "ress-network",
  "ress-primitives",
- "ress-storage",
+ "ress-provider",
  "ress-subprotocol",
  "ress-vm",
  "reth-chainspec",
@@ -5474,7 +5475,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ress-storage"
+name = "ress-provider"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
@@ -5528,7 +5529,7 @@ dependencies = [
  "eyre",
  "parking_lot",
  "ress-primitives",
- "ress-storage",
+ "ress-provider",
  "reth-chainspec",
  "reth-evm",
  "reth-evm-ethereum",

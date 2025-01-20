@@ -7,7 +7,7 @@ edition.workspace = true
 [dependencies]
 # ress
 ress-primitives.workspace = true
-ress-storage.workspace = true
+ress-provider.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

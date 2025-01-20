@@ -1,7 +1,7 @@
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
-use ress_storage::Storage;
+use ress_provider::storage::Storage;
 use reth_provider::ProviderError;
 use reth_revm::{
     primitives::{AccountInfo, Bytecode},

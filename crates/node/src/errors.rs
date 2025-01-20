@@ -1,5 +1,5 @@
 use alloy_rpc_types_engine::PayloadError;
-use ress_storage::errors::StorageError;
+use ress_provider::errors::StorageError;
 use ress_vm::errors::EvmError;
 use reth_consensus::ConsensusError;
 use reth_node_api::{EngineObjectValidationError, InvalidPayloadAttributesError};

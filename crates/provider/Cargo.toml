@@ -1,5 +1,5 @@
 [package]
-name = "ress-storage"
+name = "ress-provider"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true

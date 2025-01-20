@@ -3,7 +3,7 @@
 
 use alloy_primitives::{
     bytes::{Buf, BufMut, BytesMut},
-    BlockHash, Bytes, B256,
+    BlockHash, B256,
 };
 use ress_primitives::witness::ExecutionWitness;
 use reth_eth_wire::{protocol::Protocol, Capability};
@@ -39,7 +39,7 @@ pub(crate) enum CustomRlpxProtoMessageKind {
 
     // C. bytecode
     BytecodeReq(BytecodeRequest),
-    BytecodeRes(Bytecode),
+    BytecodeRes(Option<Bytecode>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -140,7 +140,7 @@ impl CustomRlpxProtoMessage {
     }
 
     /// Response Bytecode
-    pub fn bytecode_res(msg: Bytecode) -> Self {
+    pub fn bytecode_res(msg: Option<Bytecode>) -> Self {
         Self {
             message_type: CustomRlpxProtoMessageId::BytecodeRes,
             message: CustomRlpxProtoMessageKind::BytecodeRes(msg),
@@ -167,7 +167,8 @@ impl CustomRlpxProtoMessage {
                 buf.put(&serialized[..]);
             }
             CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
-                buf.put(msg.bytes_slice());
+                let serialized = bincode::serialize(msg).expect("Failed to serialize message");
+                buf.put(&serialized[..]);
             }
             CustomRlpxProtoMessageKind::Disconnect => {}
         }
@@ -207,9 +208,11 @@ impl CustomRlpxProtoMessage {
                     bincode::deserialize(&buf[..]).expect("Failed to serialize message");
                 CustomRlpxProtoMessageKind::BytecodeReq(deserialize)
             }
-            CustomRlpxProtoMessageId::BytecodeRes => CustomRlpxProtoMessageKind::BytecodeRes(
-                Bytecode::new_raw(Bytes::copy_from_slice(&buf[..])),
-            ),
+            CustomRlpxProtoMessageId::BytecodeRes => {
+                let deserialize: Option<Bytecode> =
+                    bincode::deserialize(&buf[..]).expect("Failed to serialize message");
+                CustomRlpxProtoMessageKind::BytecodeRes(deserialize)
+            }
             CustomRlpxProtoMessageId::Disconnect => CustomRlpxProtoMessageKind::Disconnect,
         };
 

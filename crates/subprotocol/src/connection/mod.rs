@@ -13,7 +13,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::debug;
+use tracing::{debug, info};
 
 pub(crate) mod handler;
 
@@ -40,7 +40,7 @@ pub enum CustomCommand {
         /// target code hash that we want to get bytecode from
         code_hash: B256,
         /// The response will be sent to this channel.
-        response: oneshot::Sender<Bytecode>,
+        response: oneshot::Sender<Option<Bytecode>>,
     },
 }
 
@@ -55,7 +55,7 @@ pub struct CustomRlpxConnection {
 
     pending_is_valid_connection: Option<oneshot::Sender<bool>>,
     pending_witness: Option<oneshot::Sender<ExecutionWitness>>,
-    pending_bytecode: Option<oneshot::Sender<Bytecode>>,
+    pending_bytecode: Option<oneshot::Sender<Option<Bytecode>>>,
 }
 
 /// determine whether is valid node combination or not
@@ -152,19 +152,18 @@ impl Stream for CustomRlpxConnection {
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
                     // TODO: get bytecode from other full node peers, rn from file
-                    debug!(
+                    info!(
                         "requested bytes for codehash: {}, blockhash: {}",
                         msg.code_hash, msg.block_hash
                     );
                     let witness =
                         read_example_witness(msg.block_hash).expect("witness should exist");
-                    let code_bytes = witness
-                        .codes
-                        .get(&msg.code_hash)
-                        .expect("no bytes found from codehash");
-                    let bytecode: Bytecode = Bytecode::LegacyRaw(code_bytes.clone());
+                    let code_bytes = match witness.codes.get(&msg.code_hash) {
+                        Some(bytecode) => Some(Bytecode::LegacyRaw(bytecode.clone())),
+                        None => None,
+                    };
                     return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::bytecode_res(bytecode).encoded(),
+                        CustomRlpxProtoMessage::bytecode_res(code_bytes).encoded(),
                     ));
                 }
                 CustomRlpxProtoMessageKind::BytecodeRes(msg) => {

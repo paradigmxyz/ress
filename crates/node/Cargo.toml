@@ -11,7 +11,7 @@ ress-common.workspace = true
 ress-subprotocol.workspace = true
 ress-network.workspace = true
 ress-vm.workspace = true
-ress-storage.workspace = true
+ress-provider.workspace = true
 
 # reth
 reth-primitives.workspace = true
@@ -42,3 +42,4 @@ tracing.workspace = true
 thiserror.workspace = true
 jsonrpsee-http-client.workspace = true
 serde_json.workspace = true
+futures.workspace = true

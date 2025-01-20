@@ -1,4 +1,4 @@
-use ress_storage::errors::StorageError;
+use ress_provider::errors::StorageError;
 use reth_evm::execute::BlockExecutionError;
 
 #[derive(Debug, thiserror::Error)]

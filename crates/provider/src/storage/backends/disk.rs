@@ -31,10 +31,7 @@ impl DiskStorage {
     }
 
     /// get bytecode from disk -> fall back network
-    pub(crate) fn get_bytecode(
-        &self,
-        code_hash: B256,
-    ) -> Result<Option<Bytecode>, DiskStorageError> {
+    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DiskStorageError> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT bytecode FROM account_code WHERE codehash = ?1")?;
         let bytecode: Option<Vec<u8>> = stmt

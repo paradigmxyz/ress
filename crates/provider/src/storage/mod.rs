@@ -1,46 +1,31 @@
-use std::{collections::HashMap, sync::Arc};
-
 use alloy_primitives::{BlockHash, BlockNumber, B256};
-use backends::{disk::DiskStorage, memory::MemoryStorage, network::NetworkStorage};
-use errors::StorageError;
-use ress_primitives::witness::ExecutionWitness;
-use ress_subprotocol::connection::CustomCommand;
+use backends::{disk::DiskStorage, memory::MemoryStorage};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Header, SealedHeader};
 use reth_revm::primitives::Bytecode;
-use tokio::sync::mpsc::UnboundedSender;
+use std::{collections::HashMap, sync::Arc};
+
+use crate::errors::StorageError;
 
 pub mod backends;
-pub mod errors;
 
 /// Orchestrate 3 different type of backends (in-memory, disk, network)
 #[derive(Debug)]
 pub struct Storage {
     chain_spec: Arc<ChainSpec>,
-    memory: MemoryStorage,
-    disk: DiskStorage,
-    network: NetworkStorage,
+    pub memory: MemoryStorage,
+    pub disk: DiskStorage,
 }
 
 impl Storage {
-    pub fn new(
-        network_peer_conn: UnboundedSender<CustomCommand>,
-        chain_spec: Arc<ChainSpec>,
-    ) -> Self {
+    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         let memory = MemoryStorage::new();
         let disk = DiskStorage::new("test.db");
-        let network = NetworkStorage::new(network_peer_conn);
         Self {
             chain_spec,
             memory,
             disk,
-            network,
         }
-    }
-
-    /// Get witness of target block hash
-    pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
-        Ok(self.network.get_witness(block_hash)?)
     }
 
     /// Remove oldest block hash and header
@@ -51,6 +36,17 @@ impl Storage {
     /// Find if target block hash is exist in the memory
     pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
         self.memory.find_block_hash(block_hash)
+    }
+
+    /// Get contract bytecode from given codehash.
+    ///
+    /// First try fetch from disk and fallback to netowork if it doesn't exist.
+    pub fn get_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
+        if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
+            return Ok(bytecode);
+        }
+
+        Err(StorageError::NoCodeForCodeHash(code_hash))
     }
 
     /// Set block hash and set block header
@@ -98,24 +94,6 @@ impl Storage {
         self.memory
             .get_block_hash(block_number)
             .map_err(StorageError::Memory)
-    }
-
-    /// Get contract bytecode from given codehash.
-    ///
-    /// First try fetch from disk and fallback to netowork if it doesn't exist.
-    pub fn get_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
-        if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
-            return Ok(bytecode);
-        }
-        let latest_block_hash = self.memory.get_latest_block_hash();
-        if let Some(bytecode) = self.network.get_contract_bytecode(
-            latest_block_hash.expect("need latest block hash"),
-            code_hash,
-        )? {
-            self.disk.update_bytecode(code_hash, bytecode.clone())?;
-            return Ok(bytecode);
-        }
-        Err(StorageError::NoCodeForCodeHash(code_hash))
     }
 
     /// Get chain config

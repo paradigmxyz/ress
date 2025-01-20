@@ -1,3 +1,4 @@
+use alloy_primitives::b256;
 use alloy_primitives::U256;
 use alloy_provider::network::primitives::BlockTransactionsKind;
 use alloy_provider::network::AnyNetwork;
@@ -9,10 +10,12 @@ use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_trie::nodes::TrieNode;
 use alloy_trie::TrieAccount;
+use futures::StreamExt;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
+use ress_primitives::witness::ExecutionWitness;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
-use ress_storage::Storage;
+use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
 use reth_chainspec::ChainSpec;
@@ -48,7 +51,7 @@ pub struct ConsensusEngine {
     pending_state: Option<Arc<PendingState>>,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
-    storage: Arc<Storage>,
+    provider: Arc<RessProvider>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     forkchoice_state: Option<ForkchoiceState>,
 }
@@ -60,7 +63,7 @@ pub struct PendingState {
 impl ConsensusEngine {
     pub fn new(
         chain_spec: &ChainSpec,
-        storage: Arc<Storage>,
+        provider: Arc<RessProvider>,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
         // we have it in auth server for now to leaverage the mothods in here, we also init new validator
@@ -72,7 +75,7 @@ impl ConsensusEngine {
             pending_state: None,
             consensus,
             engine_validator,
-            storage,
+            provider,
             from_beacon_engine,
             forkchoice_state: None,
         }
@@ -99,7 +102,7 @@ impl ConsensusEngine {
                     "👋 new payload: {:?}, fetching witness...",
                     payload.block_number()
                 );
-                let storage = self.storage.clone();
+                let storage = self.provider.storage.clone();
                 let block_hash = payload.block_hash();
                 storage.set_block_hash(block_hash, payload.block_number());
 
@@ -129,7 +132,7 @@ impl ConsensusEngine {
 
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-                assert!(storage.is_canonical_hashes_exist(payload.block_number()));
+                // assert!(storage.is_canonical_hashes_exist(payload.block_number()));
 
                 // ====
                 // todo: i think we needed to have the headers ready before running
@@ -169,18 +172,8 @@ impl ConsensusEngine {
                 self.validate_header(&block, total_difficulty, parent_header);
 
                 // ===================== Witness =====================
-                let execution_witness = storage.get_witness(block_hash)?;
-
-                // Prefetch all bytecodes
-                // todo: this can be parallelized
-                for (_, encoded) in &execution_witness.state_witness {
-                    if let Ok(TrieNode::Leaf(leaf)) = TrieNode::decode(&mut &encoded[..]) {
-                        if let Ok(account) = TrieAccount::decode(&mut &leaf.value[..]) {
-                            self.storage.get_contract_bytecode(account.code_hash)?;
-                        }
-                    }
-                }
-
+                let execution_witness = self.provider.fetch_witness(block_hash).await?;
+                self.prefetch_all_bytecodes(&execution_witness).await;
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let db = WitnessDatabase::new(trie, storage.clone());
@@ -189,7 +182,7 @@ impl ConsensusEngine {
 
                 info!("start execution");
                 let start_time = std::time::Instant::now();
-                let mut block_executor = BlockExecutor::new(db, storage);
+                let mut block_executor = BlockExecutor::new(db, storage.clone());
                 let senders = block.senders().expect("no senders");
                 let block = BlockWithSenders::new(block.clone().unseal(), senders)
                     .expect("cannot construct block");
@@ -242,9 +235,11 @@ impl ConsensusEngine {
                     .expect("must have pending state on fcu");
                 assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
 
+                let storage = &self.provider.storage;
+
                 // check finalized bock hash and safe block hash all in storage
-                assert!(self.storage.find_block_hash(state.finalized_block_hash));
-                assert!(self.storage.find_block_hash(state.safe_block_hash));
+                assert!(storage.find_block_hash(state.finalized_block_hash));
+                assert!(storage.find_block_hash(state.safe_block_hash));
 
                 // payload attributes, version validation
                 if let Some(attrs) = payload_attrs {
@@ -266,9 +261,8 @@ impl ConsensusEngine {
                         error!("Failed to send invalid state: {:?}", e);
                     }
                 } else {
-                    self.storage
-                        .set_block(pending_state.header.clone().unseal());
-                    self.storage.remove_oldest_block();
+                    storage.set_block(pending_state.header.clone().unseal());
+                    storage.remove_oldest_block();
                     self.forkchoice_state = Some(state);
 
                     let witness_path = get_witness_path(state.head_block_hash);
@@ -319,5 +313,42 @@ impl ConsensusEngine {
         if let Err(e) = self.consensus.validate_block_pre_execution(block) {
             error!("Failed to pre vavalidate header : {e}");
         }
+    }
+
+    /// prefetch all bytecodes in parallel
+    pub async fn prefetch_all_bytecodes(&self, execution_witness: &ExecutionWitness) {
+        let code_hashes: Vec<_> = execution_witness
+            .state_witness
+            .iter()
+            .filter_map(|(_, encoded)| {
+                let node = TrieNode::decode(&mut &encoded[..]).ok()?;
+                let TrieNode::Leaf(leaf) = node else {
+                    return None;
+                };
+                let account = TrieAccount::decode(&mut &leaf.value[..]).ok()?;
+                // Skip "empty" code hashes
+                if account.code_hash
+                    == b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+                {
+                    return None;
+                }
+                Some(account.code_hash)
+            })
+            .collect();
+
+        let concurrency = 25;
+
+        futures::stream::iter(code_hashes)
+            .map(|code_hash| {
+                let provider = self.provider.clone();
+                async move {
+                    if let Err(_) = provider.fetch_contract_bytecode(code_hash).await {
+                        // warn!("Failed to fetch codehash={:?}: {e}", code_hash);
+                    }
+                }
+            })
+            .buffer_unordered(concurrency)
+            .for_each(|_| async {})
+            .await;
     }
 }

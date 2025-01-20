@@ -75,7 +75,7 @@ async fn main() -> eyre::Result<()> {
         .buffer_unordered(25)
         .try_collect::<Vec<_>>()
         .await?;
-    let storage = node.storage;
+    let storage = node.provider.storage.clone();
     let parent_header = headers.last().unwrap().clone();
     info!("latest header: {}", parent_header.number);
     storage.overwrite_block_hashes_by_headers(headers);

@@ -70,7 +70,7 @@ impl MemoryStorage {
             .all(|block_number| inner.canonical_hashes.contains_key(&block_number))
     }
 
-    pub(crate) fn get_latest_block_hash(&self) -> Option<BlockHash> {
+    pub fn get_latest_block_hash(&self) -> Option<BlockHash> {
         let inner = self.inner.read();
         if let Some(&latest_block_number) = inner.canonical_hashes.keys().max() {
             inner.canonical_hashes.get(&latest_block_number).copied()
