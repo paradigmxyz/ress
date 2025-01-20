@@ -5449,6 +5449,7 @@ dependencies = [
  "reth-consensus",
  "reth-consensus-debug-client",
  "reth-engine-primitives",
+ "reth-errors",
  "reth-ethereum-engine-primitives",
  "reth-node-api",
  "reth-node-ethereum",
