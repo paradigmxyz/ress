@@ -23,9 +23,12 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
+use reth_errors::RethError;
+use reth_errors::RethResult;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::EngineValidator;
 use reth_node_api::OnForkChoiceUpdated;
+use reth_node_api::PayloadTypes;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
@@ -47,16 +50,11 @@ use crate::errors::EngineError;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
-    pending_state: Option<Arc<PendingState>>,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
     provider: Arc<RessProvider>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     forkchoice_state: Option<ForkchoiceState>,
-}
-
-pub struct PendingState {
-    header: SealedHeader,
 }
 
 impl ConsensusEngine {
@@ -71,7 +69,6 @@ impl ConsensusEngine {
             EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
         );
         Self {
-            pending_state: None,
             consensus,
             engine_validator,
             provider,
@@ -167,7 +164,6 @@ impl ConsensusEngine {
                 let block = self
                     .engine_validator
                     .ensure_well_formed_payload(payload, sidecar)?;
-                let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
 
                 // ===================== Witness =====================
@@ -197,10 +193,6 @@ impl ConsensusEngine {
 
                 // ===================== Update state =====================
 
-                self.pending_state = Some(Arc::new(PendingState {
-                    header: payload_header.clone(),
-                }));
-
                 let latest_valid_hash = match self.forkchoice_state {
                     Some(fcu_state) => fcu_state.head_block_hash,
                     None => parent_hash_from_payload,
@@ -217,70 +209,108 @@ impl ConsensusEngine {
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
                 payload_attrs,
-                version,
                 tx,
+                version: _,
             } => {
-                info!(
-                    "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
-                    state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
-                );
-
-                // todo: invalid_ancestors check
-
-                // check head is same as pending state header from payload
-                let pending_state = self
-                    .pending_state
-                    .clone()
-                    .expect("must have pending state on fcu");
-                assert_eq!(pending_state.header.hash_slow(), state.head_block_hash);
-
-                let storage = &self.provider.storage;
-
-                // check finalized bock hash and safe block hash all in storage
-                assert!(storage.find_block_hash(state.finalized_block_hash));
-                assert!(storage.find_block_hash(state.safe_block_hash));
-
-                // payload attributes, version validation
-                if let Some(attrs) = payload_attrs {
-                    EngineValidator::<EthEngineTypes>::ensure_well_formed_attributes(
-                        &self.engine_validator,
-                        version,
-                        &attrs,
-                    )?;
-
-                    EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
-                        &self.engine_validator,
-                        &attrs,
-                        &pending_state.header,
-                    )?;
-                }
-
-                if state.head_block_hash.is_zero() {
-                    if let Err(e) = tx.send(Ok(OnForkChoiceUpdated::invalid_state())) {
-                        error!("Failed to send invalid state: {:?}", e);
-                    }
-                } else {
-                    storage.set_block(pending_state.header.clone().unseal());
-                    storage.remove_oldest_block();
-                    self.forkchoice_state = Some(state);
-
-                    let witness_path = get_witness_path(state.head_block_hash);
-                    // remove witness of the fcu
-                    if let Err(e) = std::fs::remove_file(witness_path) {
-                        warn!("Unable to remove witness file: {:?}", e);
-                    }
-                    if let Err(e) = tx.send(Ok(OnForkChoiceUpdated::valid(
-                        PayloadStatus::from_status(PayloadStatusEnum::Valid)
-                            .with_latest_valid_hash(state.head_block_hash),
-                    ))) {
-                        error!("Failed to send valid state: {:?}", e);
-                    }
+                let outcome = self.on_forkchoice_update(state, payload_attrs);
+                if let Err(e) = tx.send(outcome) {
+                    error!("Failed to send forkchoice outcome: {e:?}");
                 }
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
                 // Implement transition configuration handling
                 todo!()
             }
+        }
+
+        Ok(())
+    }
+
+    fn on_forkchoice_update(
+        &mut self,
+        state: ForkchoiceState,
+        payload_attrs: Option<<EthEngineTypes as PayloadTypes>::PayloadAttributes>,
+    ) -> RethResult<OnForkChoiceUpdated> {
+        info!(
+            "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
+            state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
+        );
+
+        if state.head_block_hash.is_zero() {
+            return Ok(OnForkChoiceUpdated::invalid_state());
+        }
+
+        // todo: invalid_ancestors check
+
+        // check finalized bock hash and safe block hash all in storage
+        if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
+            return Ok(outcome);
+        }
+
+        // retrieve head by hash
+        let Some(head) = self
+            .provider
+            .storage
+            .get_block_header_by_hash(state.head_block_hash)
+            .map_err(RethError::msg)?
+        else {
+            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+                PayloadStatusEnum::Syncing,
+            )));
+        };
+
+        // payload attributes, version validation
+        if let Some(attrs) = payload_attrs {
+            if let Err(err) =
+                EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
+                    &self.engine_validator,
+                    &attrs,
+                    &head,
+                )
+            {
+                warn!(%err, ?head, "Invalid payload attributes");
+                return Ok(OnForkChoiceUpdated::invalid_payload_attributes());
+            }
+        }
+
+        // todo: mark block as canonical
+        self.provider.storage.remove_oldest_block();
+        self.forkchoice_state = Some(state);
+
+        let witness_path = get_witness_path(state.head_block_hash);
+        // remove witness of the fcu
+        if let Err(e) = std::fs::remove_file(witness_path) {
+            warn!("Unable to remove witness file: {:?}", e);
+        }
+
+        Ok(OnForkChoiceUpdated::valid(
+            PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                .with_latest_valid_hash(state.head_block_hash),
+        ))
+    }
+
+    /// Ensures that the given forkchoice state is consistent, assuming the head block has been
+    /// made canonical.
+    ///
+    /// If the forkchoice state is consistent, this will return Ok(()). Otherwise, this will
+    /// return an instance of [`OnForkChoiceUpdated`] that is INVALID.
+    fn ensure_consistent_forkchoice_state(
+        &self,
+        state: ForkchoiceState,
+    ) -> Result<(), OnForkChoiceUpdated> {
+        if !state.finalized_block_hash.is_zero()
+            && !self
+                .provider
+                .storage
+                .find_block_hash(state.finalized_block_hash)
+        {
+            return Err(OnForkChoiceUpdated::invalid_state());
+        }
+
+        if !state.safe_block_hash.is_zero()
+            && !self.provider.storage.find_block_hash(state.safe_block_hash)
+        {
+            return Err(OnForkChoiceUpdated::invalid_state());
         }
 
         Ok(())

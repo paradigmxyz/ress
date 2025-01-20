@@ -48,6 +48,7 @@ reth = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
+reth-errors = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 
 ## db
 reth-db = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
