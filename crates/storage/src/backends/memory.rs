@@ -3,7 +3,7 @@ use parking_lot::RwLock;
 use reth_primitives::{Header, SealedHeader};
 use std::{collections::HashMap, sync::Arc};
 
-use crate::errors::StorageError;
+use crate::errors::MemoryStorageError;
 
 #[derive(Debug)]
 pub struct MemoryStorage {
@@ -97,19 +97,19 @@ impl MemoryStorage {
     pub(crate) fn get_block_hash(
         &self,
         block_number: BlockNumber,
-    ) -> Result<BlockHash, StorageError> {
+    ) -> Result<BlockHash, MemoryStorageError> {
         let inner = self.inner.read();
         if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
             Ok(*block_hash)
         } else {
-            Err(StorageError::BlockNotFound(block_number))
+            Err(MemoryStorageError::BlockNotFound(block_number))
         }
     }
 
     pub(crate) fn get_block_header_by_hash(
         &self,
         block_hash: B256,
-    ) -> Result<Option<SealedHeader>, StorageError> {
+    ) -> Result<Option<SealedHeader>, MemoryStorageError> {
         let inner = self.inner.read();
         if let Some(header) = inner.headers.get(&block_hash) {
             Ok(Some(SealedHeader::new(header.clone(), block_hash)))

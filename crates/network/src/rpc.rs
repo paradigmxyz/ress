@@ -24,7 +24,7 @@ pub struct RpcHandler {
 }
 
 impl RpcHandler {
-    pub async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
+    pub(crate) async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
         let (authserver_handle, from_beacon_engine) =
             Self::launch_auth_server(id.get_jwt_key(), id.get_authserver_addr(), chain_spec).await;
 

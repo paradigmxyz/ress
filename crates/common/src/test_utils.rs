@@ -1,5 +1,5 @@
 use std::{
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
     str::FromStr,
 };
 
@@ -61,5 +61,21 @@ impl TestPeers {
             TestPeers::Peer1 => TestPeers::Peer2,
             TestPeers::Peer2 => TestPeers::Peer1,
         }
+    }
+
+    pub fn is_ports_alive(&self) -> bool {
+        let auth_is_alive = match TcpListener::bind(("0.0.0.0", self.get_authserver_addr().port()))
+        {
+            Ok(_listener) => false,
+            Err(_) => true,
+        };
+
+        let network_is_alive = match TcpListener::bind(("0.0.0.0", self.get_network_addr().port()))
+        {
+            Ok(_listener) => false,
+            Err(_) => true,
+        };
+
+        auth_is_alive && network_is_alive
     }
 }

@@ -107,18 +107,17 @@ impl ConsensusEngine {
                     .max_response_size(50 * 1024 * 1024)
                     .request_timeout(Duration::from_secs(500))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
-                    .unwrap();
+                    .map_err(|e| EngineError::DebugApiClient(e.to_string()))?;
                 let execution_witness =
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
-                        .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
+                        .map_err(|e| EngineError::DebugApiClient(e.to_string()))?;
                 let json_data = serde_json::to_string(&ExecutionWitnessFromRpc::new(
                     execution_witness.state,
                     execution_witness.codes,
-                ))
-                .unwrap();
-                let witness_path = get_witness_path(block_hash);
-                std::fs::write(witness_path, json_data).expect("Unable to write file");
+                ))?;
+                std::fs::write(get_witness_path(block_hash), json_data)
+                    .expect("Unable to write file");
                 info!(?block_hash, "🟢 we got witness");
 
                 // ===================== Validation =====================
@@ -176,6 +175,7 @@ impl ConsensusEngine {
                 let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================
+
                 info!("start execution");
                 let start_time = std::time::Instant::now();
                 let mut block_executor = BlockExecutor::new(db, storage);
@@ -193,6 +193,7 @@ impl ConsensusEngine {
                 )?;
 
                 // ===================== Update state =====================
+
                 self.pending_state = Some(Arc::new(PendingState {
                     header: payload_header.clone(),
                 }));

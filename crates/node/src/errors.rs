@@ -7,27 +7,39 @@ use reth_trie_sparse::errors::SparseStateTrieError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
-    #[error("storage error")]
+    /// Error related to storage operations.
+    #[error("Storage error: {0}")]
     Storage(#[from] StorageError),
 
-    #[error("evm error")]
+    /// Error related to EVM operations.
+    #[error("Evm error: {0}")]
     Evm(#[from] EvmError),
 
-    #[error("submit error:{0}")]
-    Submit(String),
+    /// Error from the debug API client.
+    #[error("Debug api client: {0}")]
+    DebugApiClient(String),
 
-    #[error("payload error:{0}")]
+    /// Serialization error.
+    #[error("Serialize error: {0}")]
+    Serialize(#[from] serde_json::Error),
+
+    /// Error related to payload processing.
+    #[error("Payload error: {0}")]
     Payload(#[from] PayloadError),
 
-    #[error("engine object validation error:{0}")]
+    /// Error during engine object validation.
+    #[error("Engine object validation error: {0}")]
     EngineObjectValidation(#[from] EngineObjectValidationError),
 
-    #[error("invalid payload attributes error:{0}")]
+    /// Error due to invalid payload attributes.
+    #[error("Invalid payload attributes error: {0}")]
     InvalidPayloadAttributes(#[from] InvalidPayloadAttributesError),
 
-    #[error("sparse state trie error:{0}")]
+    /// Error related to sparse state trie operations.
+    #[error("Sparse state trie error: {0}")]
     SparseStateTrie(#[from] SparseStateTrieError),
 
-    #[error("consensus error:{0}")]
+    /// Consensus-related error.
+    #[error("Consensus error: {0}")]
     Consensus(#[from] ConsensusError),
 }

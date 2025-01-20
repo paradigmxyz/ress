@@ -95,7 +95,9 @@ impl Storage {
 
     /// Get block hash from memory of target block number
     pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
-        self.memory.get_block_hash(block_number)
+        self.memory
+            .get_block_hash(block_number)
+            .map_err(StorageError::Memory)
     }
 
     /// Get contract bytecode from given codehash.
@@ -126,6 +128,8 @@ impl Storage {
         &self,
         block_hash: B256,
     ) -> Result<Option<SealedHeader>, StorageError> {
-        self.memory.get_block_header_by_hash(block_hash)
+        self.memory
+            .get_block_header_by_hash(block_hash)
+            .map_err(StorageError::Memory)
     }
 }

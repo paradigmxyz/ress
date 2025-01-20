@@ -28,7 +28,7 @@ pub struct P2pHandler {
 }
 
 impl P2pHandler {
-    pub async fn start_server(id: TestPeers) -> Self {
+    pub(crate) async fn start_server(id: TestPeers) -> Self {
         let (subnetwork_handle, from_peer) =
             Self::launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;
         // connect peer to own network

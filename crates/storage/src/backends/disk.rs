@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use reth_revm::primitives::Bytecode;
 use rusqlite::{Connection, OptionalExtension, Result};
 
-use crate::errors::StorageError;
+use crate::errors::DiskStorageError;
 
 // todo: for now for simplicity using sqlite, mb later move kv storage like libmbdx
 
@@ -31,18 +31,18 @@ impl DiskStorage {
     }
 
     /// get bytecode from disk -> fall back network
-    pub(crate) fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, StorageError> {
+    pub(crate) fn get_bytecode(
+        &self,
+        code_hash: B256,
+    ) -> Result<Option<Bytecode>, DiskStorageError> {
         let conn = self.conn.lock();
-        let mut stmt = conn
-            .prepare("SELECT bytecode FROM account_code WHERE codehash = ?1")
-            .unwrap();
+        let mut stmt = conn.prepare("SELECT bytecode FROM account_code WHERE codehash = ?1")?;
         let bytecode: Option<Vec<u8>> = stmt
             .query_row([code_hash.to_string()], |row| {
                 let bytes: Vec<u8> = row.get(0)?;
                 Ok(bytes)
             })
-            .optional()
-            .unwrap();
+            .optional()?;
 
         if let Some(bytes) = bytecode {
             let bytecode: Bytecode = Bytecode::LegacyRaw(Bytes::copy_from_slice(&bytes));
@@ -57,15 +57,18 @@ impl DiskStorage {
         &self,
         code_hash: B256,
         bytecode: Bytecode,
-    ) -> Result<(), StorageError> {
+    ) -> Result<(), DiskStorageError> {
         let conn = self.conn.lock();
-        conn.execute(
+        let result = conn.execute(
             "INSERT INTO account_code (codehash, bytecode) VALUES (?1, ?2)
             ON CONFLICT(codehash) DO UPDATE SET bytecode = excluded.bytecode",
             rusqlite::params![code_hash.to_string(), bytecode.bytes_slice()],
-        )
-        .unwrap();
-        Ok(())
+        );
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(DiskStorageError::Database(e)),
+        }
     }
 }
 

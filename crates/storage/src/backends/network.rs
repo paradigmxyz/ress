@@ -24,15 +24,12 @@ impl NetworkStorage {
     ) -> Result<Option<Bytecode>, NetworkStorageError> {
         debug!(target:"network storage", "Request bytecode");
         let (tx, rx) = tokio::sync::oneshot::channel();
-        self.network_peer_conn
-            .send(CustomCommand::Bytecode {
-                block_hash,
-                code_hash,
-                response: tx,
-            })
-            .map_err(NetworkStorageError::ChannelSend)?;
-        let response = tokio::task::block_in_place(|| rx.blocking_recv())
-            .map_err(NetworkStorageError::ChannelReceive)?;
+        self.network_peer_conn.send(CustomCommand::Bytecode {
+            block_hash,
+            code_hash,
+            response: tx,
+        })?;
+        let response = tokio::task::block_in_place(|| rx.blocking_recv())?;
         debug!(target:"network storage", "Bytecode received");
         Ok(Some(response))
     }
@@ -41,14 +38,11 @@ impl NetworkStorage {
     pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, NetworkStorageError> {
         debug!(target:"network storage", "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
-        self.network_peer_conn
-            .send(CustomCommand::Witness {
-                block_hash,
-                response: tx,
-            })
-            .map_err(NetworkStorageError::ChannelSend)?;
-        let response = tokio::task::block_in_place(|| rx.blocking_recv())
-            .map_err(NetworkStorageError::ChannelReceive)?;
+        self.network_peer_conn.send(CustomCommand::Witness {
+            block_hash,
+            response: tx,
+        })?;
+        let response = tokio::task::block_in_place(|| rx.blocking_recv())?;
         debug!(target:"network storage", "Witness received");
         Ok(response)
     }
