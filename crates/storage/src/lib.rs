@@ -16,10 +16,10 @@ pub mod errors;
 /// Orchestrate 3 different type of backends (in-memory, disk, network)
 #[derive(Debug)]
 pub struct Storage {
-    pub chain_spec: Arc<ChainSpec>,
-    pub memory: MemoryStorage,
-    pub disk: DiskStorage,
-    pub network: NetworkStorage,
+    chain_spec: Arc<ChainSpec>,
+    memory: MemoryStorage,
+    disk: DiskStorage,
+    network: NetworkStorage,
 }
 
 impl Storage {
@@ -38,38 +38,44 @@ impl Storage {
         }
     }
 
+    /// Get witness of target block hash
     pub fn get_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
         Ok(self.network.get_witness(block_hash)?)
     }
 
+    /// Remove oldest block hash and header
     pub fn remove_oldest_block(&self) {
         self.memory.remove_oldest_block();
     }
 
+    /// Find if target block hash is exist in the memory
     pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
         self.memory.find_block_hash(block_hash)
     }
 
-    /// set block hash and set block header
+    /// Set block hash and set block header
     pub fn set_block(&self, header: Header) {
         self.memory
             .set_block_hash(header.hash_slow(), header.number);
         self.memory.set_block_header(header.hash_slow(), header);
     }
 
+    /// Set block header
     pub fn set_block_header(&self, header: Header) {
         self.memory.set_block_header(header.hash_slow(), header);
     }
 
+    /// Set block hash
     pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
         self.memory.set_block_hash(block_hash, block_number);
     }
 
-    /// overwrite block hashes mapping
+    /// Overwrite block hashes mapping
     pub fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
+    /// Overwrite block hashes by passing block headers
     pub fn overwrite_block_hashes_by_headers(&self, block_headers: Vec<Header>) {
         let mut block_hashes = HashMap::new();
 
@@ -82,30 +88,12 @@ impl Storage {
         self.memory.overwrite_block_hashes(block_hashes);
     }
 
-    /// overwrite block headers mapping
-    pub fn overwrite_block_headers(&self, block_headers: HashMap<BlockHash, Header>) {
-        self.memory.overwrite_block_headers(block_headers);
-    }
-
-    pub fn overwrite_blocks(&self, block_headers: Vec<Header>) {
-        let mut block_hashes = HashMap::new();
-        let mut block_headers_map = HashMap::new();
-
-        for header in block_headers {
-            let block_number = header.number;
-            let block_hash = header.hash_slow();
-            block_hashes.insert(block_number, block_hash);
-            block_headers_map.insert(block_hash, header);
-        }
-
-        self.overwrite_block_hashes(block_hashes);
-        self.overwrite_block_headers(block_headers_map);
-    }
-
+    /// Check if 256 canonical hashes are exist from target block
     pub fn is_canonical_hashes_exist(&self, target_block: BlockNumber) -> bool {
         self.memory.is_canonical_hashes_exist(target_block)
     }
 
+    /// Get block hash from memory of target block number
     pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
         self.memory.get_block_hash(block_number)
     }
@@ -128,17 +116,12 @@ impl Storage {
         Err(StorageError::NoCodeForCodeHash(code_hash))
     }
 
-    pub fn get_block_header(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<Header>, StorageError> {
-        self.memory.get_block_header(block_number)
-    }
-
+    /// Get chain config
     pub fn get_chain_config(&self) -> Arc<ChainSpec> {
         self.chain_spec.clone()
     }
 
+    /// Get block header by block hash
     pub fn get_block_header_by_hash(
         &self,
         block_hash: B256,

@@ -108,14 +108,14 @@ impl ConsensusEngine {
                     .request_timeout(Duration::from_secs(500))
                     .build(std::env::var("RPC_URL").expect("RPC_URL"))
                     .unwrap();
-                let witness_from_rpc =
+                let execution_witness =
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .map_err(|e| EngineError::Submit(format!("{:?}", e)))?;
-                let json_data = serde_json::to_string(&ExecutionWitnessFromRpc {
-                    state: witness_from_rpc.state,
-                    codes: witness_from_rpc.codes,
-                })
+                let json_data = serde_json::to_string(&ExecutionWitnessFromRpc::new(
+                    execution_witness.state,
+                    execution_witness.codes,
+                ))
                 .unwrap();
                 let witness_path = get_witness_path(block_hash);
                 std::fs::write(witness_path, json_data).expect("Unable to write file");
@@ -127,7 +127,6 @@ impl ConsensusEngine {
 
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-
                 assert!(storage.is_canonical_hashes_exist(payload.block_number()));
 
                 // ====
@@ -166,6 +165,7 @@ impl ConsensusEngine {
                     .ensure_well_formed_payload(payload, sidecar)?;
                 let payload_header = block.sealed_header();
                 self.validate_header(&block, total_difficulty, parent_header);
+
                 info!("🟢 new payload is valid");
 
                 // ===================== Witness =====================
@@ -260,6 +260,7 @@ impl ConsensusEngine {
                     self.forkchoice_state = Some(state);
 
                     let witness_path = get_witness_path(state.head_block_hash);
+                    // remove witness of the fcu
                     if let Err(e) = std::fs::remove_file(witness_path) {
                         warn!("Unable to remove witness file: {:?}", e);
                     }

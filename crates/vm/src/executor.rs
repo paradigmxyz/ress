@@ -15,7 +15,7 @@ pub struct BlockExecutor {
 impl BlockExecutor {
     /// specific block's executor by initiate with parent block post execution state and hash
     pub fn new(db: WitnessDatabase, storage: Arc<Storage>) -> Self {
-        let chain_spec = storage.chain_spec.clone();
+        let chain_spec = storage.get_chain_config();
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state = StateBuilder::new_with_database(db)
             .with_bundle_update()
