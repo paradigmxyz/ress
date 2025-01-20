@@ -18,6 +18,7 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
+use reth_errors::RethError;
 use reth_errors::RethResult;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::EngineValidator;
@@ -244,11 +245,15 @@ impl ConsensusEngine {
         }
 
         // retrieve head by hash
-        let head = self
+        let Some(head) = self
             .storage
             .get_block_header_by_hash(state.head_block_hash)
-            .unwrap()
-            .unwrap();
+            .map_err(RethError::msg)?
+        else {
+            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+                PayloadStatusEnum::Syncing,
+            )));
+        };
 
         // payload attributes, version validation
         if let Some(attrs) = payload_attrs {
