@@ -62,6 +62,7 @@ impl P2pHandler {
         let custom_rlpx_handler = CustomRlpxProtoHandler {
             state: ProtocolState { events: tx },
             node_type: NodeType::Stateless,
+            state_provider: None,
         };
 
         // Configure the network

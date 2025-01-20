@@ -4,11 +4,16 @@ use crate::protocol::{
     handler::ProtocolState,
     proto::{CustomRlpxProtoMessage, NodeType},
 };
+use reth_db::DatabaseEnv;
 use reth_eth_wire::{
     capability::SharedCapabilities, multiplex::ProtocolConnection, protocol::Protocol,
 };
 use reth_network::protocol::{ConnectionHandler, OnNotSupported};
 use reth_network_api::{Direction, PeerId};
+use reth_node_api::NodeTypesWithDBAdapter;
+use reth_node_ethereum::EthereumNode;
+use reth_provider::providers::BlockchainProvider;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -16,6 +21,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 pub struct CustomRlpxConnectionHandler {
     pub(crate) state: ProtocolState,
     pub(crate) node_type: NodeType,
+    pub(crate) state_provider:
+        Option<BlockchainProvider<NodeTypesWithDBAdapter<EthereumNode, Arc<DatabaseEnv>>>>,
 }
 
 impl ConnectionHandler for CustomRlpxConnectionHandler {
@@ -59,6 +66,7 @@ impl ConnectionHandler for CustomRlpxConnectionHandler {
             pending_is_valid_connection: None,
             pending_bytecode: None,
             pending_witness: None,
+            state_provider: self.state_provider,
         }
     }
 }

@@ -17,9 +17,11 @@ fn main() -> eyre::Result<()> {
 
         // add the custom network subprotocol to the launched node
         let (tx, mut _from_peer0) = mpsc::unbounded_channel();
+        let state_provider = node.provider;
         let custom_rlpx_handler = CustomRlpxProtoHandler {
             state: ProtocolState { events: tx },
             node_type: NodeType::Stateful,
+            state_provider: Some(state_provider),
         };
         node.network
             .add_rlpx_sub_protocol(custom_rlpx_handler.into_rlpx_sub_protocol());

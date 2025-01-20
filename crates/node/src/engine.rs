@@ -342,8 +342,8 @@ impl ConsensusEngine {
             .map(|code_hash| {
                 let provider = self.provider.clone();
                 async move {
-                    if let Err(_) = provider.fetch_contract_bytecode(code_hash).await {
-                        // warn!("Failed to fetch codehash={:?}: {e}", code_hash);
+                    if let Err(e) = provider.fetch_contract_bytecode(code_hash).await {
+                        warn!("Failed to fetch codehash={:?}: {e}", code_hash);
                     }
                 }
             })

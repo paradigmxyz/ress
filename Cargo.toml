@@ -50,10 +50,10 @@ reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "9
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 
 ## db
+reth-db = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "986c754", features = [
     "test-utils",
 ] }
-
 ## network
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-network-api = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
