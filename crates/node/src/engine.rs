@@ -10,7 +10,6 @@ use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_trie::nodes::TrieNode;
 use alloy_trie::TrieAccount;
-use futures::StreamExt;
 use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
@@ -332,23 +331,14 @@ impl ConsensusEngine {
                 {
                     return None;
                 }
+
                 Some(account.code_hash)
             })
             .collect();
-
-        let concurrency = 25;
-
-        futures::stream::iter(code_hashes)
-            .map(|code_hash| {
-                let provider = self.provider.clone();
-                async move {
-                    if let Err(e) = provider.fetch_contract_bytecode(code_hash).await {
-                        warn!("Failed to fetch codehash={:?}: {e}", code_hash);
-                    }
-                }
-            })
-            .buffer_unordered(concurrency)
-            .for_each(|_| async {})
-            .await;
+        for code_hash in self.provider.storage.filter_code_hashes(code_hashes) {
+            if let Err(e) = self.provider.fetch_contract_bytecode(code_hash).await {
+                warn!("Failed to prefetch: {e}");
+            }
+        }
     }
 }

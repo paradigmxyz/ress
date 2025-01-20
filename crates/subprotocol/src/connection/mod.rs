@@ -17,7 +17,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::{debug, info};
+use tracing::debug;
 
 pub(crate) mod handler;
 
@@ -169,7 +169,7 @@ impl Stream for CustomRlpxConnection {
                     continue;
                 }
                 CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
-                    info!(
+                    debug!(
                         "requested bytes for codehash: {}, blockhash: {}",
                         msg.code_hash, msg.block_hash
                     );

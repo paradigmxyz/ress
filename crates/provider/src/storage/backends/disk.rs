@@ -30,8 +30,29 @@ impl DiskStorage {
         Self { conn }
     }
 
-    /// get bytecode from disk -> fall back network
-    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DiskStorageError> {
+    pub(crate) fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
+        code_hashes
+            .into_iter()
+            .filter(|code_hash| !self.code_hash_exists_in_db(code_hash))
+            .collect()
+    }
+
+    fn code_hash_exists_in_db(&self, code_hash: &B256) -> bool {
+        let conn = self.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT COUNT(*) FROM account_code WHERE codehash = ?1")
+            .unwrap();
+        let count: i64 = stmt
+            .query_row([code_hash.to_string()], |row| row.get(0))
+            .unwrap_or(0);
+        count > 0
+    }
+
+    /// get bytecode from disk
+    pub(crate) fn get_bytecode(
+        &self,
+        code_hash: B256,
+    ) -> Result<Option<Bytecode>, DiskStorageError> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT bytecode FROM account_code WHERE codehash = ?1")?;
         let bytecode: Option<Vec<u8>> = stmt

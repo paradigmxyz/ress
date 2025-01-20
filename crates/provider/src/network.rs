@@ -34,7 +34,7 @@ impl NetworkProvider {
         Ok(response)
     }
 
-    /// request to get StateWitness from block hash
+    /// Get StateWitness from block hash
     pub(crate) async fn get_witness(
         &self,
         block_hash: B256,

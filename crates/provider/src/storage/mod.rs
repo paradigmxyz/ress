@@ -38,15 +38,16 @@ impl Storage {
         self.memory.find_block_hash(block_hash)
     }
 
-    /// Get contract bytecode from given codehash.
-    ///
-    /// First try fetch from disk and fallback to netowork if it doesn't exist.
+    /// Get contract bytecode from given codehash from the disk
     pub fn get_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
         if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
             return Ok(bytecode);
         }
-
         Err(StorageError::NoCodeForCodeHash(code_hash))
+    }
+
+    pub fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
+        self.disk.filter_code_hashes(code_hashes)
     }
 
     /// Set block hash and set block header

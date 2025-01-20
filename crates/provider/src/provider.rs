@@ -30,7 +30,7 @@ impl RessProvider {
         Ok(self.network.get_witness(block_hash).await?)
     }
 
-    /// Fetch bytecode from netwrok and save it to disk
+    /// Fetch bytecode and save it to disk
     pub async fn fetch_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
         let latest_block_hash = self.storage.memory.get_latest_block_hash();
         if let Some(bytecode) = self
