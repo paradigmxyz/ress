@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockNumHash;
 use engine::ConsensusEngine;
 use ress_common::test_utils::TestPeers;
 use ress_network::p2p::P2pHandler;
@@ -18,7 +19,11 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn launch_test_node(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
+    pub async fn launch_test_node(
+        id: TestPeers,
+        chain_spec: Arc<ChainSpec>,
+        current_canonical_head: BlockNumHash,
+    ) -> Self {
         let (p2p_handler, rpc_handler) =
             ress_network::start_network(id, Arc::clone(&chain_spec)).await;
 
@@ -28,6 +33,7 @@ impl Node {
         let provider = Arc::new(RessProvider::new(
             p2p_handler.network_peer_conn.clone(),
             Arc::clone(&chain_spec),
+            current_canonical_head,
         ));
 
         let consensus_engine = ConsensusEngine::new(

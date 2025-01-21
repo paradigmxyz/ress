@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockNumHash;
 use alloy_primitives::B256;
 use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
@@ -19,9 +20,10 @@ impl RessProvider {
     pub fn new(
         network_peer_conn: UnboundedSender<CustomCommand>,
         chain_spec: Arc<ChainSpec>,
+        current_canonical_head: BlockNumHash,
     ) -> Self {
         let network = NetworkProvider::new(network_peer_conn);
-        let storage = Arc::new(Storage::new(chain_spec));
+        let storage = Arc::new(Storage::new(chain_spec, current_canonical_head));
         Self { storage, network }
     }
 

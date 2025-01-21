@@ -1,8 +1,5 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::U256;
-use alloy_provider::network::primitives::BlockTransactionsKind;
-use alloy_provider::network::AnyNetwork;
-use alloy_provider::Provider;
-use alloy_provider::ProviderBuilder;
 use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
@@ -23,7 +20,6 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
-use reth_errors::RethError;
 use reth_errors::RethResult;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::EngineValidator;
@@ -126,41 +122,20 @@ impl ConsensusEngine {
                 // ===================== Validation =====================
 
                 // todo: invalid_ancestors check
-
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-                // assert!(storage.is_canonical_hashes_exist(payload.block_number()));
+
+                if !storage.is_canonical(payload.parent_hash()) {
+                    warn!(?parent_hash_from_payload, "not in canonical");
+                }
 
                 // ====
-                // todo: i think we needed to have the headers ready before running
-                let parent_header = match storage
-                    .get_block_header_by_hash(parent_hash_from_payload)?
-                {
-                    Some(header) => header,
-                    None => {
-                        // this should not happen actually
-                        info!("‼ parent header not found, fetching..");
-                        let rpc_block_provider = ProviderBuilder::new()
-                            .network::<AnyNetwork>()
-                            .on_http(std::env::var("RPC_URL").expect("need rpc").parse().unwrap());
-                        let block = &rpc_block_provider
-                            .get_block_by_number(
-                                (payload.block_number() - 1).into(),
-                                BlockTransactionsKind::Hashes,
-                            )
-                            .await
-                            .unwrap()
-                            .unwrap();
-                        let block_header = block
-                            .header
-                            .clone()
-                            .into_consensus()
-                            .into_header_with_defaults();
-                        storage.set_block_hash(block_header.hash_slow(), block_header.number);
-                        SealedHeader::new(block_header, parent_hash_from_payload)
-                    }
-                };
-
+                let parent_header: SealedHeader = SealedHeader::new(
+                    storage
+                        .executed_block_by_hash(parent_hash_from_payload)
+                        .expect("should have header"),
+                    parent_hash_from_payload,
+                );
                 let state_root_of_parent = parent_header.state_root;
                 let block = self
                     .engine_validator
@@ -195,7 +170,7 @@ impl ConsensusEngine {
                 // ===================== Update state =====================
 
                 let header_from_payload = block.header.clone();
-                self.provider.storage.set_block_header(header_from_payload);
+                self.provider.storage.insert_executed(header_from_payload);
                 let latest_valid_hash = match self.forkchoice_state {
                     Some(fcu_state) => fcu_state.head_block_hash,
                     None => parent_hash_from_payload,
@@ -216,6 +191,8 @@ impl ConsensusEngine {
                 version: _,
             } => {
                 let outcome = self.on_forkchoice_update(state, payload_attrs);
+                info!("outcome: {:?}", outcome);
+
                 if let Err(e) = tx.send(outcome) {
                     error!("Failed to send forkchoice outcome: {e:?}");
                 }
@@ -254,8 +231,7 @@ impl ConsensusEngine {
         let Some(head) = self
             .provider
             .storage
-            .get_block_header_by_hash(state.head_block_hash)
-            .map_err(RethError::msg)?
+            .executed_block_by_hash(state.head_block_hash)
         else {
             return Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
                 PayloadStatusEnum::Syncing,
@@ -278,6 +254,12 @@ impl ConsensusEngine {
 
         // todo: mark block as canonical
         self.provider.storage.remove_oldest_block();
+        self.provider
+            .storage
+            .set_block_hash(head.hash_slow(), head.number);
+        self.provider
+            .storage
+            .set_canonical_head(BlockNumHash::new(head.number, head.hash_slow()));
         self.forkchoice_state = Some(state);
 
         let witness_path = get_witness_path(state.head_block_hash);

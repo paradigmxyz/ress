@@ -1,3 +1,4 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use backends::{disk::DiskStorage, memory::MemoryStorage};
 use reth_chainspec::ChainSpec;
@@ -8,6 +9,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::errors::StorageError;
 
 pub mod backends;
+pub mod trie;
 
 /// Orchestrate 3 different type of backends (in-memory, disk, network)
 #[derive(Debug)]
@@ -18,14 +20,32 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        let memory = MemoryStorage::new();
+    pub fn new(chain_spec: Arc<ChainSpec>, current_canonical_head: BlockNumHash) -> Self {
+        let memory = MemoryStorage::new(current_canonical_head);
         let disk = DiskStorage::new("test.db");
         Self {
             chain_spec,
             memory,
             disk,
         }
+    }
+
+    pub fn executed_block_by_hash(&self, hash: B256) -> Option<Header> {
+        self.memory.executed_block_by_hash(hash)
+    }
+
+    /// Insert executed block into the state.
+    pub fn insert_executed(&self, executed: Header) {
+        self.memory.insert_executed(executed);
+    }
+
+    /// Returns whether or not the hash is part of the canonical chain.
+    pub fn is_canonical(&self, hash: B256) -> bool {
+        self.memory.is_canonical(hash)
+    }
+
+    pub fn set_canonical_head(&self, new_head: BlockNumHash) {
+        self.memory.set_canonical_head(new_head);
     }
 
     /// Remove oldest block hash and header

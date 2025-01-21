@@ -5434,6 +5434,7 @@ dependencies = [
 name = "ress-node"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
@@ -5479,6 +5480,7 @@ dependencies = [
 name = "ress-provider"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
