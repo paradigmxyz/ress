@@ -96,8 +96,10 @@ impl ConsensusEngine {
                     payload.block_number()
                 );
                 let storage = self.provider.storage.clone();
-                let block_hash = payload.block_hash();
-                storage.set_block_hash(block_hash, payload.block_number());
+                let block_hash_from_payload = payload.block_hash();
+                self.provider
+                    .storage
+                    .set_canonical_hash(block_hash_from_payload, payload.block_number());
 
                 // ===================== Witness =====================
 
@@ -115,9 +117,9 @@ impl ConsensusEngine {
                     execution_witness.state,
                     execution_witness.codes,
                 ))?;
-                std::fs::write(get_witness_path(block_hash), json_data)
+                std::fs::write(get_witness_path(block_hash_from_payload), json_data)
                     .expect("Unable to write file");
-                info!(?block_hash, "🟢 we got witness");
+                info!(?block_hash_from_payload, "🟢 we got witness");
 
                 // ===================== Validation =====================
 
@@ -130,10 +132,11 @@ impl ConsensusEngine {
                 }
 
                 // ====
+                let err_msg = format!("should have parent header: {}", parent_hash_from_payload);
                 let parent_header: SealedHeader = SealedHeader::new(
                     storage
                         .executed_block_by_hash(parent_hash_from_payload)
-                        .expect("should have header"),
+                        .expect(&err_msg),
                     parent_hash_from_payload,
                 );
                 let state_root_of_parent = parent_header.state_root;
@@ -143,7 +146,8 @@ impl ConsensusEngine {
                 self.validate_header(&block, total_difficulty, parent_header);
 
                 // ===================== Witness =====================
-                let execution_witness = self.provider.fetch_witness(block_hash).await?;
+                let execution_witness =
+                    self.provider.fetch_witness(block_hash_from_payload).await?;
                 self.prefetch_all_bytecodes(&execution_witness).await;
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
@@ -252,20 +256,19 @@ impl ConsensusEngine {
             }
         }
 
-        // todo: mark block as canonical
-        self.provider.storage.remove_oldest_block();
-        self.provider
-            .storage
-            .set_block_hash(head.hash_slow(), head.number);
+        self.provider.storage.remove_oldest_canonical_hash();
         self.provider
             .storage
             .set_canonical_head(BlockNumHash::new(head.number, head.hash_slow()));
         self.forkchoice_state = Some(state);
 
+        self.provider
+            .storage
+            .remove_canonical_until(head.number - 256, state.finalized_block_hash);
         let witness_path = get_witness_path(state.head_block_hash);
         // remove witness of the fcu
         if let Err(e) = std::fs::remove_file(witness_path) {
-            warn!("Unable to remove witness file: {:?}", e);
+            warn!("Unable to remove finalized witness file: {:?}", e);
         }
 
         Ok(OnForkChoiceUpdated::valid(

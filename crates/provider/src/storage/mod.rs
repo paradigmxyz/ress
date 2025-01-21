@@ -2,7 +2,7 @@ use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use backends::{disk::DiskStorage, memory::MemoryStorage};
 use reth_chainspec::ChainSpec;
-use reth_primitives::{Header, SealedHeader};
+use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
 use std::{collections::HashMap, sync::Arc};
 
@@ -30,6 +30,11 @@ impl Storage {
         }
     }
 
+    pub fn remove_canonical_until(&self, upper_bound: BlockNumber, last_persisted_hash: B256) {
+        self.memory
+            .remove_canonical_until(upper_bound, last_persisted_hash);
+    }
+
     pub fn executed_block_by_hash(&self, hash: B256) -> Option<Header> {
         self.memory.executed_block_by_hash(hash)
     }
@@ -49,8 +54,8 @@ impl Storage {
     }
 
     /// Remove oldest block hash and header
-    pub fn remove_oldest_block(&self) {
-        self.memory.remove_oldest_block();
+    pub fn remove_oldest_canonical_hash(&self) {
+        self.memory.remove_oldest_canonical_hash();
     }
 
     /// Find if target block hash is exist in the memory
@@ -71,21 +76,9 @@ impl Storage {
         self.disk.filter_code_hashes(code_hashes)
     }
 
-    /// Set block hash and set block header
-    pub fn set_block(&self, header: Header) {
-        self.memory
-            .set_block_hash(header.hash_slow(), header.number);
-        self.memory.set_block_header(header.hash_slow(), header);
-    }
-
-    /// Set block header
-    pub fn set_block_header(&self, header: Header) {
-        self.memory.set_block_header(header.hash_slow(), header);
-    }
-
-    /// Set block hash
-    pub fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
-        self.memory.set_block_hash(block_hash, block_number);
+    /// Set canonical block hash that historical 256 blocks from canonical head
+    pub fn set_canonical_hash(&self, block_hash: B256, block_number: BlockNumber) {
+        self.memory.set_canonical_hash(block_hash, block_number);
     }
 
     /// Overwrite block hashes mapping
@@ -121,15 +114,5 @@ impl Storage {
     /// Get chain config
     pub fn get_chain_config(&self) -> Arc<ChainSpec> {
         self.chain_spec.clone()
-    }
-
-    /// Get block header by block hash
-    pub fn get_block_header_by_hash(
-        &self,
-        block_hash: B256,
-    ) -> Result<Option<SealedHeader>, StorageError> {
-        self.memory
-            .get_block_header_by_hash(block_hash)
-            .map_err(StorageError::Memory)
     }
 }

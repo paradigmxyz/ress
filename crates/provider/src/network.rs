@@ -22,7 +22,7 @@ impl NetworkProvider {
         block_hash: BlockHash,
         code_hash: B256,
     ) -> Result<Option<Bytecode>, NetworkStorageError> {
-        debug!(target:"network storage", "Request bytecode");
+        debug!(target:"network storage", ?block_hash,?code_hash, "Request bytecode");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn.send(CustomCommand::Bytecode {
             block_hash,
@@ -39,7 +39,7 @@ impl NetworkProvider {
         &self,
         block_hash: B256,
     ) -> Result<ExecutionWitness, NetworkStorageError> {
-        debug!(target:"network storage", "Request witness");
+        debug!(target:"network storage", ?block_hash, "Request witness");
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.network_peer_conn.send(CustomCommand::Witness {
             block_hash,

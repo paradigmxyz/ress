@@ -1,9 +1,9 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{btree_map, hash_map, BTreeMap, HashMap, HashSet};
 
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockNumber, B256};
 use reth_primitives::Header;
-use tracing::info;
+use tracing::{debug, info};
 
 /// Current status of the blockchain's head.
 #[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
@@ -116,6 +116,74 @@ impl TreeState {
         }
 
         false
+    }
+
+    /// Removes canonical blocks below the upper bound, only if the last persisted hash is
+    /// part of the canonical chain.
+    pub(crate) fn remove_canonical_until(
+        &mut self,
+        upper_bound: BlockNumber,
+        last_persisted_hash: B256,
+    ) {
+        debug!(target: "engine::tree", ?upper_bound, ?last_persisted_hash, "Removing canonical blocks from the tree");
+
+        // If the last persisted hash is not canonical, then we don't want to remove any canonical
+        // blocks yet.
+        if !self.is_canonical(last_persisted_hash) {
+            return;
+        }
+
+        // First, let's walk back the canonical chain and remove canonical blocks lower than the
+        // upper bound
+        let mut current_block = self.current_canonical_head.hash;
+        while let Some(executed) = self.blocks_by_hash.get(&current_block) {
+            current_block = executed.parent_hash;
+            if executed.number <= upper_bound {
+                debug!(target: "engine::tree", number=?executed.number, "Attempting to remove block walking back from the head");
+                if let Some((removed, _)) = self.remove_by_hash(executed.hash_slow()) {
+                    debug!(target: "engine::tree", number=?removed.number, "Removed block walking back from the head");
+                }
+            }
+        }
+        debug!(target: "engine::tree", ?upper_bound, ?last_persisted_hash, "Removed canonical blocks from the tree");
+    }
+
+    /// Remove single executed block by its hash.
+    ///
+    /// ## Returns
+    ///
+    /// The removed block and the block hashes of its children.
+    fn remove_by_hash(&mut self, hash: B256) -> Option<(Header, HashSet<B256>)> {
+        let executed = self.blocks_by_hash.remove(&hash)?;
+
+        // Remove this block from collection of children of its parent block.
+        let parent_entry = self.parent_to_child.entry(executed.parent_hash);
+        if let hash_map::Entry::Occupied(mut entry) = parent_entry {
+            entry.get_mut().remove(&hash);
+
+            if entry.get().is_empty() {
+                entry.remove();
+            }
+        }
+
+        // Remove point to children of this block.
+        let children = self.parent_to_child.remove(&hash).unwrap_or_default();
+
+        // Remove this block from `blocks_by_number`.
+        let block_number_entry = self.blocks_by_number.entry(executed.number);
+        if let btree_map::Entry::Occupied(mut entry) = block_number_entry {
+            // We have to find the index of the block since it exists in a vec
+            if let Some(index) = entry.get().iter().position(|b| b.hash_slow() == hash) {
+                entry.get_mut().swap_remove(index);
+
+                // If there are no blocks left then remove the entry for this block
+                if entry.get().is_empty() {
+                    entry.remove();
+                }
+            }
+        }
+
+        Some((executed, children))
     }
 
     /// Updates the canonical head to the given block.

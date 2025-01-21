@@ -1,7 +1,7 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use parking_lot::RwLock;
-use reth_primitives::{Header, SealedHeader};
+use reth_primitives::Header;
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{errors::MemoryStorageError, storage::trie::TreeState};
@@ -15,8 +15,6 @@ pub struct MemoryStorage {
 pub struct MemoryStorageInner {
     /// tracking unfinalized tree state
     tree_state: TreeState,
-    /// keep historical headers for validations
-    headers: HashMap<BlockHash, Header>,
     /// keep historical 256 block's hash
     canonical_hashes: HashMap<BlockNumber, BlockHash>,
 }
@@ -24,7 +22,6 @@ pub struct MemoryStorageInner {
 impl MemoryStorageInner {
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
         Self {
-            headers: HashMap::new(),
             canonical_hashes: HashMap::new(),
             tree_state: TreeState::new(current_canonical_head),
         }
@@ -36,6 +33,17 @@ impl MemoryStorage {
         Self {
             inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))),
         }
+    }
+
+    pub(crate) fn remove_canonical_until(
+        &self,
+        upper_bound: BlockNumber,
+        last_persisted_hash: B256,
+    ) {
+        let mut inner = self.inner.write();
+        inner
+            .tree_state
+            .remove_canonical_until(upper_bound, last_persisted_hash);
     }
 
     pub(crate) fn executed_block_by_hash(&self, hash: B256) -> Option<Header> {
@@ -63,13 +71,10 @@ impl MemoryStorage {
             .any(|&hash| hash == block_hash)
     }
 
-    pub(crate) fn remove_oldest_block(&self) {
+    pub(crate) fn remove_oldest_canonical_hash(&self) {
         let mut inner = self.inner.write();
         if let Some(&oldest_block_number) = inner.canonical_hashes.keys().min() {
-            let block_hash = inner.canonical_hashes.remove(&oldest_block_number);
-            if let Some(block_hash) = block_hash {
-                inner.headers.remove(&block_hash);
-            }
+            let _ = inner.canonical_hashes.remove(&oldest_block_number);
         }
     }
 
@@ -93,14 +98,9 @@ impl MemoryStorage {
         inner.canonical_hashes = block_hashes;
     }
 
-    pub(crate) fn set_block_hash(&self, block_hash: B256, block_number: BlockNumber) {
+    pub(crate) fn set_canonical_hash(&self, block_hash: B256, block_number: BlockNumber) {
         let mut inner = self.inner.write();
         inner.canonical_hashes.insert(block_number, block_hash);
-    }
-
-    pub(crate) fn set_block_header(&self, block_hash: B256, header: Header) {
-        let mut inner = self.inner.write();
-        inner.headers.insert(block_hash, header);
     }
 
     pub(crate) fn get_block_hash(
@@ -112,18 +112,6 @@ impl MemoryStorage {
             Ok(*block_hash)
         } else {
             Err(MemoryStorageError::BlockNotFound(block_number))
-        }
-    }
-
-    pub(crate) fn get_block_header_by_hash(
-        &self,
-        block_hash: B256,
-    ) -> Result<Option<SealedHeader>, MemoryStorageError> {
-        let inner = self.inner.read();
-        if let Some(header) = inner.headers.get(&block_hash) {
-            Ok(Some(SealedHeader::new(header.clone(), block_hash)))
-        } else {
-            Ok(None)
         }
     }
 
