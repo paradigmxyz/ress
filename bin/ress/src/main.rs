@@ -57,13 +57,8 @@ async fn main() -> eyre::Result<()> {
     .await;
     assert!(local_node.is_ports_alive());
 
-    info!(
-        "✨ prefetching block from {} to {}..",
-        latest_block_number - 255,
-        latest_block_number
-    );
-
     // ================ PARALLEL FETCH + STORE HEADERS ================
+    let start_time = std::time::Instant::now();
     let range = (latest_block_number - 255)..=latest_block_number;
 
     let mut canonical_block_hashes = HashMap::new();
@@ -118,17 +113,14 @@ async fn main() -> eyre::Result<()> {
         tree_state.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
         tree_state.insert_executed(header);
     }
-    if (latest_block_number_updated - latest_block_number) > 0 {
-        info!(
-            "✨ prefetching block from {} to {}..",
-            latest_block_number + 1,
-            latest_block_number_updated
-        );
-    }
     node.provider
         .storage
         .overwrite_block_hashes(canonical_block_hashes);
-
+    info!(
+        elapsed = ?start_time.elapsed(), "✨ prefetched block from {} to {}..",
+        latest_block_number - 255,
+        latest_block_number_updated
+    );
     let head = node.provider.storage.get_canonical_head();
     info!("head: {:#?}", head);
 

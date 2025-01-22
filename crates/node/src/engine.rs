@@ -180,7 +180,7 @@ impl ConsensusEngine {
                     None => parent_hash_from_payload,
                 };
 
-                info!(?latest_valid_hash, "🟢 new payload is valid");
+                debug!(?latest_valid_hash, "🟢 new payload is valid");
 
                 if let Err(e) = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
                     .with_latest_valid_hash(latest_valid_hash)))
@@ -215,8 +215,9 @@ impl ConsensusEngine {
         state: ForkchoiceState,
         payload_attrs: Option<<EthEngineTypes as PayloadTypes>::PayloadAttributes>,
     ) -> RethResult<OnForkChoiceUpdated> {
-        info!(
-            "👋 new fork choice, head={:#x}, safe={:#x}, finalized={:#x}",
+        info!("👋 new fork choice");
+        debug!(
+            "head={:#x}, safe={:#x}, finalized={:#x}",
             state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
         );
 
