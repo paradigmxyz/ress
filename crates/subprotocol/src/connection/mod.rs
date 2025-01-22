@@ -151,8 +151,9 @@ impl Stream for CustomRlpxConnection {
                         }
                         NodeType::Stateless => {
                             // currently we use file to fetch witness for stateles <> stateless testing purpose
-                            let witness = read_example_witness(block_hash).unwrap_or_else(|_| panic!("witness should exist on block hash: {}",
-                                block_hash));
+                            let witness = read_example_witness(block_hash).unwrap_or_else(|_| {
+                                panic!("witness should exist on block hash: {}", block_hash)
+                            });
                             let state_witness = witness.state;
                             ExecutionWitness::new(state_witness)
                         }
@@ -183,8 +184,10 @@ impl Stream for CustomRlpxConnection {
                         }
                         NodeType::Stateless => {
                             // currently we use file to fetch witness for stateles <> stateless testing purpose
-                            let witness = read_example_witness(msg.block_hash).unwrap_or_else(|_| panic!("witness should exist on block hash: {}",
-                                msg.block_hash));
+                            let witness =
+                                read_example_witness(msg.block_hash).unwrap_or_else(|_| {
+                                    panic!("witness should exist on block hash: {}", msg.block_hash)
+                                });
                             witness
                                 .codes
                                 .get(&msg.code_hash)

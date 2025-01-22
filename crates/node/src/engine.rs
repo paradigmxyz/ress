@@ -133,8 +133,9 @@ impl ConsensusEngine {
                 let parent_header: SealedHeader = SealedHeader::new(
                     storage
                         .get_executed_header_by_hash(parent_hash_from_payload)
-                        .unwrap_or_else(|| panic!("should have parent header: {}",
-                            parent_hash_from_payload)),
+                        .unwrap_or_else(|| {
+                            panic!("should have parent header: {}", parent_hash_from_payload)
+                        }),
                     parent_hash_from_payload,
                 );
                 let state_root_of_parent = parent_header.state_root;
