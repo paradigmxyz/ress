@@ -1,4 +1,3 @@
-use alloy_eips::BlockNumHash;
 use alloy_primitives::U256;
 use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::ForkchoiceState;
@@ -126,8 +125,7 @@ impl ConsensusEngine {
                 // todo: invalid_ancestors check
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-
-                if !storage.is_canonical(payload.parent_hash()) {
+                if !storage.is_canonical(parent_hash_from_payload) {
                     warn!(?parent_hash_from_payload, "not in canonical");
                 }
 
@@ -195,8 +193,8 @@ impl ConsensusEngine {
                 version: _,
             } => {
                 let outcome = self.on_forkchoice_update(state, payload_attrs);
-                info!("outcome: {:?}", outcome);
-
+                let head = self.provider.storage.get_canonical_head();
+                info!("head: {:#?}", head);
                 if let Err(e) = tx.send(outcome) {
                     error!("Failed to send forkchoice outcome: {e:?}");
                 }
@@ -223,7 +221,6 @@ impl ConsensusEngine {
         if state.head_block_hash.is_zero() {
             return Ok(OnForkChoiceUpdated::invalid_state());
         }
-
         // todo: invalid_ancestors check
 
         // check finalized bock hash and safe block hash all in storage
@@ -256,20 +253,29 @@ impl ConsensusEngine {
             }
         }
 
-        self.provider.storage.remove_oldest_canonical_hash();
-        self.provider
-            .storage
-            .set_canonical_head(BlockNumHash::new(head.number, head.hash_slow()));
-        self.forkchoice_state = Some(state);
+        // ======= Check reorg =======
 
-        self.provider
-            .storage
-            .remove_canonical_until(head.number - 256, state.finalized_block_hash);
-        let witness_path = get_witness_path(state.head_block_hash);
-        // remove witness of the fcu
-        if let Err(e) = std::fs::remove_file(witness_path) {
-            warn!("Unable to remove finalized witness file: {:?}", e);
+        if self.provider.storage.get_canonical_head().number + 1 != head.number {
+            warn!("reorg detacted at {}", head.number);
+            self.provider
+                .storage
+                .post_fcu_reorg_update(head, state.finalized_block_hash);
+        } else {
+            // no reorg just update single canonical hash
+            self.provider
+                .storage
+                .post_fcu_update(head, state.finalized_block_hash);
+            self.forkchoice_state = Some(state);
         }
+
+        // ==============
+
+        // todo: also need to prune witness, but will handle by getting witness from stateful node
+        //let witness_path = get_witness_path(state.head_block_hash);
+        // // remove witness of the fcu
+        // if let Err(e) = std::fs::remove_file(witness_path) {
+        //     warn!("Unable to remove finalized witness file: {:?}", e);
+        // }
 
         Ok(OnForkChoiceUpdated::valid(
             PayloadStatus::from_status(PayloadStatusEnum::Valid)
@@ -290,13 +296,12 @@ impl ConsensusEngine {
             && !self
                 .provider
                 .storage
-                .find_block_hash(state.finalized_block_hash)
+                .is_canonical(state.finalized_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
-
         if !state.safe_block_hash.is_zero()
-            && !self.provider.storage.find_block_hash(state.safe_block_hash)
+            && !self.provider.storage.is_canonical(state.safe_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }

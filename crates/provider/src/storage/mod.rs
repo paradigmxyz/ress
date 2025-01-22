@@ -9,7 +9,6 @@ use std::{collections::HashMap, sync::Arc};
 use crate::errors::StorageError;
 
 pub mod backends;
-pub mod trie;
 
 /// Orchestrate 3 different type of backends (in-memory, disk, network)
 #[derive(Debug)]
@@ -30,7 +29,28 @@ impl Storage {
         }
     }
 
-    pub fn remove_canonical_until(&self, upper_bound: BlockNumber, last_persisted_hash: B256) {
+    /// manage storage when new fork choice update message is pointing reorg
+    pub fn post_fcu_reorg_update(&self, new_head: Header, last_persisted_hash: B256) {
+        self.memory
+            .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()));
+        // upper bound
+        let upper_bound = self
+            .memory
+            .get_block_number(last_persisted_hash)
+            .expect("upperbound for persisted hash should exist");
+        self.memory
+            .remove_canonical_until(upper_bound, last_persisted_hash);
+    }
+
+    pub fn post_fcu_update(&self, new_head: Header, last_persisted_hash: B256) {
+        self.memory.remove_oldest_canonical_hash();
+        self.memory
+            .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
+        // upper bound
+        let upper_bound = self
+            .memory
+            .get_block_number(last_persisted_hash)
+            .expect("upperbound for persisted hash should exist");
         self.memory
             .remove_canonical_until(upper_bound, last_persisted_hash);
     }
@@ -53,14 +73,8 @@ impl Storage {
         self.memory.set_canonical_head(new_head);
     }
 
-    /// Remove oldest block hash and header
-    pub fn remove_oldest_canonical_hash(&self) {
-        self.memory.remove_oldest_canonical_hash();
-    }
-
-    /// Find if target block hash is exist in the memory
-    pub fn find_block_hash(&self, block_hash: BlockHash) -> bool {
-        self.memory.find_block_hash(block_hash)
+    pub fn get_canonical_head(&self) -> BlockNumHash {
+        self.memory.get_canonical_head()
     }
 
     /// Get contract bytecode from given codehash from the disk
@@ -97,11 +111,6 @@ impl Storage {
         }
 
         self.memory.overwrite_block_hashes(block_hashes);
-    }
-
-    /// Check if 256 canonical hashes are exist from target block
-    pub fn is_canonical_hashes_exist(&self, target_block: BlockNumber) -> bool {
-        self.memory.is_canonical_hashes_exist(target_block)
     }
 
     /// Get block hash from memory of target block number

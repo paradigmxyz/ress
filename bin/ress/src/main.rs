@@ -129,6 +129,9 @@ async fn main() -> eyre::Result<()> {
         .storage
         .overwrite_block_hashes(canonical_block_hashes);
 
+    let head = node.provider.storage.get_canonical_head();
+    info!("head: {:#?}", head);
+
     // ================ CONSENSUS CLIENT ================
 
     let ws_block_provider =
