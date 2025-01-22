@@ -5443,6 +5443,7 @@ dependencies = [
  "eyre",
  "futures",
  "jsonrpsee-http-client",
+ "rayon",
  "ress-common",
  "ress-network",
  "ress-primitives",

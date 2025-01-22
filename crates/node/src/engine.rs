@@ -1,3 +1,4 @@
+use alloy_primitives::keccak256;
 use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rlp::Decodable;
@@ -5,9 +6,12 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_trie::nodes::TrieNode;
+use alloy_trie::Nibbles;
 use alloy_trie::TrieAccount;
 use alloy_trie::KECCAK_EMPTY;
 use jsonrpsee_http_client::HttpClientBuilder;
+use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
@@ -35,8 +39,11 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_api::DebugApiClient;
+use reth_trie_sparse::errors::SparseStateTrieResult;
+use reth_trie_sparse::errors::SparseTrieErrorKind;
 use reth_trie_sparse::SparseStateTrie;
 use std::result::Result::Ok;
+use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -164,12 +171,74 @@ impl ConsensusEngine {
                 let output = block_executor.execute(&block)?;
                 info!(elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
+                let mut trie = SparseStateTrie::default();
+                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
+
+                // ===================== Update trie =====================
+                let state = output.state;
+
+                // Update storage slots with new values and calculate storage roots.
+                let (storage_tx, storage_rx) = mpsc::channel();
+                state
+                    .state()
+                    .into_iter()
+                    .map(|(address, bundle_account)| {
+                        (
+                            address,
+                            bundle_account,
+                            trie.take_storage_trie(&keccak256(address)),
+                        )
+                    })
+                    .par_bridge()
+                    .map(|(address, bundle_account, storage_trie)| {
+                        let mut storage_trie = storage_trie.ok_or(SparseTrieErrorKind::Blind)?;
+
+                        if bundle_account.was_destroyed() {
+                            storage_trie.wipe()?;
+                        }
+                        for (slot, value) in &bundle_account.storage {
+                            let slot_nibbles = Nibbles::unpack(&slot.to_be_bytes_vec());
+                            if value.present_value.is_zero() {
+                                storage_trie.remove_leaf(&slot_nibbles)?;
+                            } else {
+                                storage_trie.update_leaf(
+                                    slot_nibbles,
+                                    alloy_rlp::encode_fixed_size(&value.present_value).to_vec(),
+                                )?;
+                            }
+                        }
+
+                        storage_trie.root();
+
+                        SparseStateTrieResult::Ok((address, storage_trie))
+                    })
+                    .for_each_init(
+                        || storage_tx.clone(),
+                        |storage_tx, result| storage_tx.send(result).unwrap(),
+                    );
+                drop(storage_tx);
+
+                for result in storage_rx {
+                    let (address, storage_trie) = result?;
+                    trie.insert_storage_trie(keccak256(address), storage_trie);
+                }
+
+                for (address, bundled_account) in &state.state {
+                    if bundled_account.is_info_changed() {
+                        trie.update_account(
+                            keccak256(address),
+                            bundled_account.account_info().unwrap_or_default().into(),
+                        )?;
+                    }
+                }
+
                 // ===================== Post Validation =====================
 
                 self.consensus.validate_block_post_execution(
                     &block,
                     PostExecutionInput::new(&output.receipts, &output.requests),
                 )?;
+                assert_eq!(trie.root().unwrap(), block.state_root);
 
                 // ===================== Update state =====================
 

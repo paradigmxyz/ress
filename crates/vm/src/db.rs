@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 pub struct WitnessDatabase {
-    trie: SparseStateTrie,
+    pub trie: SparseStateTrie,
     storage: Arc<Storage>,
 }
 
