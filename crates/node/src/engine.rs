@@ -171,10 +171,10 @@ impl ConsensusEngine {
                 let output = block_executor.execute(&block)?;
                 info!(elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
-                let mut trie = SparseStateTrie::default();
-                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
-
                 // ===================== Update trie =====================
+                // Q. So i had to initiate another trie and reveal with witness cus trie above was already consumed from executor.
+                let mut trie = SparseStateTrie::default().with_updates(true);
+                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let state = output.state;
 
                 // Update storage slots with new values and calculate storage roots.
@@ -191,13 +191,14 @@ impl ConsensusEngine {
                     })
                     .par_bridge()
                     .map(|(address, bundle_account, storage_trie)| {
+                        // So some of the iteration returns SparseTrieErrorKind::Blind
                         let mut storage_trie = storage_trie.ok_or(SparseTrieErrorKind::Blind)?;
 
                         if bundle_account.was_destroyed() {
                             storage_trie.wipe()?;
                         }
                         for (slot, value) in &bundle_account.storage {
-                            let slot_nibbles = Nibbles::unpack(&slot.to_be_bytes_vec());
+                            let slot_nibbles = Nibbles::unpack(&keccak256(slot.to_be_bytes_vec()));
                             if value.present_value.is_zero() {
                                 storage_trie.remove_leaf(&slot_nibbles)?;
                             } else {
@@ -217,20 +218,26 @@ impl ConsensusEngine {
                         |storage_tx, result| storage_tx.send(result).unwrap(),
                     );
                 drop(storage_tx);
-
+                info!("🍕🍕");
                 for result in storage_rx {
-                    let (address, storage_trie) = result?;
+                    if result.is_err() {
+                        println!("re :{:?}", result);
+                    }
+                    // Q. In here returning error: `SparseStateTrieError(Sparse(Blind))`
+                    let (address, storage_trie) = result.unwrap();
                     trie.insert_storage_trie(keccak256(address), storage_trie);
                 }
 
                 for (address, bundled_account) in &state.state {
-                    if bundled_account.is_info_changed() {
+                    if bundled_account.account_info().is_some() {
+                        info!("🍕");
                         trie.update_account(
                             keccak256(address),
                             bundled_account.account_info().unwrap_or_default().into(),
                         )?;
                     }
                 }
+                trie.calculate_below_level(2);
 
                 // ===================== Post Validation =====================
 
