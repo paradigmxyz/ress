@@ -30,33 +30,37 @@ impl Storage {
     }
 
     /// manage storage when new fork choice update message is pointing reorg
-    pub fn post_fcu_reorg_update(&self, new_head: Header, last_persisted_hash: B256) {
+    pub fn post_fcu_reorg_update(
+        &self,
+        new_head: Header,
+        last_persisted_hash: B256,
+    ) -> Result<(), StorageError> {
         self.memory
-            .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()));
-        // upper bound
-        let upper_bound = self
-            .memory
-            .get_block_number(last_persisted_hash)
-            .expect("upperbound for persisted hash should exist");
+            .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
+        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
         self.memory
             .remove_canonical_until(upper_bound, last_persisted_hash);
+        Ok(())
     }
 
-    pub fn post_fcu_update(&self, new_head: Header, last_persisted_hash: B256) {
-        self.memory.remove_oldest_canonical_hash();
+    pub fn post_fcu_update(
+        &self,
+        new_head: Header,
+        last_persisted_hash: B256,
+    ) -> Result<(), StorageError> {
         self.memory
             .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
-        // upper bound
-        let upper_bound = self
-            .memory
-            .get_block_number(last_persisted_hash)
-            .expect("upperbound for persisted hash should exist");
+        self.memory
+            .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
+        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
         self.memory
             .remove_canonical_until(upper_bound, last_persisted_hash);
+        self.memory.remove_oldest_canonical_hash();
+        Ok(())
     }
 
-    pub fn executed_block_by_hash(&self, hash: B256) -> Option<Header> {
-        self.memory.executed_block_by_hash(hash)
+    pub fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
+        self.memory.get_executed_header_by_hash(hash)
     }
 
     /// Insert executed block into the state.
@@ -66,7 +70,7 @@ impl Storage {
 
     /// Returns whether or not the hash is part of the canonical chain.
     pub fn is_canonical(&self, hash: B256) -> bool {
-        self.memory.is_canonical(hash)
+        self.memory.is_canonical_lookup(hash)
     }
 
     pub fn set_canonical_head(&self, new_head: BlockNumHash) {
@@ -91,8 +95,13 @@ impl Storage {
     }
 
     /// Set canonical block hash that historical 256 blocks from canonical head
-    pub fn set_canonical_hash(&self, block_hash: B256, block_number: BlockNumber) {
-        self.memory.set_canonical_hash(block_hash, block_number);
+    pub fn set_canonical_hash(
+        &self,
+        block_hash: B256,
+        block_number: BlockNumber,
+    ) -> Result<(), StorageError> {
+        self.memory.set_canonical_hash(block_hash, block_number)?;
+        Ok(())
     }
 
     /// Overwrite block hashes mapping

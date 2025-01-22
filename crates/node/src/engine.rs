@@ -1,3 +1,4 @@
+use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::ForkchoiceState;
@@ -10,6 +11,7 @@ use jsonrpsee_http_client::HttpClientBuilder;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
+use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::executor::BlockExecutor;
@@ -19,6 +21,7 @@ use reth_consensus::ConsensusError;
 use reth_consensus::FullConsensus;
 use reth_consensus::HeaderValidator;
 use reth_consensus::PostExecutionInput;
+use reth_errors::RethError;
 use reth_errors::RethResult;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::EngineValidator;
@@ -90,19 +93,15 @@ impl ConsensusEngine {
                 sidecar,
                 tx,
             } => {
-                info!(
-                    "👋 new payload: {:?}, fetching witness...",
-                    payload.block_number()
-                );
+                let block_number = payload.block_number();
+                let block_hash = payload.block_hash();
+                info!(?block_hash, ?block_number, "👋 new payload");
                 let storage = self.provider.storage.clone();
-                let block_hash_from_payload = payload.block_hash();
-                self.provider
-                    .storage
-                    .set_canonical_hash(block_hash_from_payload, payload.block_number());
 
                 // ===================== Witness =====================
 
                 // todo: we will get witness from fullnode connection later
+                let start_time = std::time::Instant::now();
                 let client = HttpClientBuilder::default()
                     .max_response_size(50 * 1024 * 1024)
                     .request_timeout(Duration::from_secs(500))
@@ -116,9 +115,9 @@ impl ConsensusEngine {
                     execution_witness.state,
                     execution_witness.codes,
                 ))?;
-                std::fs::write(get_witness_path(block_hash_from_payload), json_data)
+                std::fs::write(get_witness_path(block_hash), json_data)
                     .expect("Unable to write file");
-                info!(?block_hash_from_payload, "🟢 we got witness");
+                info!(elapsed = ?start_time.elapsed(), "🟢 fetched witness");
 
                 // ===================== Validation =====================
 
@@ -130,11 +129,12 @@ impl ConsensusEngine {
                 }
 
                 // ====
-                let err_msg = format!("should have parent header: {}", parent_hash_from_payload);
+
                 let parent_header: SealedHeader = SealedHeader::new(
                     storage
-                        .executed_block_by_hash(parent_hash_from_payload)
-                        .expect(&err_msg),
+                        .get_executed_header_by_hash(parent_hash_from_payload)
+                        .unwrap_or_else(|| panic!("should have parent header: {}",
+                            parent_hash_from_payload)),
                     parent_hash_from_payload,
                 );
                 let state_root_of_parent = parent_header.state_root;
@@ -144,16 +144,17 @@ impl ConsensusEngine {
                 self.validate_header(&block, total_difficulty, parent_header);
 
                 // ===================== Witness =====================
-                let execution_witness =
-                    self.provider.fetch_witness(block_hash_from_payload).await?;
-                self.prefetch_all_bytecodes(&execution_witness).await;
+                let execution_witness = self.provider.fetch_witness(block_hash).await?;
+                let start_time = std::time::Instant::now();
+                self.prefetch_all_bytecodes(&execution_witness, block_hash)
+                    .await;
+                info!(elapsed = ?start_time.elapsed(), "✨ prefetched all bytes");
                 let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let db = WitnessDatabase::new(trie, storage.clone());
 
                 // ===================== Execution =====================
 
-                info!("start execution");
                 let start_time = std::time::Instant::now();
                 let mut block_executor = BlockExecutor::new(db, storage.clone());
                 let senders = block.senders().expect("no senders");
@@ -214,9 +215,11 @@ impl ConsensusEngine {
         payload_attrs: Option<<EthEngineTypes as PayloadTypes>::PayloadAttributes>,
     ) -> RethResult<OnForkChoiceUpdated> {
         info!(
-            "👋 new fork choice | head: {:#x}, safe: {:#x}, finalized: {:#x}.",
+            "👋 new fork choice, head={:#x}, safe={:#x}, finalized={:#x}",
             state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
         );
+
+        // ===================== Validation =====================
 
         if state.head_block_hash.is_zero() {
             return Ok(OnForkChoiceUpdated::invalid_state());
@@ -232,7 +235,7 @@ impl ConsensusEngine {
         let Some(head) = self
             .provider
             .storage
-            .executed_block_by_hash(state.head_block_hash)
+            .get_executed_header_by_hash(state.head_block_hash)
         else {
             return Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
                 PayloadStatusEnum::Syncing,
@@ -253,29 +256,33 @@ impl ConsensusEngine {
             }
         }
 
-        // ======= Check reorg =======
+        // ===================== Handle Reorg =====================
 
         if self.provider.storage.get_canonical_head().number + 1 != head.number {
-            warn!("reorg detacted at {}", head.number);
+            // fcu is pointing fork chain
+            warn!(?head.number,"reorg detacted");
             self.provider
                 .storage
-                .post_fcu_reorg_update(head, state.finalized_block_hash);
+                .post_fcu_reorg_update(head, state.finalized_block_hash)
+                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         } else {
-            // no reorg just update single canonical hash
+            // fcu is on canonical chain
             self.provider
                 .storage
-                .post_fcu_update(head, state.finalized_block_hash);
-            self.forkchoice_state = Some(state);
+                .post_fcu_update(head, state.finalized_block_hash)
+                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         }
 
-        // ==============
+        self.forkchoice_state = Some(state);
+
+        // ========================================================
 
         // todo: also need to prune witness, but will handle by getting witness from stateful node
-        //let witness_path = get_witness_path(state.head_block_hash);
-        // // remove witness of the fcu
-        // if let Err(e) = std::fs::remove_file(witness_path) {
-        //     warn!("Unable to remove finalized witness file: {:?}", e);
-        // }
+        let witness_path = get_witness_path(state.safe_block_hash);
+        // remove witness of the fcu
+        if let Err(e) = std::fs::remove_file(witness_path) {
+            debug!("Unable to remove finalized witness file: {:?}", e);
+        }
 
         Ok(OnForkChoiceUpdated::valid(
             PayloadStatus::from_status(PayloadStatusEnum::Valid)
@@ -338,7 +345,11 @@ impl ConsensusEngine {
     }
 
     /// prefetch all bytecodes in parallel
-    pub async fn prefetch_all_bytecodes(&self, execution_witness: &ExecutionWitness) {
+    pub async fn prefetch_all_bytecodes(
+        &self,
+        execution_witness: &ExecutionWitness,
+        block_hash: B256,
+    ) {
         let code_hashes: Vec<_> = execution_witness
             .state_witness
             .iter()
@@ -357,7 +368,11 @@ impl ConsensusEngine {
             })
             .collect();
         for code_hash in self.provider.storage.filter_code_hashes(code_hashes) {
-            if let Err(e) = self.provider.fetch_contract_bytecode(code_hash).await {
+            if let Err(e) = self
+                .provider
+                .fetch_contract_bytecode(code_hash, block_hash)
+                .await
+            {
                 // code hashes decoded from witness might not used during execution so it's ok to not fetch from code from `debug_executionWitness`
                 debug!("Failed to prefetch: {e}");
             }

@@ -2,6 +2,7 @@ use alloy_rpc_types_engine::PayloadError;
 use ress_provider::errors::StorageError;
 use ress_vm::errors::EvmError;
 use reth_consensus::ConsensusError;
+use reth_errors::RethError;
 use reth_node_api::{EngineObjectValidationError, InvalidPayloadAttributesError};
 use reth_trie_sparse::errors::SparseStateTrieError;
 
@@ -42,4 +43,7 @@ pub enum EngineError {
     /// Consensus-related error.
     #[error("Consensus error: {0}")]
     Consensus(#[from] ConsensusError),
+
+    #[error("Error from reth: {0}")]
+    RethError(#[from] RethError),
 }

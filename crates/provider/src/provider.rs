@@ -33,14 +33,14 @@ impl RessProvider {
     }
 
     /// Fetch bytecode and save it to disk
-    pub async fn fetch_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
-        let latest_block_hash = self.storage.memory.get_latest_block_hash();
+    pub async fn fetch_contract_bytecode(
+        &self,
+        code_hash: B256,
+        block_hash: B256,
+    ) -> Result<Bytecode, StorageError> {
         if let Some(bytecode) = self
             .network
-            .get_contract_bytecode(
-                latest_block_hash.expect("need latest block hash"),
-                code_hash,
-            )
+            .get_contract_bytecode(block_hash, code_hash)
             .await?
         {
             self.storage

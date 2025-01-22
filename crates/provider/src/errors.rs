@@ -37,13 +37,16 @@ pub enum NetworkStorageError {
 /// Errors that can occur during memory storage operations.
 #[derive(Debug, thiserror::Error)]
 pub enum MemoryStorageError {
-    /// Block hash not found in memory storage.
-    #[error("block hash not found: {0}")]
-    BlockHashNotFound(BlockNumber),
+    /// Block not found in memory storage via block number.
+    #[error("block hash not found from number: {0}")]
+    BlockNotFoundFromNumber(BlockNumber),
 
-    /// Block number not found in memory storage.
-    #[error("block number not found: {0}")]
-    BlockNumberNotFound(BlockHash),
+    /// Block not found in memory storage via block hash.
+    #[error("block not found from hash: {0}")]
+    BlockNotFoundFromHash(BlockHash),
+
+    #[error("non canonical chain: {0}")]
+    NonCanonicalChain(BlockHash),
 }
 
 /// Errors that can occur during disk storage operations.
