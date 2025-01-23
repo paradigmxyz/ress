@@ -1,4 +1,3 @@
-use alloy_primitives::keccak256;
 use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rlp::Decodable;
@@ -177,7 +176,7 @@ impl ConsensusEngine {
                 // ===================== Update Sparse Trie =====================
 
                 // Q. So i had to initiate another trie and reveal with witness cus trie above was already consumed from executor.
-                let mut trie = SparseStateTrie::default().with_updates(false);
+                let mut trie = SparseStateTrie::default().with_updates(true);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let state = output.state;
                 let hashed_post_state =
@@ -188,13 +187,7 @@ impl ConsensusEngine {
                 hashed_post_state
                     .storages
                     .into_iter()
-                    .map(|(address, storage)| {
-                        (
-                            address,
-                            storage,
-                            trie.take_storage_trie(&keccak256(address)),
-                        )
-                    })
+                    .map(|(address, storage)| (address, storage, trie.take_storage_trie(&address)))
                     .par_bridge()
                     .map(|(address, storage, storage_trie)| {
                         let mut storage_trie = storage_trie.ok_or(SparseTrieErrorKind::Blind)?;
