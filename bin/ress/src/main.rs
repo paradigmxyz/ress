@@ -5,10 +5,12 @@ use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
 use ress_common::test_utils::TestPeers;
 use ress_node::Node;
-use reth_chainspec::MAINNET;
+use reth_chainspec::ChainSpec;
+use reth_cli::chainspec::ChainSpecParser;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
+use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
 use reth_network::NetworkEventListenerProvider;
-use reth_node_ethereum::EthEngineTypes;
+use reth_network_peers::TrustedPeer;
 use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 
@@ -18,6 +20,29 @@ struct Args {
     /// Peer number (1 or 2)
     #[arg(value_parser = clap::value_parser!(u8).range(1..=2))]
     peer_number: u8,
+
+    /// The chain this node is running.
+    ///
+    /// Possible values are either a built-in chain or the path to a chain specification file.
+    #[arg(
+        long,
+        value_name = "CHAIN_OR_PATH",
+        long_help = EthereumChainSpecParser::help_message(),
+        default_value = EthereumChainSpecParser::SUPPORTED_CHAINS[0],
+        value_parser = EthereumChainSpecParser::parser()
+    )]
+    pub chain: Arc<ChainSpec>,
+
+    #[allow(clippy::doc_markdown)]
+    /// Comma separated enode URLs of trusted peers for P2P connections.
+    ///
+    /// --trusted-peers enode://abcd@192.168.0.1:30303
+    #[arg(long)]
+    pub remote_peer: Option<TrustedPeer>,
+
+    #[arg(long)]
+    /// If passed, the debug consensus client will NOT be started
+    pub no_debug_consensus: bool,
 }
 
 #[tokio::main]
@@ -51,7 +76,8 @@ async fn main() -> eyre::Result<()> {
 
     let node = Node::launch_test_node(
         local_node,
-        MAINNET.clone(),
+        args.chain,
+        args.remote_peer,
         NumHash::new(latest_block_number, latest_block_hash),
     )
     .await;
@@ -126,14 +152,18 @@ async fn main() -> eyre::Result<()> {
 
     // ================ CONSENSUS CLIENT ================
 
-    let ws_block_provider =
-        RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
-    let rpc_consensus_client =
-        DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
-    tokio::spawn(async move {
-        info!("💨 running debug consensus client");
-        rpc_consensus_client.run::<EthEngineTypes>().await;
-    });
+    if !args.no_debug_consensus {
+        let ws_block_provider =
+            RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
+        let rpc_consensus_client =
+            DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
+        tokio::spawn(async move {
+            info!("💨 running debug consensus client");
+            rpc_consensus_client
+                .run::<reth_node_ethereum::EthEngineTypes>()
+                .await;
+        });
+    }
 
     // =================================================================
 

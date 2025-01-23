@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 use ress_common::test_utils::TestPeers;
 use ress_subprotocol::{
@@ -10,10 +10,13 @@ use ress_subprotocol::{
     },
 };
 
+use reth_chainspec::ChainSpec;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
     NetworkHandle, NetworkManager,
 };
+use reth_network_peers::TrustedPeer;
+use reth_primitives::EthPrimitives;
 use reth_provider::noop::NoopProvider;
 use reth_transaction_pool::PeerId;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -28,22 +31,37 @@ pub struct P2pHandler {
 }
 
 impl P2pHandler {
-    pub(crate) async fn start_server(id: TestPeers) -> Self {
+    pub(crate) async fn start_server(
+        id: TestPeers,
+        chain_spec: Arc<ChainSpec>,
+        remote_peer: Option<TrustedPeer>,
+    ) -> Self {
         let (subnetwork_handle, from_peer) =
-            Self::launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;
+            Self::launch_subprotocol_network(id.get_key(), id.get_network_addr(), chain_spec).await;
+
+        let (remote_id, remote_addr) = if let Some(remote_peer) = remote_peer {
+            (
+                remote_peer.id,
+                remote_peer.resolve_blocking().expect("peer").tcp_addr(),
+            )
+        } else {
+            (
+                id.get_peer().get_peer_id(),
+                id.get_peer().get_network_addr(),
+            )
+        };
+
         // connect peer to own network
-        subnetwork_handle.peers_handle().add_peer(
-            id.get_peer().get_peer_id(),
-            id.get_peer().get_network_addr(),
-        );
+        subnetwork_handle
+            .peers_handle()
+            .add_peer(remote_id, remote_addr);
 
         // get a handle to the network to interact with it
         let network_handle = subnetwork_handle.handle().clone();
         // spawn the network
         tokio::task::spawn(subnetwork_handle);
 
-        let network_peer_conn =
-            Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
+        let network_peer_conn = Self::setup_subprotocol_network(from_peer, remote_id).await;
 
         Self {
             network_handle,
@@ -54,9 +72,10 @@ impl P2pHandler {
     async fn launch_subprotocol_network(
         secret_key: SecretKey,
         socket: SocketAddr,
+        chain_spec: Arc<ChainSpec>,
     ) -> (NetworkManager, UnboundedReceiver<ProtocolEvent>) {
         // This block provider implementation is used for testing purposes.
-        let client = NoopProvider::default();
+        let client = NoopProvider::<ChainSpec, EthPrimitives>::new(chain_spec);
 
         let (tx, from_peer) = tokio::sync::mpsc::unbounded_channel();
         let custom_rlpx_handler = CustomRlpxProtoHandler {
@@ -117,6 +136,7 @@ impl P2pHandler {
                 response: tx,
             })
             .unwrap();
+        info!("🟢 awaiting response");
         let response = rx.await.unwrap();
         assert!(response);
         info!(?response, "🟢 connection type valid");

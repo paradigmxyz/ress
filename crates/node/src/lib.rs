@@ -6,6 +6,7 @@ use ress_common::test_utils::TestPeers;
 use ress_network::p2p::P2pHandler;
 use ress_provider::provider::RessProvider;
 use reth_chainspec::ChainSpec;
+use reth_network_peers::TrustedPeer;
 use reth_rpc_builder::auth::AuthServerHandle;
 
 pub mod engine;
@@ -22,10 +23,11 @@ impl Node {
     pub async fn launch_test_node(
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
+        remote_peer: Option<TrustedPeer>,
         current_canonical_head: BlockNumHash,
     ) -> Self {
         let (p2p_handler, rpc_handler) =
-            ress_network::start_network(id, Arc::clone(&chain_spec)).await;
+            ress_network::start_network(id, Arc::clone(&chain_spec), remote_peer).await;
 
         // ================ initial update ==================
 

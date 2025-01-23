@@ -27,6 +27,7 @@ reth-rpc-builder.workspace = true
 reth-rpc-api.workspace = true
 reth-trie-sparse.workspace = true
 reth-errors.workspace = true
+reth-network-peers.workspace = true
 
 
 # alloy
