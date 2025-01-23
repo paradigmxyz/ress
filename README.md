@@ -1,12 +1,37 @@
 # ress(reth stateless)
 
-## Poc seniaro
+# ress(reth stateless)
 
-*note example payload generated from [here](https://github.com/Rjected/execution-payload-builder/tree/main)*
+## seniaro
+
+First, before our new ress node joins the network, the network should already be formed with at least 1 reth (subprotocol implemented) node and 2 ress nodes. These 2 ress nodes should all be synced via the reth node.
+
+Then we spawn the new ress node to join the network. The ress node should quickly discover the reth node with the subprotocol.
+
+It first prefetches A. 256 canonical block hashes, B. the parent block header to memory.
+
+Then, via the message sent from the consensus client, the ress node first requests witness data from the network, and then performs validation and execution of this new payload given the witness that turns into a spare trie. While executing, it determines the contract bytecode that's necessary and gets it from disk, then falls back to request it from the network - the reth node. The disk is just a simple KV storage that can get bytecode from the code hash.
+
+Then the consensus client sends a new fork choice message, and the ress node performs a validation check and updates the node and storage state. It also removes the witness and any unnecessary block data that is stored in memory.
+
+And then it continues to sync.
+
+
+## run
+
+- reth with subprotocol
+```console
+RUST_LOG=info cargo run -r --bin reth node --authrpc.port 8651 --http.port 8544 -d --trusted-peers enode://4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d07662a3eada2d0fe208b6d257ceb0f064284662e857f57b66b54c198bd310ded36d0@127.0.0.1:61398
+```
+
+- ress
+```console
+RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://060bb5ab4a20bbb2465a4db24de7a740db00207e34044454504bf004d6396bd9b03bf08b1df3f1f468366a2c0b809dee7aa54069af94fa11bdb26b9103ee76d6@127.0.0.1:30303" --no-debug-consensus 2
+```
 
 ### 1. launch ress node
 
-Spawning 3 process. 
+Spawning 3 process.
 - authserver: `EngineApi` implemented server to listen consensus message.
 - p2p network: spawn network that implemented `ress-subprotocol`.
 - engine: `ConsensusEngine` that spawned to keep receive message
@@ -16,7 +41,7 @@ Spawning 3 process.
 
 ### 2. new payload
 
-Authserver received the message and validate payload scaleton. Send to `ConsensusEngine` and handle logic of further validation - against the parent header, construct Executor and run evm and post validation with receipt. 
+Authserver received the message and validate payload scaleton. Send to `ConsensusEngine` and handle logic of further validation - against the parent header, construct Executor and run evm and post validation with receipt.
 
 Storage is abstracted in 3 different backend, disk, memory, network.
 
@@ -25,24 +50,10 @@ Storage is abstracted in 3 different backend, disk, memory, network.
 
 ### 3. new fcu
 
-validate message and update the state of node. 
+validate message and update the state of node.
 
 <img src=".github/images/3.png" alt="" width="300" />
 
-
-
-## run
-ress <> ress && reth(stateful reth) <> ress && reth <> reth (this is reth impl)(x)
-
-- test_uils (peer1)
-```console
-RUST_LOG=info cargo run --bin ress 1
-```
-
-- test_uils (peer2)
-```console
-RUST_LOG=info cargo run --bin ress 2
-```
 
 
 ## component
@@ -52,12 +63,9 @@ RUST_LOG=info cargo run --bin ress 2
   - [ress](./bin/ress): run resss client - stateless execution client
 
 - crates
-  - [ress-common](./crates/common): ress common 
+  - [ress-common](./crates/common): ress common
   - [ress-network](./crates/network): provide functions to spawn authserver and network.
   - [ress-node](./crates/node): provide abstraction of launch the node and inner consensus engine implementation
   - [ress-storage](./crates/storage): provide abstraction of storage that handles 3 backends(disk,in memeory, network) base on request.
   - [ress-vm](./crates/vm): provide executor that can execute evm from new block
   - [subprotocol](./crates/subprotocol/)
-
-
-

@@ -5622,6 +5622,7 @@ dependencies = [
  "reth 1.1.5",
  "reth-network",
  "reth-network-api",
+ "reth-network-peers",
  "reth-node-builder",
  "reth-node-ethereum",
  "tokio",

@@ -8,6 +8,7 @@ use ress_subprotocol::{
         handler::{CustomRlpxProtoHandler, ProtocolState},
         proto::NodeType,
     },
+    utils::setup_subprotocol_network,
 };
 
 use reth_chainspec::ChainSpec;
@@ -18,7 +19,6 @@ use reth_network::{
 use reth_network_peers::TrustedPeer;
 use reth_primitives::EthPrimitives;
 use reth_provider::noop::NoopProvider;
-use reth_transaction_pool::PeerId;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
@@ -61,7 +61,8 @@ impl P2pHandler {
         // spawn the network
         tokio::task::spawn(subnetwork_handle);
 
-        let network_peer_conn = Self::setup_subprotocol_network(from_peer, remote_id).await;
+        let network_peer_conn =
+            setup_subprotocol_network(from_peer, remote_id, NodeType::Stateless).await;
 
         Self {
             network_handle,
@@ -105,41 +106,5 @@ impl P2pHandler {
         );
 
         (subnetwork, from_peer)
-    }
-
-    /// Establish connection and send type checking
-    async fn setup_subprotocol_network(
-        mut from_peer: UnboundedReceiver<ProtocolEvent>,
-        peer_id: PeerId,
-    ) -> UnboundedSender<CustomCommand> {
-        // Establish connection between peer0 and peer1
-        let peer_to_peer = from_peer.recv().await.expect("peer connecting");
-        let peer_conn = match peer_to_peer {
-            ProtocolEvent::Established {
-                direction: _,
-                peer_id: received_peer_id,
-                to_connection,
-            } => {
-                assert_eq!(received_peer_id, peer_id);
-                to_connection
-            }
-        };
-        info!("🟢 connection established with peer_id: {} ", peer_id);
-
-        // =================================================================
-
-        //  Type message subprotocol
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        peer_conn
-            .send(CustomCommand::NodeType {
-                node_type: NodeType::Stateless,
-                response: tx,
-            })
-            .unwrap();
-        info!("🟢 awaiting response");
-        let response = rx.await.unwrap();
-        assert!(response);
-        info!(?response, "🟢 connection type valid");
-        peer_conn
     }
 }
