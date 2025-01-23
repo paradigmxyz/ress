@@ -34,9 +34,9 @@ struct Args {
     pub chain: Arc<ChainSpec>,
 
     #[allow(clippy::doc_markdown)]
-    /// Comma separated enode URLs of trusted peers for P2P connections.
+    /// URL of the remote peer for P2P connections.
     ///
-    /// --trusted-peers enode://abcd@192.168.0.1:30303
+    /// --remote-peer enode://abcd@192.168.0.1:30303
     #[arg(long)]
     pub remote_peer: Option<TrustedPeer>,
 
