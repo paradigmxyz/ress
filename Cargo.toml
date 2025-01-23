@@ -5,6 +5,7 @@ edition = "2021"
 
 [workspace]
 members = [
+    "bin/adapter",
     "bin/ress",
     "bin/reth",
     "crates/common",
