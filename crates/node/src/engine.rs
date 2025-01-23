@@ -10,6 +10,7 @@ use alloy_trie::Nibbles;
 use alloy_trie::TrieAccount;
 use alloy_trie::KECCAK_EMPTY;
 use jsonrpsee_http_client::HttpClientBuilder;
+use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelBridge;
 use rayon::iter::ParallelIterator;
 use ress_common::utils::get_witness_path;
@@ -39,6 +40,8 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_api::DebugApiClient;
+use reth_trie::HashedPostState;
+use reth_trie::KeccakKeyHasher;
 use reth_trie_sparse::errors::SparseStateTrieResult;
 use reth_trie_sparse::errors::SparseTrieErrorKind;
 use reth_trie_sparse::SparseStateTrie;
@@ -177,35 +180,36 @@ impl ConsensusEngine {
                 let mut trie = SparseStateTrie::default().with_updates(false);
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
                 let state = output.state;
+                let hashed_post_state =
+                    HashedPostState::from_bundle_state::<KeccakKeyHasher>(state.state.par_iter());
 
                 // Update storage slots with new values and calculate storage roots.
                 let (storage_tx, storage_rx) = mpsc::channel();
-                state
-                    .state()
-                    .iter()
-                    .map(|(address, bundle_account)| {
+                hashed_post_state
+                    .storages
+                    .into_iter()
+                    .map(|(address, storage)| {
                         (
                             address,
-                            bundle_account,
+                            storage,
                             trie.take_storage_trie(&keccak256(address)),
                         )
                     })
                     .par_bridge()
-                    .map(|(address, bundle_account, storage_trie)| {
-                        // So some of the iteration returns SparseTrieErrorKind::Blind
+                    .map(|(address, storage, storage_trie)| {
                         let mut storage_trie = storage_trie.ok_or(SparseTrieErrorKind::Blind)?;
 
-                        if bundle_account.was_destroyed() {
+                        if storage.wiped {
                             storage_trie.wipe()?;
                         }
-                        for (slot, value) in &bundle_account.storage {
-                            let slot_nibbles = Nibbles::unpack(slot.to_be_bytes_vec());
-                            if value.present_value.is_zero() {
+                        for (slot, value) in storage.storage {
+                            let slot_nibbles = Nibbles::unpack(slot);
+                            if value.is_zero() {
                                 storage_trie.remove_leaf(&slot_nibbles)?;
                             } else {
                                 storage_trie.update_leaf(
                                     slot_nibbles,
-                                    alloy_rlp::encode_fixed_size(&value.present_value).to_vec(),
+                                    alloy_rlp::encode_fixed_size(&value).to_vec(),
                                 )?;
                             }
                         }
@@ -220,26 +224,23 @@ impl ConsensusEngine {
                     );
                 drop(storage_tx);
                 for result in storage_rx {
-                    // Q. In here returning error: `SparseStateTrieError(Sparse(Blind))`
+                    // todo: SparseStateTrie(SparseStateTrieError(Sparse(Blind)))
                     if result.is_err() {
                         continue;
-                    } else {
-                        let (address, storage_trie) = result.unwrap();
-                        trie.insert_storage_trie(keccak256(address), storage_trie);
+                    }
+                    let (address, storage_trie) = result?;
+                    trie.insert_storage_trie(address, storage_trie);
+                }
+
+                // Update accounts with new values
+                for (address, account) in hashed_post_state.accounts {
+                    let result = trie.update_account(address, account.unwrap_or_default());
+                    // todo: SparseStateTrie(SparseStateTrieError(Sparse(Blind)))
+                    if result.is_err() {
+                        continue;
                     }
                 }
 
-                for (address, bundled_account) in &state.state {
-                    if bundled_account.account_info().is_some() {
-                        if let Err(e) = trie.update_account(
-                            keccak256(address),
-                            bundled_account.account_info().unwrap_or_default().into(),
-                        ) {
-                            // err: sparse trie is blind
-                            warn!(%e);
-                        };
-                    }
-                }
                 trie.calculate_below_level(2);
 
                 // ===================== Post Validation =====================

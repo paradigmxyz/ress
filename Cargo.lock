@@ -5462,6 +5462,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-rpc-api",
  "reth-rpc-builder",
+ "reth-trie",
  "reth-trie-sparse",
  "serde_json",
  "thiserror 2.0.9",
