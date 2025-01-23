@@ -11,18 +11,18 @@ use reth_trie_sparse::SparseStateTrie;
 use std::sync::Arc;
 use tracing::debug;
 
-pub struct WitnessDatabase {
-    pub trie: SparseStateTrie,
+pub struct WitnessDatabase<'a> {
+    trie: &'a SparseStateTrie,
     storage: Arc<Storage>,
 }
 
-impl WitnessDatabase {
-    pub fn new(trie: SparseStateTrie, storage: Arc<Storage>) -> Self {
+impl<'a> WitnessDatabase<'a> {
+    pub fn new(trie: &'a SparseStateTrie, storage: Arc<Storage>) -> Self {
         Self { trie, storage }
     }
 }
 
-impl Database for WitnessDatabase {
+impl Database for WitnessDatabase<'_> {
     #[doc = " The witness state provider error type."]
     type Error = ProviderError;
 

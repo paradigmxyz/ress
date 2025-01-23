@@ -8,13 +8,13 @@ use std::sync::Arc;
 
 use crate::{db::WitnessDatabase, errors::EvmError};
 
-pub struct BlockExecutor {
-    strategy: EthExecutionStrategy<WitnessDatabase, EthEvmConfig>,
+pub struct BlockExecutor<'a> {
+    pub strategy: EthExecutionStrategy<WitnessDatabase<'a>, EthEvmConfig>,
 }
 
-impl BlockExecutor {
+impl<'a> BlockExecutor<'a> {
     /// specific block's executor by initiate with parent block post execution state and hash
-    pub fn new(db: WitnessDatabase, storage: Arc<Storage>) -> Self {
+    pub fn new(db: WitnessDatabase<'a>, storage: Arc<Storage>) -> Self {
         let chain_spec = storage.get_chain_config();
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state = StateBuilder::new_with_database(db)
