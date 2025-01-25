@@ -159,14 +159,14 @@ impl ConsensusEngine {
                 self.prefetch_all_bytecodes(&execution_witness, block_hash)
                     .await;
                 info!(elapsed = ?start_time.elapsed(), "✨ prefetched all bytes");
-                let mut trie = SparseStateTrie::default().with_updates(true);
+                let mut trie = SparseStateTrie::default();
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
-                let db = WitnessDatabase::new(trie, storage.clone());
+                let database = WitnessDatabase::new(&trie, storage.clone());
 
                 // ===================== Execution =====================
 
                 let start_time = std::time::Instant::now();
-                let mut block_executor = BlockExecutor::new(db, storage.clone());
+                let mut block_executor = BlockExecutor::new(database, storage.clone());
                 let senders = block.senders().expect("no senders");
                 let block = BlockWithSenders::new(block.clone().unseal(), senders)
                     .expect("cannot construct block");
@@ -175,12 +175,9 @@ impl ConsensusEngine {
 
                 // ===================== Update Sparse Trie =====================
 
-                // Q. So i had to initiate another trie and reveal with witness cus trie above was already consumed from executor.
-                let mut trie = SparseStateTrie::default().with_updates(true);
-                trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
-                let state = output.state;
-                let hashed_post_state =
-                    HashedPostState::from_bundle_state::<KeccakKeyHasher>(state.state.par_iter());
+                let hashed_post_state = HashedPostState::from_bundle_state::<KeccakKeyHasher>(
+                    output.state.state.par_iter(),
+                );
 
                 // Update storage slots with new values and calculate storage roots.
                 let (storage_tx, storage_rx) = mpsc::channel();
