@@ -29,7 +29,6 @@ reth-trie-sparse.workspace = true
 reth-errors.workspace = true
 reth-trie.workspace = true
 
-
 # alloy
 alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
@@ -47,3 +46,4 @@ jsonrpsee-http-client.workspace = true
 serde_json.workspace = true
 futures.workspace = true
 rayon.workspace = true
+itertools.workspace = true

@@ -5442,6 +5442,7 @@ dependencies = [
  "alloy-trie",
  "eyre",
  "futures",
+ "itertools 0.13.0",
  "jsonrpsee-http-client",
  "rayon",
  "ress-common",

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use alloy_eips::BlockNumHash;
 use engine::ConsensusEngine;
 use ress_common::test_utils::TestPeers;
@@ -7,9 +5,11 @@ use ress_network::p2p::P2pHandler;
 use ress_provider::provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
+use std::sync::Arc;
 
 pub mod engine;
 pub mod errors;
+pub mod root;
 
 pub struct Node {
     pub p2p_handler: P2pHandler,

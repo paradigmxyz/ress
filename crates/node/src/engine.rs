@@ -5,13 +5,10 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_trie::nodes::TrieNode;
-use alloy_trie::Nibbles;
 use alloy_trie::TrieAccount;
 use alloy_trie::KECCAK_EMPTY;
 use jsonrpsee_http_client::HttpClientBuilder;
 use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelBridge;
-use rayon::iter::ParallelIterator;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
 use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
@@ -36,25 +33,21 @@ use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
+use reth_primitives::GotExpected;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_api::DebugApiClient;
 use reth_trie::HashedPostState;
 use reth_trie::KeccakKeyHasher;
-use reth_trie_sparse::errors::SparseStateTrieResult;
-use reth_trie_sparse::errors::SparseTrieErrorKind;
 use reth_trie_sparse::SparseStateTrie;
 use std::result::Result::Ok;
-use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
+use tracing::*;
 
 use crate::errors::EngineError;
+use crate::root::calculate_state_root;
 
 /// ress consensus engine
 pub struct ConsensusEngine {
@@ -137,8 +130,6 @@ impl ConsensusEngine {
                     warn!(?parent_hash_from_payload, "not in canonical");
                 }
 
-                // ====
-
                 let parent_header: SealedHeader = SealedHeader::new(
                     storage
                         .get_executed_header_by_hash(parent_hash_from_payload)
@@ -173,77 +164,29 @@ impl ConsensusEngine {
                 let output = block_executor.execute(&block)?;
                 info!(elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
-                // ===================== Update Sparse Trie =====================
-
-                let hashed_post_state = HashedPostState::from_bundle_state::<KeccakKeyHasher>(
-                    output.state.state.par_iter(),
-                );
-
-                // Update storage slots with new values and calculate storage roots.
-                let (storage_tx, storage_rx) = mpsc::channel();
-                hashed_post_state
-                    .storages
-                    .into_iter()
-                    .map(|(address, storage)| (address, storage, trie.take_storage_trie(&address)))
-                    .par_bridge()
-                    .map(|(address, storage, storage_trie)| {
-                        let mut storage_trie = storage_trie.ok_or(SparseTrieErrorKind::Blind)?;
-
-                        if storage.wiped {
-                            storage_trie.wipe()?;
-                        }
-                        for (slot, value) in storage.storage {
-                            let slot_nibbles = Nibbles::unpack(slot);
-                            if value.is_zero() {
-                                storage_trie.remove_leaf(&slot_nibbles)?;
-                            } else {
-                                storage_trie.update_leaf(
-                                    slot_nibbles,
-                                    alloy_rlp::encode_fixed_size(&value).to_vec(),
-                                )?;
-                            }
-                        }
-
-                        storage_trie.root();
-
-                        SparseStateTrieResult::Ok((address, storage_trie))
-                    })
-                    .for_each_init(
-                        || storage_tx.clone(),
-                        |storage_tx, result| storage_tx.send(result).unwrap(),
-                    );
-                drop(storage_tx);
-                for result in storage_rx {
-                    // todo: SparseStateTrie(SparseStateTrieError(Sparse(Blind)))
-                    if result.is_err() {
-                        continue;
-                    }
-                    let (address, storage_trie) = result?;
-                    trie.insert_storage_trie(address, storage_trie);
-                }
-
-                // Update accounts with new values
-                for (address, account) in hashed_post_state.accounts {
-                    let result = trie.update_account(address, account.unwrap_or_default());
-                    // todo: SparseStateTrie(SparseStateTrieError(Sparse(Blind)))
-                    if result.is_err() {
-                        continue;
-                    }
-                }
-
-                trie.calculate_below_level(2);
-
-                // ===================== Post Validation =====================
-
+                // ===================== Post Execution Validation =====================
                 self.consensus.validate_block_post_execution(
                     &block,
                     PostExecutionInput::new(&output.receipts, &output.requests),
                 )?;
-                // todo: currently it returns error
-                // assert_eq!(trie.root().unwrap(), block.state_root);
 
-                // ===================== Update state =====================
+                // ===================== State Root =====================
+                let hashed_state = HashedPostState::from_bundle_state::<KeccakKeyHasher>(
+                    output.state.state.par_iter(),
+                );
+                let state_root = calculate_state_root(&mut trie, hashed_state)?;
+                if state_root != block.state_root {
+                    return Err(ConsensusError::BodyStateRootDiff(
+                        GotExpected {
+                            got: state_root,
+                            expected: block.state_root,
+                        }
+                        .into(),
+                    )
+                    .into());
+                }
 
+                // ===================== Update Node State =====================
                 let header_from_payload = block.header.clone();
                 self.provider.storage.insert_executed(header_from_payload);
                 let latest_valid_hash = match self.forkchoice_state {
@@ -251,7 +194,7 @@ impl ConsensusEngine {
                     None => parent_hash_from_payload,
                 };
 
-                debug!(?latest_valid_hash, "🟢 new payload is valid");
+                info!(?latest_valid_hash, "🟢 new payload is valid");
 
                 if let Err(e) = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
                     .with_latest_valid_hash(latest_valid_hash)))
