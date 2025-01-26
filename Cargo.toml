@@ -30,6 +30,23 @@ unused_must_use = "deny"
 [workspace.lints.rustdoc]
 all = "warn"
 
+[profile.release]
+codegen-units = 16
+debug = "line-tables-only"
+lto = "thin"
+opt-level = 3
+panic = "unwind"
+strip = true
+
+[profile.profiling]
+debug = 2
+inherits = "release"
+strip = false
+
+[profile.maxperf]
+codegen-units = 1
+inherits = "release"
+lto = "fat"
 
 [workspace.dependencies]
 # ress
