@@ -99,7 +99,7 @@ impl Stream for CustomRlpxConnection {
                     } => {
                         this.pending_witness = Some(response);
                         Poll::Ready(Some(
-                            CustomRlpxProtoMessage::witness_req(block_hash).encoded(),
+                            CustomRlpxProtoMessage::get_witness(block_hash).encoded(),
                         ))
                     }
                     CustomCommand::Bytecode {
@@ -109,7 +109,7 @@ impl Stream for CustomRlpxConnection {
                     } => {
                         this.pending_bytecode = Some(response);
                         Poll::Ready(Some(
-                            CustomRlpxProtoMessage::bytecode_req(BytecodeRequest::new(
+                            CustomRlpxProtoMessage::get_bytecode(BytecodeRequest::new(
                                 code_hash, block_hash,
                             ))
                             .encoded(),
@@ -141,7 +141,7 @@ impl Stream for CustomRlpxConnection {
                     // TODO: this actually doesn't disconnecting the channel. How can i gracefully stop
                     return Poll::Ready(None);
                 }
-                CustomRlpxProtoMessageKind::WitnessReq(block_hash) => {
+                CustomRlpxProtoMessageKind::GetWitness(block_hash) => {
                     debug!("requested witness for blockhash: {}", block_hash);
                     let execution_witness = match this.original_node_type {
                         NodeType::Stateful => {
@@ -162,16 +162,16 @@ impl Stream for CustomRlpxConnection {
                     };
 
                     return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::witness_res(execution_witness).encoded(),
+                        CustomRlpxProtoMessage::witness(execution_witness).encoded(),
                     ));
                 }
-                CustomRlpxProtoMessageKind::WitnessRes(msg) => {
+                CustomRlpxProtoMessageKind::Witness(msg) => {
                     if let Some(sender) = this.pending_witness.take() {
                         sender.send(msg).ok();
                     }
                     continue;
                 }
-                CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
+                CustomRlpxProtoMessageKind::GetBytecode(msg) => {
                     debug!(
                         "requested bytes for codehash: {}, blockhash: {}",
                         msg.code_hash, msg.block_hash
@@ -198,10 +198,10 @@ impl Stream for CustomRlpxConnection {
                     };
 
                     return Poll::Ready(Some(
-                        CustomRlpxProtoMessage::bytecode_res(code_bytes).encoded(),
+                        CustomRlpxProtoMessage::bytecode(code_bytes).encoded(),
                     ));
                 }
-                CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
+                CustomRlpxProtoMessageKind::Bytecode(msg) => {
                     if let Some(sender) = this.pending_bytecode.take() {
                         sender.send(msg).ok();
                     }

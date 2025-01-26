@@ -19,12 +19,12 @@ pub enum CustomRlpxProtoMessageType {
     NodeType = 0x01,
 
     // B. witness
-    WitnessReq = 0x02,
-    WitnessRes = 0x03,
+    GetWitness = 0x02,
+    Witness = 0x03,
 
     // C. bytecode
-    BytecodeReq = 0x04,
-    BytecodeRes = 0x05,
+    GetBytecode = 0x04,
+    Bytecode = 0x05,
 }
 
 #[allow(missing_docs)]
@@ -36,12 +36,12 @@ pub enum CustomRlpxProtoMessageKind {
     NodeType(NodeType),
 
     // B. witness
-    WitnessReq(BlockHash),
-    WitnessRes(ExecutionWitness),
+    GetWitness(BlockHash),
+    Witness(ExecutionWitness),
 
     // C. bytecode
-    BytecodeReq(BytecodeRequest),
-    BytecodeRes(Option<Bytecode>),
+    GetBytecode(BytecodeRequest),
+    Bytecode(Option<Bytecode>),
 }
 
 /// Node type variant.
@@ -129,34 +129,34 @@ impl CustomRlpxProtoMessage {
     }
 
     /// Request Witness
-    pub fn witness_req(msg: BlockHash) -> Self {
+    pub fn get_witness(msg: BlockHash) -> Self {
         Self {
-            ty: CustomRlpxProtoMessageType::WitnessReq,
-            message: CustomRlpxProtoMessageKind::WitnessReq(msg),
+            ty: CustomRlpxProtoMessageType::GetWitness,
+            message: CustomRlpxProtoMessageKind::GetWitness(msg),
         }
     }
 
     /// Response Witness
-    pub fn witness_res(msg: ExecutionWitness) -> Self {
+    pub fn witness(msg: ExecutionWitness) -> Self {
         Self {
-            ty: CustomRlpxProtoMessageType::WitnessRes,
-            message: CustomRlpxProtoMessageKind::WitnessRes(msg),
+            ty: CustomRlpxProtoMessageType::Witness,
+            message: CustomRlpxProtoMessageKind::Witness(msg),
         }
     }
 
     /// Request Bytecode
-    pub fn bytecode_req(msg: BytecodeRequest) -> Self {
+    pub fn get_bytecode(msg: BytecodeRequest) -> Self {
         Self {
-            ty: CustomRlpxProtoMessageType::BytecodeReq,
-            message: CustomRlpxProtoMessageKind::BytecodeReq(msg),
+            ty: CustomRlpxProtoMessageType::GetBytecode,
+            message: CustomRlpxProtoMessageKind::GetBytecode(msg),
         }
     }
 
     /// Response Bytecode
-    pub fn bytecode_res(msg: Option<Bytecode>) -> Self {
+    pub fn bytecode(msg: Option<Bytecode>) -> Self {
         Self {
-            ty: CustomRlpxProtoMessageType::BytecodeRes,
-            message: CustomRlpxProtoMessageKind::BytecodeRes(msg),
+            ty: CustomRlpxProtoMessageType::Bytecode,
+            message: CustomRlpxProtoMessageKind::Bytecode(msg),
         }
     }
 
@@ -168,18 +168,18 @@ impl CustomRlpxProtoMessage {
             CustomRlpxProtoMessageKind::NodeType(msg) => {
                 buf.put(msg.as_bytes());
             }
-            CustomRlpxProtoMessageKind::WitnessReq(msg) => {
+            CustomRlpxProtoMessageKind::GetWitness(msg) => {
                 buf.put(&msg.0[..]);
             }
-            CustomRlpxProtoMessageKind::WitnessRes(msg) => {
+            CustomRlpxProtoMessageKind::Witness(msg) => {
                 let serialized = bincode::serialize(msg).expect("Failed to serialize message");
                 buf.put(&serialized[..]);
             }
-            CustomRlpxProtoMessageKind::BytecodeReq(msg) => {
+            CustomRlpxProtoMessageKind::GetBytecode(msg) => {
                 let serialized = bincode::serialize(msg).expect("Failed to serialize message");
                 buf.put(&serialized[..]);
             }
-            CustomRlpxProtoMessageKind::BytecodeRes(msg) => {
+            CustomRlpxProtoMessageKind::Bytecode(msg) => {
                 let serialized = bincode::serialize(msg).expect("Failed to serialize message");
                 buf.put(&serialized[..]);
             }
@@ -198,33 +198,33 @@ impl CustomRlpxProtoMessage {
         let message_type = match id {
             0x00 => CustomRlpxProtoMessageType::Disconnect,
             0x01 => CustomRlpxProtoMessageType::NodeType,
-            0x02 => CustomRlpxProtoMessageType::WitnessReq,
-            0x03 => CustomRlpxProtoMessageType::WitnessRes,
-            0x04 => CustomRlpxProtoMessageType::BytecodeReq,
-            0x05 => CustomRlpxProtoMessageType::BytecodeRes,
+            0x02 => CustomRlpxProtoMessageType::GetWitness,
+            0x03 => CustomRlpxProtoMessageType::Witness,
+            0x04 => CustomRlpxProtoMessageType::GetBytecode,
+            0x05 => CustomRlpxProtoMessageType::Bytecode,
             _ => return None,
         };
         let message = match message_type {
             CustomRlpxProtoMessageType::NodeType => {
                 CustomRlpxProtoMessageKind::NodeType(NodeType::from_bytes(&buf[..]))
             }
-            CustomRlpxProtoMessageType::WitnessReq => {
-                CustomRlpxProtoMessageKind::WitnessReq(B256::from_slice(&buf[..]))
+            CustomRlpxProtoMessageType::GetWitness => {
+                CustomRlpxProtoMessageKind::GetWitness(B256::from_slice(&buf[..]))
             }
-            CustomRlpxProtoMessageType::WitnessRes => {
+            CustomRlpxProtoMessageType::Witness => {
                 let deserialize: ExecutionWitness =
                     bincode::deserialize(&buf[..]).expect("Failed to serialize message");
-                CustomRlpxProtoMessageKind::WitnessRes(deserialize)
+                CustomRlpxProtoMessageKind::Witness(deserialize)
             }
-            CustomRlpxProtoMessageType::BytecodeReq => {
+            CustomRlpxProtoMessageType::GetBytecode => {
                 let deserialize: BytecodeRequest =
                     bincode::deserialize(&buf[..]).expect("Failed to serialize message");
-                CustomRlpxProtoMessageKind::BytecodeReq(deserialize)
+                CustomRlpxProtoMessageKind::GetBytecode(deserialize)
             }
-            CustomRlpxProtoMessageType::BytecodeRes => {
+            CustomRlpxProtoMessageType::Bytecode => {
                 let deserialize: Option<Bytecode> =
                     bincode::deserialize(&buf[..]).expect("Failed to serialize message");
-                CustomRlpxProtoMessageKind::BytecodeRes(deserialize)
+                CustomRlpxProtoMessageKind::Bytecode(deserialize)
             }
             CustomRlpxProtoMessageType::Disconnect => CustomRlpxProtoMessageKind::Disconnect,
         };
