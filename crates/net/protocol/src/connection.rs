@@ -83,7 +83,7 @@ impl<P> RessProtocolConnection<P> {
                 node_type,
                 response,
             } => {
-                self.peer_node_type = Some(node_type.clone());
+                self.peer_node_type = Some(node_type);
                 self.pending_is_valid_connection = Some(response);
                 RessProtocolMessage::node_type(node_type)
             }

@@ -72,7 +72,7 @@ where
     ) -> Option<Self::ConnectionHandler> {
         Some(RessConnectionHandler {
             provider: self.provider.clone(),
-            node_type: self.node_type.clone(),
+            node_type: self.node_type,
             state: self.state.clone(),
         })
     }
