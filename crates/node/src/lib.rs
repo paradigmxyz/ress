@@ -1,5 +1,7 @@
 //! Ress node implementation.
 
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 use alloy_eips::BlockNumHash;
 use ress_common::test_utils::TestPeers;
 use ress_network::P2pHandle;

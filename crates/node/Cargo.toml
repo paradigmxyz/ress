@@ -11,7 +11,6 @@ workspace = true
 # ress
 ress-primitives.workspace = true
 ress-common.workspace = true
-ress-subprotocol.workspace = true
 ress-network.workspace = true
 ress-vm.workspace = true
 ress-provider.workspace = true
@@ -20,12 +19,9 @@ ress-provider.workspace = true
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
 reth-chainspec.workspace = true
-reth-engine-primitives.workspace = true
 reth-consensus.workspace = true
-reth-consensus-debug-client.workspace = true
 reth-node-api.workspace = true
 reth-node-ethereum.workspace = true
-reth-ethereum-engine-primitives.workspace = true
 reth-rpc-builder.workspace = true
 reth-rpc-api.workspace = true
 reth-trie-sparse.workspace = true
@@ -35,18 +31,15 @@ reth-trie.workspace = true
 # alloy
 alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
-alloy-provider.workspace = true
 alloy-trie.workspace = true
 alloy-rlp.workspace = true
 alloy-eips.workspace = true
 
 # misc
-eyre.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 jsonrpsee-http-client.workspace = true
 serde_json.workspace = true
-futures.workspace = true
 rayon.workspace = true
 itertools.workspace = true

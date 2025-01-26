@@ -9,27 +9,21 @@ workspace = true
 
 [dependencies]
 # ress
-ress-primitives.workspace = true
 ress-provider.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-eips.workspace = true
 alloy-trie.workspace = true
 alloy-rlp.workspace = true
 
 # reth
 reth-revm.workspace = true
 reth-primitives.workspace = true
-reth-chainspec.workspace = true
 reth-provider.workspace = true
-reth-primitives-traits.workspace = true
 reth-evm-ethereum.workspace = true
 reth-evm.workspace = true
 reth-trie-sparse.workspace = true
 
 # misc
-parking_lot.workspace = true
 thiserror.workspace = true
-eyre.workspace = true
 tracing.workspace = true

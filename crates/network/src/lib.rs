@@ -1,5 +1,7 @@
 //! P2P networking implementation for the ress node.
 
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+
 use ress_common::test_utils::TestPeers;
 use reth_chainspec::ChainSpec;
 use std::sync::Arc;
