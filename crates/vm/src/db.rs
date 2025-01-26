@@ -10,20 +10,19 @@ use reth_revm::{
     Database,
 };
 use reth_trie_sparse::SparseStateTrie;
-use std::sync::Arc;
 use tracing::debug;
 
 /// EVM database implementation that uses state witness for account and storage data retrieval.
 /// Block hashes and bytecodes are retrieved from ress node storage.
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
+    storage: Storage,
     trie: &'a SparseStateTrie,
-    storage: Arc<Storage>,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub fn new(trie: &'a SparseStateTrie, storage: Arc<Storage>) -> Self {
+    pub fn new(storage: Storage, trie: &'a SparseStateTrie) -> Self {
         Self { trie, storage }
     }
 }

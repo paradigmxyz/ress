@@ -9,6 +9,10 @@ use reth_trie_sparse::errors::SparseStateTrieError;
 /// Error variant for consensus engine.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
+    /// RLP error.
+    #[error("RLP error: {0}")]
+    Rlp(#[from] alloy_rlp::Error),
+
     /// Error related to storage operations.
     #[error("Storage error: {0}")]
     Storage(#[from] StorageError),

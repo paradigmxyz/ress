@@ -4,8 +4,8 @@
 
 use alloy_eips::BlockNumHash;
 use ress_common::test_utils::TestPeers;
-use ress_network::RessNetworkHandle;
-use ress_provider::provider::RessProvider;
+use ress_network::{RessNetworkHandle, RessNetworkLauncher};
+use ress_provider::{provider::RessProvider, storage::Storage};
 use ress_rpc::RpcHandle;
 use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
@@ -24,14 +24,14 @@ pub mod errors;
 /// Ress node components.
 #[derive(Debug)]
 pub struct Node {
+    /// Ress data provider.
+    pub provider: RessProvider,
     /// P2P handle.
     pub network_handle: RessNetworkHandle,
     /// Auth RPC server handle.
     pub authserver_handle: AuthServerHandle,
     /// Consensus engine handle.
     pub consensus_engine_handle: tokio::task::JoinHandle<()>,
-    /// Ress data provider.
-    pub provider: Arc<RessProvider>,
 }
 
 impl Node {
@@ -39,25 +39,20 @@ impl Node {
     pub async fn launch_test_node(
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
-        current_canonical_head: BlockNumHash,
+        current_head: BlockNumHash,
     ) -> Self {
-        let network_handle = RessNetworkHandle::start_network(id).await;
+        let storage = Storage::new(chain_spec.clone(), current_head);
+
+        let network_handle = RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
+            .launch(id)
+            .await;
         let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;
 
         // ================ initial update ==================
 
-        // initiate state with parent hash
-        let provider = Arc::new(RessProvider::new(
-            network_handle.network_peer_conn.clone(),
-            Arc::clone(&chain_spec),
-            current_canonical_head,
-        ));
-
-        let consensus_engine = ConsensusEngine::new(
-            chain_spec.as_ref(),
-            provider.clone(),
-            rpc_handle.from_beacon_engine,
-        );
+        let provider = RessProvider::new(storage, network_handle.clone());
+        let consensus_engine =
+            ConsensusEngine::new(provider.clone(), rpc_handle.from_beacon_engine);
         let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
 
         Self {

@@ -1,10 +1,10 @@
 //! Types for the `debug` API.
 
 use alloy_primitives::{map::B256HashMap, Bytes};
-use serde::{Deserialize, Serialize};
 
 /// Represents the execution witness of a block. Contains an optional map of state preimages.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RpcExecutionWitness {
     /// Map of all hashed trie nodes to their preimages that were required during the execution of
     /// the block, including during state root recomputation.

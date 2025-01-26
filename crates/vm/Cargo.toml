@@ -17,11 +17,12 @@ alloy-trie.workspace = true
 alloy-rlp.workspace = true
 
 # reth
-reth-revm.workspace = true
 reth-primitives.workspace = true
+reth-chainspec.workspace = true
 reth-provider.workspace = true
 reth-evm-ethereum.workspace = true
 reth-evm.workspace = true
+reth-revm.workspace = true
 reth-trie-sparse.workspace = true
 
 # misc

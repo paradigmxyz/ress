@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 # ress
-ress-primitives.workspace = true
+ress-primitives = { workspace = true, features = ["serde"] }
 
 # alloy
 alloy-primitives.workspace = true

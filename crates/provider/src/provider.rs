@@ -1,63 +1,49 @@
-use crate::{errors::StorageError, network::NetworkProvider, storage::Storage};
-use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, B256};
-use ress_primitives::witness::ExecutionWitness;
-use ress_subprotocol::connection::CustomCommand;
-use reth_chainspec::ChainSpec;
+use crate::{errors::StorageError, storage::Storage};
+use alloy_primitives::B256;
+use ress_network::RessNetworkHandle;
+use ress_primitives::witness::{ExecutionWitness, StateWitness};
 use reth_revm::primitives::Bytecode;
-use std::sync::Arc;
-use tokio::sync::mpsc::UnboundedSender;
 
 /// Provider for retrieving blockchain data.
 ///
 /// This type is a main entrypoint for fetching chain and supplementary state data.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RessProvider {
     /// Storage provider.
-    pub storage: Arc<Storage>,
-    /// Network provider.
-    pub network: NetworkProvider,
+    pub storage: Storage,
+    /// Network handle.
+    pub network: RessNetworkHandle,
 }
 
 impl RessProvider {
     /// Instantiate new provider.
-    pub fn new(
-        network_peer_conn: UnboundedSender<CustomCommand>,
-        chain_spec: Arc<ChainSpec>,
-        current_canonical_head: BlockNumHash,
-    ) -> Self {
-        let network = NetworkProvider::new(network_peer_conn);
-        let storage = Arc::new(Storage::new(chain_spec, current_canonical_head));
+    pub fn new(storage: Storage, network: RessNetworkHandle) -> Self {
         Self { storage, network }
     }
 
     /// Fetch witness of target block hash
     pub async fn fetch_witness(&self, block_hash: B256) -> Result<ExecutionWitness, StorageError> {
-        Ok(self.network.get_witness(block_hash).await?)
+        let state_witness = self.network.fetch_witness(block_hash).await?;
+        let witness = ExecutionWitness::new(StateWitness::from_iter(
+            state_witness.0.into_iter().map(|e| (e.hash, e.bytes)),
+        ));
+        Ok(witness)
     }
 
-    /// Fetch bytecode and save it to disk
-    pub async fn fetch_contract_bytecode(
-        &self,
-        code_hash: B256,
-        block_hash: B256,
-    ) -> Result<Bytecode, StorageError> {
-        if let Some(bytecode) = self
-            .network
-            .get_contract_bytecode(block_hash, code_hash)
-            .await?
-        {
-            // validation
-            if code_hash != keccak256(bytecode.bytes()) {
-                return Err(StorageError::InvalidBytecode(code_hash));
-            }
-
-            self.storage
-                .disk
-                .update_bytecode(code_hash, bytecode.clone())?;
-
-            return Ok(bytecode);
+    /// Ensure that bytecode exists on disk, download and write to disk if missing.
+    pub async fn ensure_bytecode_exists(&self, code_hash: B256) -> Result<(), StorageError> {
+        if self.storage.disk.code_hash_exists_in_db(&code_hash) {
+            return Ok(());
         }
-        Err(StorageError::NoCodeForCodeHash(code_hash))
+
+        let bytecode = self
+            .network
+            .fetch_bytecode(code_hash)
+            .await?
+            .ok_or(StorageError::NoCodeForCodeHash(code_hash))?;
+        self.storage
+            .disk
+            .update_bytecode(code_hash, Bytecode::new_raw(bytecode))?;
+        Ok(())
     }
 }

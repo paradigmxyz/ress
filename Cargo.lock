@@ -5275,7 +5275,7 @@ dependencies = [
  "rand",
  "ress-common",
  "ress-node",
- "ress-subprotocol",
+ "ress-protocol",
  "reth-chainspec",
  "reth-consensus-debug-client",
  "reth-network",
@@ -5306,11 +5306,13 @@ dependencies = [
 name = "ress-network"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "ress-common",
- "ress-subprotocol",
+ "ress-protocol",
+ "reth-chainspec",
  "reth-network",
- "reth-provider",
- "reth-transaction-pool",
+ "reth-network-api",
+ "thiserror 2.0.9",
  "tokio",
  "tracing",
 ]
@@ -5323,7 +5325,6 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-engine",
- "alloy-trie",
  "itertools 0.13.0",
  "jsonrpsee-http-client",
  "rayon",
@@ -5355,7 +5356,25 @@ name = "ress-primitives"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
  "serde",
+]
+
+[[package]]
+name = "ress-protocol"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "futures",
+ "reth-eth-wire",
+ "reth-network",
+ "reth-network-api",
+ "reth-storage-errors",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -5365,15 +5384,16 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives",
  "parking_lot",
+ "ress-network",
  "ress-primitives",
- "ress-subprotocol",
+ "ress-protocol",
  "reth-chainspec",
  "reth-primitives",
  "reth-revm",
+ "reth-storage-errors",
  "rusqlite",
  "tempfile",
  "thiserror 2.0.9",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -5399,29 +5419,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ress-subprotocol"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "bincode",
- "futures",
- "ress-common",
- "ress-primitives",
- "reth-db",
- "reth-eth-wire",
- "reth-network",
- "reth-network-api",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-provider",
- "reth-revm",
- "serde",
- "tokio",
- "tokio-stream",
- "tracing",
-]
-
-[[package]]
 name = "ress-vm"
 version = "0.1.0"
 dependencies = [
@@ -5429,6 +5426,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-trie",
  "ress-provider",
+ "reth-chainspec",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",
@@ -5444,7 +5442,8 @@ name = "reth"
 version = "0.1.0"
 dependencies = [
  "eyre",
- "ress-subprotocol",
+ "ress-network",
+ "ress-protocol",
  "reth 1.1.5",
  "reth-network",
  "reth-network-api",

@@ -1,16 +1,11 @@
-use alloy_primitives::B256;
+use alloy_primitives::map::B256HashSet;
 use alloy_primitives::U256;
-use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
-use alloy_trie::nodes::TrieNode;
-use alloy_trie::TrieAccount;
-use alloy_trie::KECCAK_EMPTY;
 use jsonrpsee_http_client::HttpClientBuilder;
 use rayon::iter::IntoParallelRefIterator;
 use ress_common::utils::get_witness_path;
-use ress_primitives::witness::ExecutionWitness;
 use ress_primitives::witness_rpc::RpcExecutionWitness;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
@@ -52,9 +47,9 @@ use crate::root::calculate_state_root;
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
 pub struct ConsensusEngine {
+    provider: RessProvider,
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
-    provider: Arc<RessProvider>,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     forkchoice_state: Option<ForkchoiceState>,
 }
@@ -62,15 +57,14 @@ pub struct ConsensusEngine {
 impl ConsensusEngine {
     /// Initialize consensus engine.
     pub fn new(
-        chain_spec: &ChainSpec,
-        provider: Arc<RessProvider>,
+        provider: RessProvider,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
-        // we have it in auth server for now to leaverage the mothods in here, we also init new validator
-        let engine_validator = EthereumEngineValidator::new(chain_spec.clone().into());
-        let consensus: Arc<dyn FullConsensus<Error = ConsensusError>> = Arc::new(
-            EthBeaconConsensus::<ChainSpec>::new(chain_spec.clone().into()),
-        );
+        // we have it in auth server for now to leverage the methods in here, we also init new validator
+        let chain_spec = provider.storage.chain_spec();
+        let engine_validator = EthereumEngineValidator::new(chain_spec.clone());
+        let consensus: Arc<dyn FullConsensus<Error = ConsensusError>> =
+            Arc::new(EthBeaconConsensus::<ChainSpec>::new(chain_spec));
         Self {
             consensus,
             engine_validator,
@@ -149,17 +143,18 @@ impl ConsensusEngine {
                 // ===================== Witness =====================
                 let execution_witness = self.provider.fetch_witness(block_hash).await?;
                 let start_time = std::time::Instant::now();
-                self.prefetch_all_bytecodes(&execution_witness, block_hash)
-                    .await;
-                info!(elapsed = ?start_time.elapsed(), "✨ prefetched all bytes");
+                let bytecode_hashes = execution_witness.get_bytecode_hashes()?;
+                let bytecode_hashes_len = bytecode_hashes.len();
+                self.prefetch_bytecodes(bytecode_hashes).await;
+                info!(elapsed = ?start_time.elapsed(), len = bytecode_hashes_len, "✨ ensured all bytecodes are present");
                 let mut trie = SparseStateTrie::default();
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
-                let database = WitnessDatabase::new(&trie, storage.clone());
+                let database = WitnessDatabase::new(storage.clone(), &trie);
 
                 // ===================== Execution =====================
 
                 let start_time = std::time::Instant::now();
-                let mut block_executor = BlockExecutor::new(database, storage.clone());
+                let mut block_executor = BlockExecutor::new(storage.chain_spec(), database);
                 let senders = block.senders().expect("no senders");
                 let block = BlockWithSenders::new(block.clone().unseal(), senders)
                     .expect("cannot construct block");
@@ -362,37 +357,12 @@ impl ConsensusEngine {
         }
     }
 
-    /// prefetch all bytecodes in parallel
-    pub async fn prefetch_all_bytecodes(
-        &self,
-        execution_witness: &ExecutionWitness,
-        block_hash: B256,
-    ) {
-        let code_hashes: Vec<_> = execution_witness
-            .state_witness
-            .iter()
-            .filter_map(|(_, encoded)| {
-                let node = TrieNode::decode(&mut &encoded[..]).ok()?;
-                let TrieNode::Leaf(leaf) = node else {
-                    return None;
-                };
-                let account = TrieAccount::decode(&mut &leaf.value[..]).ok()?;
-                // Skip EOA
-                if account.code_hash == KECCAK_EMPTY {
-                    return None;
-                }
-
-                Some(account.code_hash)
-            })
-            .collect();
-        for code_hash in self.provider.storage.filter_code_hashes(code_hashes) {
-            if let Err(e) = self
-                .provider
-                .fetch_contract_bytecode(code_hash, block_hash)
-                .await
-            {
-                // code hashes decoded from witness might not used during execution so it's ok to not fetch from code from `debug_executionWitness`
-                debug!("Failed to prefetch: {e}");
+    /// Prefetch all bytecodes found in the witness.
+    pub async fn prefetch_bytecodes(&self, bytecode_hashes: B256HashSet) {
+        for code_hash in bytecode_hashes {
+            if let Err(error) = self.provider.ensure_bytecode_exists(code_hash).await {
+                // TODO: handle this error
+                error!("Failed to prefetch: {error}");
             }
         }
     }

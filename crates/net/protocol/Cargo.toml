@@ -1,0 +1,25 @@
+[package]
+name = "ress-protocol"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# reth
+reth-eth-wire.workspace = true
+reth-network-api.workspace = true
+reth-network.workspace = true
+reth-storage-errors.workspace = true
+
+# alloy
+alloy-primitives.workspace = true
+alloy-rlp.workspace = true
+
+# misc
+futures.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+tokio-stream.workspace = true
+tracing.workspace = true

@@ -1,6 +1,6 @@
 //! EVM block executor.
 
-use ress_provider::storage::Storage;
+use reth_chainspec::ChainSpec;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{BlockWithSenders, Receipt};
@@ -17,9 +17,8 @@ pub struct BlockExecutor<'a> {
 }
 
 impl<'a> BlockExecutor<'a> {
-    /// Instantiate new block executor with witness and storage.
-    pub fn new(db: WitnessDatabase<'a>, storage: Arc<Storage>) -> Self {
-        let chain_spec = storage.get_chain_config();
+    /// Instantiate new block executor with chain spec and witness database.
+    pub fn new(chain_spec: Arc<ChainSpec>, db: WitnessDatabase<'a>) -> Self {
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state = StateBuilder::new_with_database(db)
             .with_bundle_update()

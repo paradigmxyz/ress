@@ -1,16 +1,18 @@
 use crate::errors::StorageError;
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{BlockHash, BlockNumber, B256};
+use alloy_primitives::{map::B256HashMap, BlockHash, BlockNumber, Bytes, B256};
+use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
+use reth_storage_errors::provider::ProviderResult;
 use std::{collections::HashMap, sync::Arc};
 
 pub mod backends;
 use backends::{disk::DiskStorage, memory::MemoryStorage};
 
 /// Wrapper around in-memory and on-disk storages.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Storage {
     chain_spec: Arc<ChainSpec>,
     pub(crate) memory: MemoryStorage,
@@ -19,14 +21,19 @@ pub struct Storage {
 
 impl Storage {
     /// Instantiate new storage.
-    pub fn new(chain_spec: Arc<ChainSpec>, current_canonical_head: BlockNumHash) -> Self {
-        let memory = MemoryStorage::new(current_canonical_head);
+    pub fn new(chain_spec: Arc<ChainSpec>, current_head: BlockNumHash) -> Self {
+        let memory = MemoryStorage::new(current_head);
         let disk = DiskStorage::new("test.db");
         Self {
             chain_spec,
             memory,
             disk,
         }
+    }
+
+    /// Get chain spec.
+    pub fn chain_spec(&self) -> Arc<ChainSpec> {
+        self.chain_spec.clone()
     }
 
     /// Update canonical hashes on reorg.
@@ -132,9 +139,15 @@ impl Storage {
             .get_block_hash(block_number)
             .map_err(StorageError::Memory)
     }
+}
 
-    /// Get chain config.
-    pub fn get_chain_config(&self) -> Arc<ChainSpec> {
-        self.chain_spec.clone()
+// TODO: implement
+impl RessProtocolProvider for Storage {
+    fn bytecode(&self, _code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        Ok(None)
+    }
+
+    fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        Ok(None)
     }
 }

@@ -1,6 +1,5 @@
 use alloy_primitives::{BlockHash, BlockNumber, B256};
-use ress_subprotocol::connection::CustomCommand;
-use tokio::sync::{mpsc::error::SendError, oneshot::error::RecvError};
+use ress_network::NetworkStorageError;
 
 /// Database error type.
 #[derive(Debug, thiserror::Error)]
@@ -24,18 +23,6 @@ pub enum StorageError {
     /// Error related to memory storage operations.
     #[error("Memory storage: {0}")]
     Memory(#[from] MemoryStorageError),
-}
-
-/// Errors that can occur during network storage operations.
-#[derive(Debug, thiserror::Error)]
-pub enum NetworkStorageError {
-    /// Failed to send a request through the channel.
-    #[error("Failed to send request through channel: {0}")]
-    ChannelSend(#[from] SendError<CustomCommand>),
-
-    /// Failed to receive a response from the channel.
-    #[error("Failed to receive response from channel: {0}")]
-    ChannelReceive(#[from] RecvError),
 }
 
 /// Errors that can occur during memory storage operations.

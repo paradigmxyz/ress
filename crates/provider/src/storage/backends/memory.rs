@@ -11,7 +11,7 @@ use tracing::debug;
 use crate::errors::MemoryStorageError;
 
 /// In-memory storage.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MemoryStorage {
     inner: Arc<RwLock<MemoryStorageInner>>,
 }

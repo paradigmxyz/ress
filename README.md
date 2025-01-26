@@ -8,7 +8,7 @@
 
 Spawning 3 process. 
 - authserver: `EngineApi` implemented server to listen consensus message.
-- p2p network: spawn network that implemented `ress-subprotocol`.
+- p2p network: spawn network that implemented `ress-protocol`.
 - engine: `ConsensusEngine` that spawned to keep receive message
 
 

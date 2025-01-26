@@ -7,13 +7,14 @@ edition = "2021"
 members = [
     "bin/ress",
     "bin/reth",
+
     "crates/common",
-    "crates/network",
+    "crates/net/network",
+    "crates/net/protocol",
     "crates/node",
     "crates/primitives",
     "crates/provider",
     "crates/rpc",
-    "crates/subprotocol",
     "crates/vm",
 ]
 
@@ -52,9 +53,9 @@ lto = "fat"
 [workspace.dependencies]
 # ress
 ress-node = { path = "crates/node" }
-ress-subprotocol = { path = "crates/subprotocol" }
+ress-network = { path = "crates/net/network" }
+ress-protocol = { path = "crates/net/protocol" }
 ress-provider = { path = "crates/provider" }
-ress-network = { path = "crates/network" }
 ress-common = { path = "crates/common" }
 ress-vm = { path = "crates/vm" }
 ress-primitives = { path = "crates/primitives" }
@@ -67,6 +68,7 @@ reth = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
+reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-errors = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 
 ## db
@@ -74,6 +76,7 @@ reth-db = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "986c754", features = [
     "test-utils",
 ] }
+
 ## network
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-network-api = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
@@ -129,7 +132,7 @@ alloy-rlp = "0.3.10"
 
 # misc
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.39", features = ["full"] }
+tokio = { version = "1.39", default-features = false }
 tokio-stream = "0.1.11"
 futures = "0.3"
 eyre = "0.6"

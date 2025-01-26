@@ -1,6 +1,11 @@
 //! Execution witness type.
 
-use alloy_primitives::{map::B256HashMap, Bytes};
+use alloy_primitives::{
+    map::{B256HashMap, B256HashSet},
+    Bytes,
+};
+use alloy_rlp::Decodable;
+use alloy_trie::{nodes::TrieNode, TrieAccount, KECCAK_EMPTY};
 
 /// Alias type representing execution state witness.
 /// Execution state witness is a mapping of hashes of encoded
@@ -22,5 +27,19 @@ impl ExecutionWitness {
     /// Create new [`ExecutionWitness`].
     pub fn new(state_witness: StateWitness) -> Self {
         Self { state_witness }
+    }
+
+    /// Returns all code hashes found in the witness.
+    pub fn get_bytecode_hashes(&self) -> alloy_rlp::Result<B256HashSet> {
+        let mut bytecode_hashes = B256HashSet::default();
+        for encoded in self.state_witness.values() {
+            if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &encoded[..])? {
+                let account = TrieAccount::decode(&mut &leaf.value[..])?;
+                if account.code_hash != KECCAK_EMPTY {
+                    bytecode_hashes.insert(account.code_hash);
+                }
+            }
+        }
+        Ok(bytecode_hashes)
     }
 }

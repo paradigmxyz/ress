@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 # ress
-ress-subprotocol.workspace = true
+ress-protocol.workspace = true
 ress-node.workspace = true
 ress-common.workspace = true
 

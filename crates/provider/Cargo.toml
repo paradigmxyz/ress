@@ -10,21 +10,22 @@ workspace = true
 [dependencies]
 # ress
 ress-primitives.workspace = true
-ress-subprotocol.workspace = true
+ress-network.workspace = true
+ress-protocol.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 
 # reth
-reth-chainspec.workspace = true
 reth-primitives.workspace = true
+reth-chainspec.workspace = true
+reth-storage-errors.workspace = true
 reth-revm.workspace = true
 
 # misc
 thiserror.workspace = true
 tracing.workspace = true
-tokio.workspace = true
 rusqlite.workspace = true
 parking_lot.workspace = true
 
