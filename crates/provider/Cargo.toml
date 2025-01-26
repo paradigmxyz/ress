@@ -12,6 +12,7 @@ workspace = true
 ress-primitives.workspace = true
 ress-network.workspace = true
 ress-protocol.workspace = true
+ress-common.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

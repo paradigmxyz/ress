@@ -31,15 +31,24 @@ impl ExecutionWitness {
 
     /// Returns all code hashes found in the witness.
     pub fn get_bytecode_hashes(&self) -> alloy_rlp::Result<B256HashSet> {
-        let mut bytecode_hashes = B256HashSet::default();
-        for encoded in self.state_witness.values() {
-            if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &encoded[..])? {
-                let account = TrieAccount::decode(&mut &leaf.value[..])?;
-                if account.code_hash != KECCAK_EMPTY {
-                    bytecode_hashes.insert(account.code_hash);
+        let code_hashes: B256HashSet = self
+            .state_witness
+            .iter()
+            .filter_map(|(_, encoded)| {
+                let node = TrieNode::decode(&mut &encoded[..]).ok()?;
+                let TrieNode::Leaf(leaf) = node else {
+                    return None;
+                };
+                let account = TrieAccount::decode(&mut &leaf.value[..]).ok()?;
+                // Skip EOA
+                if account.code_hash == KECCAK_EMPTY {
+                    return None;
                 }
-            }
-        }
-        Ok(bytecode_hashes)
+
+                Some(account.code_hash)
+            })
+            .collect();
+
+        Ok(code_hashes)
     }
 }
