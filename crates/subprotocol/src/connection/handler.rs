@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// The connection handler for the custom RLPx protocol.
+#[derive(Debug)]
 pub struct CustomRlpxConnectionHandler {
     pub(crate) state: ProtocolState,
     pub(crate) node_type: NodeType,

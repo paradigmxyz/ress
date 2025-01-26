@@ -11,7 +11,7 @@ use jsonrpsee_http_client::HttpClientBuilder;
 use rayon::iter::IntoParallelRefIterator;
 use ress_common::utils::get_witness_path;
 use ress_primitives::witness::ExecutionWitness;
-use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
+use ress_primitives::witness_rpc::RpcExecutionWitness;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
@@ -49,7 +49,8 @@ use tracing::*;
 use crate::errors::EngineError;
 use crate::root::calculate_state_root;
 
-/// ress consensus engine
+/// Ress consensus engine.
+#[allow(missing_debug_implementations)]
 pub struct ConsensusEngine {
     consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
@@ -59,6 +60,7 @@ pub struct ConsensusEngine {
 }
 
 impl ConsensusEngine {
+    /// Initialize consensus engine.
     pub fn new(
         chain_spec: &ChainSpec,
         provider: Arc<RessProvider>,
@@ -113,7 +115,7 @@ impl ConsensusEngine {
                     DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
                         .await
                         .map_err(|e| EngineError::DebugApiClient(e.to_string()))?;
-                let json_data = serde_json::to_string(&ExecutionWitnessFromRpc::new(
+                let json_data = serde_json::to_string(&RpcExecutionWitness::new(
                     execution_witness.state,
                     execution_witness.codes,
                 ))?;
@@ -279,13 +281,13 @@ impl ConsensusEngine {
             warn!(?head.number,"reorg detacted");
             self.provider
                 .storage
-                .post_fcu_reorg_update(head, state.finalized_block_hash)
+                .on_fcu_reorg_update(head, state.finalized_block_hash)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         } else {
             // fcu is on canonical chain
             self.provider
                 .storage
-                .post_fcu_update(head, state.finalized_block_hash)
+                .on_fcu_update(head, state.finalized_block_hash)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         }
 

@@ -1,22 +1,26 @@
-use std::sync::Arc;
-
+use crate::{errors::StorageError, network::NetworkProvider, storage::Storage};
 use alloy_eips::BlockNumHash;
 use alloy_primitives::B256;
 use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
 use reth_chainspec::ChainSpec;
 use reth_revm::primitives::Bytecode;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{errors::StorageError, network::NetworkProvider, storage::Storage};
-
+/// Provider for retrieving blockchain data.
+///
+/// This type is a main entrypoint for fetching chain and supplementary state data.
 #[derive(Debug)]
 pub struct RessProvider {
+    /// Storage provider.
     pub storage: Arc<Storage>,
-    network: NetworkProvider,
+    /// Network provider.
+    pub network: NetworkProvider,
 }
 
 impl RessProvider {
+    /// Instantiate new provider.
     pub fn new(
         network_peer_conn: UnboundedSender<CustomCommand>,
         chain_spec: Arc<ChainSpec>,

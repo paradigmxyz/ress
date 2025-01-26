@@ -11,6 +11,7 @@ use reth_trie_sparse::{
 };
 use std::sync::mpsc;
 
+/// Compute the state root given a revealed sparse trie and hashed state update.
 pub fn calculate_state_root(
     trie: &mut SparseStateTrie,
     state: HashedPostState,

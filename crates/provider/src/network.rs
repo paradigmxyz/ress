@@ -6,12 +6,14 @@ use reth_revm::primitives::Bytecode;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::debug;
 
+/// Provider for interacting with the network.
 #[derive(Debug)]
 pub struct NetworkProvider {
     network_peer_conn: UnboundedSender<CustomCommand>,
 }
 
 impl NetworkProvider {
+    /// Create new network provider.
     pub fn new(network_peer_conn: UnboundedSender<CustomCommand>) -> Self {
         Self { network_peer_conn }
     }

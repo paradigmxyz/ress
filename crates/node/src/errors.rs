@@ -6,6 +6,7 @@ use reth_errors::RethError;
 use reth_node_api::{EngineObjectValidationError, InvalidPayloadAttributesError};
 use reth_trie_sparse::errors::SparseStateTrieError;
 
+/// Error variant for consensus engine.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
     /// Error related to storage operations.
@@ -44,6 +45,7 @@ pub enum EngineError {
     #[error("Consensus error: {0}")]
     Consensus(#[from] ConsensusError),
 
+    /// Internal reth error.
     #[error("Error from reth: {0}")]
-    RethError(#[from] RethError),
+    Reth(#[from] RethError),
 }

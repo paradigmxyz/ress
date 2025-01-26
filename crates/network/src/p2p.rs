@@ -19,15 +19,16 @@ use reth_transaction_pool::PeerId;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
 
-pub struct P2pHandler {
-    /// channel to receive - network
+/// P2P networking handle.
+#[derive(Debug)]
+pub struct P2pHandle {
+    /// Handle for interacting with the network.
     pub network_handle: NetworkHandle,
-
-    // channel to send - network
+    /// Sender for forwarding network commands.
     pub network_peer_conn: UnboundedSender<CustomCommand>,
 }
 
-impl P2pHandler {
+impl P2pHandle {
     pub(crate) async fn start_server(id: TestPeers) -> Self {
         let (subnetwork_handle, from_peer) =
             Self::launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;

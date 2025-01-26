@@ -1,3 +1,5 @@
+//! EVM block executor.
+
 use ress_provider::storage::Storage;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
@@ -8,12 +10,14 @@ use std::sync::Arc;
 
 use crate::{db::WitnessDatabase, errors::EvmError};
 
+/// Block executor that wraps reth's [`EthExecutionStrategy`].
+#[allow(missing_debug_implementations)]
 pub struct BlockExecutor<'a> {
-    pub strategy: EthExecutionStrategy<WitnessDatabase<'a>, EthEvmConfig>,
+    strategy: EthExecutionStrategy<WitnessDatabase<'a>, EthEvmConfig>,
 }
 
 impl<'a> BlockExecutor<'a> {
-    /// specific block's executor by initiate with parent block post execution state and hash
+    /// Instantiate new block executor with witness and storage.
     pub fn new(db: WitnessDatabase<'a>, storage: Arc<Storage>) -> Self {
         let chain_spec = storage.get_chain_config();
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
@@ -25,7 +29,7 @@ impl<'a> BlockExecutor<'a> {
         Self { strategy }
     }
 
-    /// from `BasicBlockExecutor`'s execute
+    /// Execute a block.
     pub fn execute(
         &mut self,
         block: &BlockWithSenders,

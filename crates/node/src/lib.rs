@@ -1,24 +1,38 @@
+//! Ress node implementation.
+
 use alloy_eips::BlockNumHash;
-use engine::ConsensusEngine;
 use ress_common::test_utils::TestPeers;
-use ress_network::p2p::P2pHandler;
+use ress_network::P2pHandle;
 use ress_provider::provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
 use std::sync::Arc;
 
+/// Consensus engine implementation.
 pub mod engine;
-pub mod errors;
+use engine::ConsensusEngine;
+
+/// State root computation.
 pub mod root;
 
+/// Engine error types.
+pub mod errors;
+
+/// Ress node components.
+#[derive(Debug)]
 pub struct Node {
-    pub p2p_handler: P2pHandler,
-    pub authserver_handler: AuthServerHandle,
-    consensus_engine_handle: tokio::task::JoinHandle<()>,
+    /// P2P handle.
+    pub p2p_handle: P2pHandle,
+    /// Auth RPC server handle.
+    pub authserver_handle: AuthServerHandle,
+    /// Consensus engine handle.
+    pub consensus_engine_handle: tokio::task::JoinHandle<()>,
+    /// Ress data provider.
     pub provider: Arc<RessProvider>,
 }
 
 impl Node {
+    /// Launch the test node.
     pub async fn launch_test_node(
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
@@ -44,14 +58,14 @@ impl Node {
         let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
 
         Self {
-            p2p_handler,
-            authserver_handler: rpc_handler.authserver_handle,
+            p2p_handle: p2p_handler,
+            authserver_handle: rpc_handler.authserver_handle,
             consensus_engine_handle,
             provider,
         }
     }
 
-    // gracefully shutdown the node
+    /// Gracefully shutdown the node.
     pub async fn shutdown(self) {
         self.consensus_engine_handle.abort();
     }

@@ -26,6 +26,7 @@ pub(crate) mod handler;
 pub enum CustomCommand {
     /// Sends a node type message to the peer
     NodeType {
+        /// Node type.
         node_type: NodeType,
         /// The response will be sent to this channel.
         response: oneshot::Sender<bool>,
@@ -49,6 +50,7 @@ pub enum CustomCommand {
 }
 
 /// The connection handler for the custom RLPx protocol.
+#[derive(Debug)]
 pub struct CustomRlpxConnection {
     conn: ProtocolConnection,
     commands: UnboundedReceiverStream<CustomCommand>,

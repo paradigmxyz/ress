@@ -8,13 +8,14 @@ use rusqlite::{Connection, OptionalExtension, Result};
 use crate::errors::DiskStorageError;
 
 // todo: for now for simplicity using sqlite, mb later move kv storage like libmbdx
-
+/// On disk storage.
 #[derive(Debug)]
 pub struct DiskStorage {
     conn: Arc<Mutex<Connection>>,
 }
 
 impl DiskStorage {
+    /// Return new disk storage.
     pub fn new(path: &str) -> Self {
         let conn = Arc::new(Mutex::new(Connection::open(path).unwrap()));
         conn.lock()

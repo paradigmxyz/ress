@@ -1,3 +1,5 @@
+//! Reth node that supports ress subprotocol.
+
 use ress_subprotocol::protocol::{
     handler::{CustomRlpxProtoHandler, ProtocolState},
     proto::NodeType,

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the execution witness of a block. Contains an optional map of state preimages.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExecutionWitnessFromRpc {
+pub struct RpcExecutionWitness {
     /// Map of all hashed trie nodes to their preimages that were required during the execution of
     /// the block, including during state root recomputation.
     ///
@@ -18,7 +18,8 @@ pub struct ExecutionWitnessFromRpc {
     pub codes: B256HashMap<Bytes>,
 }
 
-impl ExecutionWitnessFromRpc {
+impl RpcExecutionWitness {
+    /// Create new RPC execution witness from state and bytecodes.
     pub fn new(state: B256HashMap<Bytes>, codes: B256HashMap<Bytes>) -> Self {
         Self { state, codes }
     }

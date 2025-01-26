@@ -1,3 +1,5 @@
+//! Main ress executable.
+
 use alloy_eips::{BlockId, BlockNumHash, NumHash};
 use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
 use alloy_rpc_types::BlockTransactionsKind;
@@ -129,7 +131,7 @@ async fn main() -> eyre::Result<()> {
     let ws_block_provider =
         RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
     let rpc_consensus_client =
-        DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
+        DebugConsensusClient::new(node.authserver_handle, Arc::new(ws_block_provider));
     tokio::spawn(async move {
         info!("💨 running debug consensus client");
         rpc_consensus_client.run::<EthEngineTypes>().await;
@@ -137,7 +139,7 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    let mut events = node.p2p_handler.network_handle.event_listener();
+    let mut events = node.p2p_handle.network_handle.event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress","Received event: {:?}", event);
     }

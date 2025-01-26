@@ -45,6 +45,7 @@ pub enum MemoryStorageError {
     #[error("block not found from hash: {0}")]
     BlockNotFoundFromHash(BlockHash),
 
+    /// Block does not belong to canonical chain.
     #[error("non canonical chain: {0}")]
     NonCanonicalChain(BlockHash),
 }

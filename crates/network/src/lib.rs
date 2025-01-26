@@ -1,17 +1,19 @@
-use std::sync::Arc;
+//! P2P networking implementation for the ress node.
 
-use p2p::P2pHandler;
 use ress_common::test_utils::TestPeers;
 use reth_chainspec::ChainSpec;
-use rpc::RpcHandler;
+use std::sync::Arc;
 
-pub mod p2p;
-pub mod rpc;
+mod p2p;
+pub use p2p::*;
+
+mod rpc;
+pub use rpc::RpcHandler;
 
 /// spawn p2p network and rpc server
-pub async fn start_network(id: TestPeers, chain_spec: Arc<ChainSpec>) -> (P2pHandler, RpcHandler) {
+pub async fn start_network(id: TestPeers, chain_spec: Arc<ChainSpec>) -> (P2pHandle, RpcHandler) {
     (
-        P2pHandler::start_server(id).await,
+        P2pHandle::start_server(id).await,
         RpcHandler::start_server(id, chain_spec).await,
     )
 }

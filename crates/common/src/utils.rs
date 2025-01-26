@@ -1,14 +1,16 @@
+//! Ress witness utilities.
+
 use alloy_primitives::BlockHash;
-use ress_primitives::witness_rpc::ExecutionWitnessFromRpc;
+use ress_primitives::witness_rpc::RpcExecutionWitness;
 use std::{fs::File, io::Read};
 
 /// read witness data from the file via given block hash
-pub fn read_example_witness(block_hash: BlockHash) -> eyre::Result<ExecutionWitnessFromRpc> {
+pub fn read_example_witness(block_hash: BlockHash) -> eyre::Result<RpcExecutionWitness> {
     let file_path = get_witness_path(block_hash);
     let mut file = File::open(file_path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let example_header: ExecutionWitnessFromRpc = serde_json::from_str(&contents)?;
+    let example_header: RpcExecutionWitness = serde_json::from_str(&contents)?;
     Ok(example_header)
 }
 

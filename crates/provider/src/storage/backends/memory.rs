@@ -10,6 +10,7 @@ use tracing::debug;
 
 use crate::errors::MemoryStorageError;
 
+/// In-memory storage.
 #[derive(Debug)]
 pub struct MemoryStorage {
     inner: Arc<RwLock<MemoryStorageInner>>,
@@ -46,7 +47,7 @@ pub struct MemoryStorageInner {
 }
 
 impl MemoryStorageInner {
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method takes O(n) of complexity by walk through all the executed headers to check canonical chain.
     pub(crate) fn is_canonical_by_walk_through(&self, hash: B256) -> bool {
@@ -65,7 +66,7 @@ impl MemoryStorageInner {
         false
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
@@ -204,7 +205,7 @@ impl From<ChainInfo> for BlockNumHash {
 }
 
 impl MemoryStorageInner {
-    /// Returns a new, empty tree state that points to the given canonical head.
+    /// Return a new, empty tree state that points to the given canonical head.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
         Self {
             canonical_hashes: HashMap::new(),
@@ -217,6 +218,7 @@ impl MemoryStorageInner {
 }
 
 impl MemoryStorage {
+    /// Create new in-memory storage.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
         Self {
             inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))),
@@ -245,7 +247,7 @@ impl MemoryStorage {
         inner.insert_executed(executed);
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {

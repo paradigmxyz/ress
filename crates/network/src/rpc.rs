@@ -15,18 +15,21 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 // todo: add execution rpc later
+/// RPC launcher.
+#[derive(Debug)]
 pub struct RpcHandler {
-    //  auth server handler
+    /// Auth server handle.
     pub authserver_handle: AuthServerHandle,
 
-    // beacon engine receiver
+    /// Beacon engine receiver.
     pub from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
 }
 
 impl RpcHandler {
     pub(crate) async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
         let (authserver_handle, from_beacon_engine) =
-            Self::launch_auth_server(id.get_jwt_key(), id.get_authserver_addr(), chain_spec).await;
+            Self::launch_auth_server(id.get_jwt_secret(), id.get_authserver_addr(), chain_spec)
+                .await;
 
         Self {
             authserver_handle,

@@ -1,24 +1,24 @@
+use crate::errors::StorageError;
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
-use backends::{disk::DiskStorage, memory::MemoryStorage};
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::errors::StorageError;
-
 pub mod backends;
+use backends::{disk::DiskStorage, memory::MemoryStorage};
 
-/// Orchestrate 3 different type of backends (in-memory, disk, network)
+/// Wrapper around in-memory and on-disk storages.
 #[derive(Debug)]
 pub struct Storage {
     chain_spec: Arc<ChainSpec>,
-    pub memory: MemoryStorage,
-    pub disk: DiskStorage,
+    pub(crate) memory: MemoryStorage,
+    pub(crate) disk: DiskStorage,
 }
 
 impl Storage {
+    /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>, current_canonical_head: BlockNumHash) -> Self {
         let memory = MemoryStorage::new(current_canonical_head);
         let disk = DiskStorage::new("test.db");
@@ -29,8 +29,8 @@ impl Storage {
         }
     }
 
-    /// manage storage when new fork choice update message is pointing reorg
-    pub fn post_fcu_reorg_update(
+    /// Update canonical hashes on reorg.
+    pub fn on_fcu_reorg_update(
         &self,
         new_head: Header,
         last_persisted_hash: B256,
@@ -43,7 +43,8 @@ impl Storage {
         Ok(())
     }
 
-    pub fn post_fcu_update(
+    /// Update canonical hashes on forkchoice update.
+    pub fn on_fcu_update(
         &self,
         new_head: Header,
         last_persisted_hash: B256,
@@ -59,6 +60,7 @@ impl Storage {
         Ok(())
     }
 
+    /// Return block header by hash.
     pub fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
         self.memory.get_executed_header_by_hash(hash)
     }
@@ -68,15 +70,17 @@ impl Storage {
         self.memory.insert_executed(executed);
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     pub fn is_canonical(&self, hash: B256) -> bool {
         self.memory.is_canonical_lookup(hash)
     }
 
+    /// Update current canonical head.
     pub fn set_canonical_head(&self, new_head: BlockNumHash) {
         self.memory.set_canonical_head(new_head);
     }
 
+    /// Return current canonical head.
     pub fn get_canonical_head(&self) -> BlockNumHash {
         self.memory.get_canonical_head()
     }
@@ -129,7 +133,7 @@ impl Storage {
             .map_err(StorageError::Memory)
     }
 
-    /// Get chain config
+    /// Get chain config.
     pub fn get_chain_config(&self) -> Arc<ChainSpec> {
         self.chain_spec.clone()
     }
