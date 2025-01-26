@@ -4,26 +4,24 @@ use alloy_primitives::{
     BlockHash, Bytes, B256,
 };
 use alloy_rlp::{BytesMut, Decodable, Encodable};
-use reth_eth_wire::{protocol::Protocol, Capability};
+use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
 
 /// Represents message IDs for `ress` protocol messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum RessMessageType {
-    /// Disconnect message.
-    Disconnect = 0x00,
     /// Node type message.
-    NodeType = 0x01,
-
-    /// Witness request message.
-    GetWitness = 0x02,
-    /// Witness response message.
-    Witness = 0x03,
+    NodeType = 0x00,
 
     /// Bytecode request message.
-    GetBytecode = 0x04,
+    GetBytecode = 0x01,
     /// Bytecode response message.
-    Bytecode = 0x05,
+    Bytecode = 0x02,
+
+    /// Witness request message.
+    GetWitness = 0x03,
+    /// Witness response message.
+    Witness = 0x04,
 }
 
 impl Encodable for RessMessageType {
@@ -39,12 +37,11 @@ impl Encodable for RessMessageType {
 impl Decodable for RessMessageType {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let id = match buf.first().ok_or(alloy_rlp::Error::InputTooShort)? {
-            0x00 => Self::Disconnect,
-            0x01 => Self::NodeType,
-            0x02 => Self::GetWitness,
-            0x03 => Self::Witness,
-            0x04 => Self::GetBytecode,
-            0x05 => Self::Bytecode,
+            0x00 => Self::NodeType,
+            0x01 => Self::GetBytecode,
+            0x02 => Self::Bytecode,
+            0x03 => Self::GetWitness,
+            0x04 => Self::Witness,
             _ => return Err(alloy_rlp::Error::Custom("Invalid message type")),
         };
         buf.advance(1);
@@ -55,27 +52,23 @@ impl Decodable for RessMessageType {
 /// Represents a message in the ress protocol.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RessMessageKind {
-    /// Represents disconnect message.
-    Disconnect,
-
     /// Represents a node type message required for handshake.
     NodeType(NodeType),
 
     /// Represents a witness request message.
-    GetWitness(BlockHash),
+    GetWitness(RequestPair<BlockHash>),
     /// Represents a witness response message.
-    Witness(StateWitnessNet),
+    Witness(RequestPair<StateWitnessNet>),
 
     /// Represents a bytecode request message.
-    GetBytecode(B256),
+    GetBytecode(RequestPair<B256>),
     /// Represents a bytecode response message.
-    Bytecode(Bytes),
+    Bytecode(RequestPair<Bytes>),
 }
 
 impl Encodable for RessMessageKind {
     fn encode(&self, out: &mut dyn BufMut) {
         match self {
-            Self::Disconnect => (),
             Self::NodeType(node_type) => node_type.encode(out),
             Self::GetWitness(request) => request.encode(out),
             Self::Witness(witness) => witness.encode(out),
@@ -86,7 +79,6 @@ impl Encodable for RessMessageKind {
 
     fn length(&self) -> usize {
         match self {
-            Self::Disconnect => 0,
             Self::NodeType(node_type) => node_type.length(),
             Self::GetWitness(request) => request.length(),
             Self::Witness(witness) => witness.length(),
@@ -113,15 +105,7 @@ impl RessProtocolMessage {
 
     /// Returns the protocol for the `ress` protocol.
     pub fn protocol() -> Protocol {
-        Protocol::new(Self::capability(), 6)
-    }
-
-    /// Disconnect.
-    pub fn disconnect() -> Self {
-        Self {
-            message_type: RessMessageType::Disconnect,
-            message: RessMessageKind::Disconnect,
-        }
+        Protocol::new(Self::capability(), 5)
     }
 
     /// Create node type message.
@@ -132,35 +116,47 @@ impl RessProtocolMessage {
         }
     }
 
-    /// Execution witness request.
-    pub fn get_witness(block_hash: BlockHash) -> Self {
-        Self {
-            message_type: RessMessageType::GetWitness,
-            message: RessMessageKind::GetWitness(block_hash),
-        }
-    }
-
-    /// Execution witness response.
-    pub fn witness(witness: StateWitnessNet) -> Self {
-        Self {
-            message_type: RessMessageType::Witness,
-            message: RessMessageKind::Witness(witness),
-        }
-    }
-
     /// Bytecode request.
-    pub fn get_bytecode(code_hash: B256) -> Self {
+    pub fn get_bytecode(request_id: u64, code_hash: B256) -> Self {
         Self {
             message_type: RessMessageType::GetBytecode,
-            message: RessMessageKind::GetBytecode(code_hash),
+            message: RessMessageKind::GetBytecode(RequestPair {
+                request_id,
+                message: code_hash,
+            }),
         }
     }
 
     /// Bytecode response.
-    pub fn bytecode(bytecode: Bytes) -> Self {
+    pub fn bytecode(request_id: u64, bytecode: Bytes) -> Self {
         Self {
             message_type: RessMessageType::Bytecode,
-            message: RessMessageKind::Bytecode(bytecode),
+            message: RessMessageKind::Bytecode(RequestPair {
+                request_id,
+                message: bytecode,
+            }),
+        }
+    }
+
+    /// Execution witness request.
+    pub fn get_witness(request_id: u64, block_hash: BlockHash) -> Self {
+        Self {
+            message_type: RessMessageType::GetWitness,
+            message: RessMessageKind::GetWitness(RequestPair {
+                request_id,
+                message: block_hash,
+            }),
+        }
+    }
+
+    /// Execution witness response.
+    pub fn witness(request_id: u64, witness: StateWitnessNet) -> Self {
+        Self {
+            message_type: RessMessageType::Witness,
+            message: RessMessageKind::Witness(RequestPair {
+                request_id,
+                message: witness,
+            }),
         }
     }
 
@@ -175,12 +171,11 @@ impl RessProtocolMessage {
     pub fn decode_message(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let message_type = RessMessageType::decode(buf)?;
         let message = match message_type {
-            RessMessageType::Disconnect => RessMessageKind::Disconnect,
             RessMessageType::NodeType => RessMessageKind::NodeType(NodeType::decode(buf)?),
-            RessMessageType::GetWitness => RessMessageKind::GetWitness(BlockHash::decode(buf)?),
-            RessMessageType::Witness => RessMessageKind::Witness(StateWitnessNet::decode(buf)?),
-            RessMessageType::GetBytecode => RessMessageKind::GetBytecode(B256::decode(buf)?),
-            RessMessageType::Bytecode => RessMessageKind::Bytecode(Bytes::decode(buf)?),
+            RessMessageType::GetBytecode => RessMessageKind::GetBytecode(RequestPair::decode(buf)?),
+            RessMessageType::Bytecode => RessMessageKind::Bytecode(RequestPair::decode(buf)?),
+            RessMessageType::GetWitness => RessMessageKind::GetWitness(RequestPair::decode(buf)?),
+            RessMessageType::Witness => RessMessageKind::Witness(RequestPair::decode(buf)?),
         };
         Ok(Self {
             message_type,

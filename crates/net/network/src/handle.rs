@@ -1,5 +1,5 @@
 use alloy_primitives::{Bytes, B256};
-use ress_protocol::{RessProtocolCommand, StateWitnessNet};
+use ress_protocol::{RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use tokio::sync::{mpsc, mpsc::UnboundedSender, oneshot};
 use tracing::trace;
@@ -10,7 +10,7 @@ pub struct RessNetworkHandle {
     /// Handle for interacting with the network.
     pub network_handle: NetworkHandle,
     /// Sender for forwarding network commands.
-    pub network_peer_conn: UnboundedSender<RessProtocolCommand>,
+    pub network_peer_conn: UnboundedSender<RessPeerRequest>,
 }
 
 impl RessNetworkHandle {
@@ -21,10 +21,8 @@ impl RessNetworkHandle {
     ) -> Result<Option<Bytes>, NetworkStorageError> {
         trace!(target: "ress::network", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessProtocolCommand::Bytecode {
-            code_hash,
-            response: tx,
-        })?;
+        self.network_peer_conn
+            .send(RessPeerRequest::GetBytecode { code_hash, tx })?;
         let response = rx.await?;
         trace!(target: "ress::network", "bytecode received");
         Ok(Some(response))
@@ -35,12 +33,10 @@ impl RessNetworkHandle {
         &self,
         block_hash: B256,
     ) -> Result<StateWitnessNet, NetworkStorageError> {
-        trace!(target: "ress::network", ?block_hash, "requesting witness");
+        trace!(target: "ress::network", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessProtocolCommand::Witness {
-            block_hash,
-            response: tx,
-        })?;
+        self.network_peer_conn
+            .send(RessPeerRequest::GetWitness { block_hash, tx })?;
         let response = rx.await?;
         trace!(target: "ress::network", "witness received");
         Ok(response)
@@ -53,7 +49,7 @@ impl RessNetworkHandle {
 pub enum NetworkStorageError {
     /// Failed to send a request through the channel.
     #[error("Failed to send request through channel: {0}")]
-    ChannelSend(#[from] mpsc::error::SendError<RessProtocolCommand>),
+    ChannelSend(#[from] mpsc::error::SendError<RessPeerRequest>),
 
     /// Failed to receive a response from the channel.
     #[error("Failed to receive response from channel: {0}")]

@@ -1,7 +1,7 @@
 use crate::RessNetworkHandle;
 use ress_common::test_utils::TestPeers;
 use ress_protocol::{
-    NodeType, ProtocolEvent, ProtocolState, RessProtocolCommand, RessProtocolHandler,
+    NodeType, ProtocolEvent, ProtocolState, RessPeerRequest, RessProtocolHandler,
     RessProtocolProvider,
 };
 use reth_chainspec::ChainSpec;
@@ -97,7 +97,7 @@ where
     async fn setup_subprotocol_network(
         mut from_peer: UnboundedReceiver<ProtocolEvent>,
         peer_id: PeerId,
-    ) -> UnboundedSender<RessProtocolCommand> {
+    ) -> UnboundedSender<RessPeerRequest> {
         // Establish connection between peer0 and peer1
         let peer_to_peer = from_peer.recv().await.expect("peer connecting");
         let peer_conn = match peer_to_peer {
@@ -110,21 +110,7 @@ where
                 to_connection
             }
         };
-        info!("🟢 connection established with peer_id: {} ", peer_id);
-
-        // =================================================================
-
-        //  Type message subprotocol
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        peer_conn
-            .send(RessProtocolCommand::NodeType {
-                node_type: NodeType::Stateless,
-                response: tx,
-            })
-            .unwrap();
-        let response = rx.await.unwrap();
-        assert!(response);
-        info!(?response, "🟢 connection type valid");
+        info!(%peer_id, "🟢 connection established");
         peer_conn
     }
 }

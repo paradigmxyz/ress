@@ -16,4 +16,4 @@ mod handlers;
 pub use handlers::*;
 
 mod connection;
-pub use connection::{RessProtocolCommand, RessProtocolConnection};
+pub use connection::{RessPeerRequest, RessProtocolConnection};

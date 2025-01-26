@@ -1,5 +1,5 @@
 use crate::{
-    connection::{RessProtocolCommand, RessProtocolConnection},
+    connection::{RessPeerRequest, RessProtocolConnection},
     NodeType, RessProtocolMessage, RessProtocolProvider,
 };
 use reth_eth_wire::{
@@ -21,7 +21,7 @@ pub enum ProtocolEvent {
         /// Peer ID.
         peer_id: PeerId,
         /// Sender part for forwarding commands.
-        to_connection: mpsc::UnboundedSender<RessProtocolCommand>,
+        to_connection: mpsc::UnboundedSender<RessPeerRequest>,
     },
 }
 
