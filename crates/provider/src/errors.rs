@@ -9,6 +9,10 @@ pub enum StorageError {
     #[error("no bytecode found for: {0}")]
     NoCodeForCodeHash(B256),
 
+    /// Invalid bytecode
+    #[error("invalid bytecode: {0}")]
+    InvalidBytecode(B256),
+
     /// Error related to disk storage operations.
     #[error("Disk storage: {0}")]
     Disk(#[from] DiskStorageError),

@@ -1,6 +1,6 @@
 use crate::{errors::StorageError, network::NetworkProvider, storage::Storage};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::B256;
+use alloy_primitives::{keccak256, B256};
 use ress_primitives::witness::ExecutionWitness;
 use ress_subprotocol::connection::CustomCommand;
 use reth_chainspec::ChainSpec;
@@ -47,9 +47,15 @@ impl RessProvider {
             .get_contract_bytecode(block_hash, code_hash)
             .await?
         {
+            // validation
+            if code_hash != keccak256(bytecode.bytes()) {
+                return Err(StorageError::InvalidBytecode(code_hash));
+            }
+
             self.storage
                 .disk
                 .update_bytecode(code_hash, bytecode.clone())?;
+
             return Ok(bytecode);
         }
         Err(StorageError::NoCodeForCodeHash(code_hash))

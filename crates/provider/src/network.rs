@@ -33,6 +33,7 @@ impl NetworkProvider {
         })?;
         let response = rx.await?;
         debug!(target:"network storage", "Bytecode received");
+
         Ok(response)
     }
 
