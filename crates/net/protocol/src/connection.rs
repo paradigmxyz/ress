@@ -1,7 +1,7 @@
 use crate::{
     NodeType, RessMessageKind, RessProtocolMessage, RessProtocolProvider, StateWitnessNet,
 };
-use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
+use alloy_primitives::{bytes::BytesMut, keccak256, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth_eth_wire::multiplex::ProtocolConnection;
 use std::{
@@ -157,11 +157,16 @@ where
                         }
                     }
                     RessMessageKind::Bytecode(res) => {
-                        if let Some(RessPeerRequest::GetBytecode { tx, .. }) =
+                        if let Some(RessPeerRequest::GetBytecode { tx, code_hash }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             // TODO: validate the bytecode.
-                            let _ = tx.send(res.message);
+                            let bytecode = res.message;
+                            if code_hash != keccak256(&bytecode) && bytecode == Bytes::default() {
+                                info!(target: "ress::net::connection", "Invalid bytecode");
+                            }
+
+                            let _ = tx.send(bytecode);
                         } else {
                             // TODO: report bad message
                         }
@@ -170,8 +175,12 @@ where
                         if let Some(RessPeerRequest::GetWitness { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
+                            let witness = res.message;
+                            if witness == StateWitnessNet::default() {
+                                info!(target: "ress::net::connection", "Invalid witness");
+                            }
                             // TODO: validate the witness.
-                            let _ = tx.send(res.message);
+                            let _ = tx.send(witness);
                         } else {
                             // TODO: report bad message
                         }

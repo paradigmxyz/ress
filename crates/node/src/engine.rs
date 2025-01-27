@@ -1,3 +1,4 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::map::B256HashSet;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::ExecutionPayload;
@@ -6,6 +7,8 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use rayon::iter::IntoParallelRefIterator;
+use ress_common::rpc_utils::initialize_provider;
+use ress_common::rpc_utils::parallel_latest_headers_download;
 use ress_provider::errors::MemoryStorageError;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
@@ -215,7 +218,7 @@ impl ConsensusEngine {
     }
 
     async fn on_new_payload(
-        &self,
+        &mut self,
         payload: ExecutionPayload,
         sidecar: ExecutionPayloadSidecar,
     ) -> Result<PayloadStatus, EngineError> {
@@ -227,7 +230,12 @@ impl ConsensusEngine {
         // todo: invalid_ancestors check
         let parent_hash = payload.parent_hash();
         if !self.provider.storage.is_canonical(parent_hash) {
+            let latest_head = self.provider.storage.get_canonical_head().number;
+            self.on_sync(latest_head)
+                .await
+                .map_err(|e| EngineError::Sync(e.to_string()))?;
             warn!(target: "ress::engine", %parent_hash, "Parent is not canonical");
+            return Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing));
         }
 
         let parent =
@@ -297,6 +305,23 @@ impl ConsensusEngine {
         info!(target: "ress::engine", ?latest_valid_hash, "🟢 new payload is valid");
         Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
             .with_latest_valid_hash(latest_valid_hash))
+    }
+
+    async fn on_sync(&mut self, latest_head: u64) -> eyre::Result<()> {
+        let rpc_provider = initialize_provider().await;
+        // fill the gap with latency
+        let headers =
+            parallel_latest_headers_download(&rpc_provider, Some(latest_head), None).await?;
+        for header in headers {
+            self.provider
+                .storage
+                .set_canonical_hash(header.hash_slow(), header.number)?;
+            self.provider
+                .storage
+                .set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
+            self.provider.storage.insert_executed(header);
+        }
+        Ok(())
     }
 
     /// Validate if block is correct and satisfies all the consensus rules that concern the header

@@ -16,6 +16,10 @@ pub enum EngineError {
     #[error("Evm error: {0}")]
     Evm(#[from] EvmError),
 
+    /// Error while syncing.
+    #[error("Error while syncing: {0}")]
+    Sync(String),
+
     /// Error related to payload processing.
     #[error("Payload error: {0}")]
     Payload(#[from] PayloadError),

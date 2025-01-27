@@ -5394,11 +5394,16 @@ dependencies = [
 name = "ress-common"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rpc-types-engine",
+ "alloy-transport-http",
  "eyre",
+ "futures",
  "ress-primitives",
  "reth-network",
+ "reth-primitives",
  "reth-transaction-pool",
  "serde_json",
 ]
@@ -5426,6 +5431,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-engine",
+ "eyre",
  "itertools 0.13.0",
  "rayon",
  "ress-common",
