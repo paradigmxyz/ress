@@ -229,10 +229,10 @@ impl ConsensusEngine {
         if !self.provider.storage.is_canonical(parent_hash) {
             warn!(target: "ress::engine", %parent_hash, "Parent is not canonical, fetching from network");
             let header = self.provider.fetch_header(parent_hash).await?;
+            self.provider.storage.insert_header(header.clone());
             self.provider
                 .storage
                 .set_unsafe_canonical_hash(header.hash_slow(), header.number)?;
-            self.provider.storage.insert_executed(header);
         }
         let parent =
             self.provider
@@ -292,7 +292,7 @@ impl ConsensusEngine {
 
         // ===================== Update Node State =====================
         let header_from_payload = block.header.clone();
-        self.provider.storage.insert_executed(header_from_payload);
+        self.provider.storage.insert_header(header_from_payload);
         let latest_valid_hash = match self.forkchoice_state {
             Some(fcu_state) => fcu_state.head_block_hash,
             None => parent_hash,

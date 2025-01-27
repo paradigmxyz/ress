@@ -143,10 +143,10 @@ impl MemoryStorageInner {
         Some((executed, children))
     }
 
-    /// Insert executed block into the state.
+    /// Insert header into the state.
     ///
     /// This does not update any canonical chain regarding information.
-    pub(crate) fn insert_executed(&mut self, executed: Header) {
+    pub(crate) fn insert_header(&mut self, executed: Header) {
         let hash = executed.hash_slow();
         let parent_hash = executed.parent_hash;
         let block_number = executed.number;
@@ -241,10 +241,10 @@ impl MemoryStorage {
         inner.headers_by_hash.get(&hash).cloned()
     }
 
-    /// Insert executed block into the state.
-    pub(crate) fn insert_executed(&self, executed: Header) {
+    /// Insert header into the state.
+    pub(crate) fn insert_header(&self, header: Header) {
         let mut inner = self.inner.write();
-        inner.insert_executed(executed);
+        inner.insert_header(header);
     }
 
     /// Return whether or not the hash is part of the canonical chain.

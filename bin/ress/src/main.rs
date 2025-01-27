@@ -104,7 +104,7 @@ async fn main() -> eyre::Result<()> {
     let tree_state = &node.provider.storage;
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
-        tree_state.insert_executed(header);
+        tree_state.insert_header(header);
     }
     let latest_block_number_updated = rpc_block_provider.get_block_number().await?;
     let range = latest_block_number..=latest_block_number_updated;
@@ -130,7 +130,7 @@ async fn main() -> eyre::Result<()> {
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
         tree_state.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
-        tree_state.insert_executed(header);
+        tree_state.insert_header(header);
     }
     node.provider
         .storage

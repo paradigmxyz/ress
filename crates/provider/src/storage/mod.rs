@@ -72,9 +72,9 @@ impl Storage {
         self.memory.header_by_hash(hash)
     }
 
-    /// Insert executed block into the state.
-    pub fn insert_executed(&self, executed: Header) {
-        self.memory.insert_executed(executed);
+    /// Insert header into the state.
+    pub fn insert_header(&self, header: Header) {
+        self.memory.insert_header(header);
     }
 
     /// Return whether or not the hash is part of the canonical chain.
