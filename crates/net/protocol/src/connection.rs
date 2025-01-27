@@ -94,11 +94,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
         match self.provider.bytecode(code_hash) {
             Ok(Some(bytecode)) => bytecode,
             Ok(None) => {
-                trace!(target: "ress::network::connection", %code_hash, "bytecode not found");
+                trace!(target: "ress::net::connection", %code_hash, "bytecode not found");
                 Bytes::default()
             }
             Err(error) => {
-                trace!(target: "ress::network::connection", %code_hash, %error, "error retrieving bytecode");
+                trace!(target: "ress::net::connection", %code_hash, %error, "error retrieving bytecode");
                 Bytes::default()
             }
         }
@@ -108,11 +108,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
         match self.provider.witness(block_hash) {
             Ok(Some(witness)) => StateWitnessNet::from_iter(witness),
             Ok(None) => {
-                trace!(target: "ress::network::connection", %block_hash, "witness not found");
+                trace!(target: "ress::net::connection", %block_hash, "witness not found");
                 StateWitnessNet::default()
             }
             Err(error) => {
-                trace!(target: "ress::network::connection", %block_hash, %error, "error retrieving witness");
+                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
                 StateWitnessNet::default()
             }
         }
@@ -132,14 +132,22 @@ where
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 let message = this.on_command(cmd);
                 let encoded = message.encoded();
-                trace!(target: "ress::network::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
+                trace!(target: "ress::net::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
                 return Poll::Ready(Some(encoded));
             }
 
             if let Poll::Ready(Some(next)) = this.conn.poll_next_unpin(cx) {
-                // TODO: handle error
-                let msg = RessProtocolMessage::decode_message(&mut &next[..]).unwrap();
-                trace!(target: "ress::network::connection", message = ?msg.message_type, "Processing message");
+                let msg = match RessProtocolMessage::decode_message(&mut &next[..]) {
+                    Ok(msg) => {
+                        trace!(target: "ress::net::connection", message = ?msg.message_type, "Processing message");
+                        msg
+                    }
+                    Err(error) => {
+                        trace!(target: "ress::net::connection", %error, "Error decoding peer message");
+                        // TODO: report bad message
+                        continue;
+                    }
+                };
 
                 match msg.message {
                     RessMessageKind::NodeType(node_type) => {
@@ -170,14 +178,14 @@ where
                     }
                     RessMessageKind::GetBytecode(req) => {
                         let code_hash = req.message;
-                        debug!(target: "ress::network::connection", %code_hash, "serving bytecode");
+                        debug!(target: "ress::net::connection", %code_hash, "serving bytecode");
                         let bytecode = this.on_bytecode_request(code_hash);
                         let response = RessProtocolMessage::bytecode(req.request_id, bytecode);
                         return Poll::Ready(Some(response.encoded()));
                     }
                     RessMessageKind::GetWitness(req) => {
                         let block_hash = req.message;
-                        debug!(target: "ress::network::connection", %block_hash, "serving witness");
+                        debug!(target: "ress::net::connection", %block_hash, "serving witness");
                         let witness = this.on_witness_request(block_hash);
                         let response = RessProtocolMessage::witness(req.request_id, witness);
                         return Poll::Ready(Some(response.encoded()));
