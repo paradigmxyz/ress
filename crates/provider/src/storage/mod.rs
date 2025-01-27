@@ -143,15 +143,15 @@ impl Storage {
 
 // TODO: implement
 impl RessProtocolProvider for Storage {
+    fn header(&self, _block_hash: B256) -> ProviderResult<Option<Header>> {
+        Ok(None)
+    }
+
     fn bytecode(&self, _code_hash: B256) -> ProviderResult<Option<Bytes>> {
         Ok(None)
     }
 
     fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        Ok(None)
-    }
-
-    fn header(&self, _block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(None)
     }
 }

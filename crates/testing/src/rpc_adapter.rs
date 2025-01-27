@@ -29,6 +29,16 @@ impl RpcAdapterProvider {
 }
 
 impl RessProtocolProvider for RpcAdapterProvider {
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        let provider = self.provider.clone();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async { get_header_by_hash(provider, block_hash).await })
+        })
+        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash));
+        result.map(Some)
+    }
+
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
         Ok(self.bytecodes.read().get(&code_hash).cloned())
     }
@@ -49,16 +59,6 @@ impl RessProtocolProvider for RpcAdapterProvider {
             }
         }
         result.map(|witness| Some(witness.state))
-    }
-
-    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
-        let provider = self.provider.clone();
-        let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { get_header_by_hash(provider, block_hash).await })
-        })
-        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash));
-        result.map(Some)
     }
 }
 
