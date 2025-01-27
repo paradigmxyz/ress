@@ -18,6 +18,10 @@ reth-node-builder.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-node-ethereum.workspace = true
+reth-evm.workspace = true
+
+# alloy
+alloy-primitives.workspace = true
 
 # misc
 eyre.workspace = true
