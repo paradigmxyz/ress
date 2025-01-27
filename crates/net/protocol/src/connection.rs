@@ -101,6 +101,20 @@ impl<P> RessProtocolConnection<P> {
 }
 
 impl<P: RessProtocolProvider> RessProtocolConnection<P> {
+    fn on_header_request(&self, block_hash: B256) -> Header {
+        match self.provider.header(block_hash) {
+            Ok(Some(header)) => header,
+            Ok(None) => {
+                trace!(target: "ress::net::connection", %block_hash, "header not found");
+                Header::default()
+            }
+            Err(error) => {
+                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
+                Header::default()
+            }
+        }
+    }
+
     fn on_bytecode_request(&self, code_hash: B256) -> Bytes {
         match self.provider.bytecode(code_hash) {
             Ok(Some(bytecode)) => bytecode,
@@ -125,20 +139,6 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
             Err(error) => {
                 trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
                 StateWitnessNet::default()
-            }
-        }
-    }
-
-    fn on_header_request(&self, block_hash: B256) -> Header {
-        match self.provider.header(block_hash) {
-            Ok(Some(header)) => header,
-            Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "header not found");
-                Header::default()
-            }
-            Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
-                Header::default()
             }
         }
     }
