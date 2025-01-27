@@ -1,3 +1,4 @@
+use alloy_eips::NumHash;
 use alloy_primitives::map::B256HashSet;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::ExecutionPayload;
@@ -230,9 +231,13 @@ impl ConsensusEngine {
             warn!(target: "ress::engine", %parent_hash, "Parent is not canonical, fetching from network");
             let header = self.provider.fetch_header(parent_hash).await?;
             self.provider.storage.insert_header(header.clone());
+            self.provider.storage.set_canonical_head(NumHash {
+                number: header.number,
+                hash: header.hash_slow(),
+            });
             self.provider
                 .storage
-                .set_unsafe_canonical_hash(header.hash_slow(), header.number)?;
+                .set_canonical_hash(header.hash_slow(), header.number)?;
         }
         let parent =
             self.provider

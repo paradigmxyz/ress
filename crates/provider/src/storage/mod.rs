@@ -59,7 +59,7 @@ impl Storage {
         self.memory
             .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
         self.memory
-            .set_safe_canonical_hash(new_head.hash_slow(), new_head.number)?;
+            .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
         let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
         self.memory
             .remove_canonical_until(upper_bound, last_persisted_hash);
@@ -108,26 +108,12 @@ impl Storage {
     /// Set safe canonical block hash that historical 256 blocks from canonical head
     ///
     /// It have canonical hash validation check
-    pub fn set_safe_canonical_hash(
+    pub fn set_canonical_hash(
         &self,
         block_hash: B256,
         block_number: BlockNumber,
     ) -> Result<(), StorageError> {
-        self.memory
-            .set_safe_canonical_hash(block_hash, block_number)?;
-        Ok(())
-    }
-
-    /// Set canonical block hash that historical 256 blocks from canonical head
-    ///
-    /// It doesn't have canonical hash validation check
-    pub fn set_unsafe_canonical_hash(
-        &self,
-        block_hash: B256,
-        block_number: BlockNumber,
-    ) -> Result<(), StorageError> {
-        self.memory
-            .set_unsafe_canonical_hash(block_hash, block_number)?;
+        self.memory.set_canonical_hash(block_hash, block_number)?;
         Ok(())
     }
 
