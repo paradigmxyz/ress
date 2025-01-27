@@ -41,13 +41,11 @@ impl Node {
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
         current_head: BlockNumHash,
-        use_rpc_adapter: bool,
+        rpc_adapter: Option<RpcAdapterProvider>,
     ) -> Self {
         let storage = Storage::new(chain_spec.clone(), current_head);
 
-        let network_handle = if use_rpc_adapter {
-            let rpc_url = std::env::var("RPC_URL").expect("`RPC_URL` env not set");
-            let rpc_adapter = RpcAdapterProvider::new(&rpc_url).unwrap();
+        let network_handle = if let Some(rpc_adapter) = rpc_adapter {
             RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
                 .launch(id)
                 .await

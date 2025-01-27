@@ -5377,6 +5377,7 @@ dependencies = [
  "ress-common",
  "ress-node",
  "ress-protocol",
+ "ress-testing",
  "reth-chainspec",
  "reth-consensus-debug-client",
  "reth-network",

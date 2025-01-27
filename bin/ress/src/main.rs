@@ -7,6 +7,7 @@ use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
 use ress_common::test_utils::TestPeers;
 use ress_node::Node;
+use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::MAINNET;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
@@ -60,11 +61,17 @@ async fn main() -> eyre::Result<()> {
     let latest_block_number = latest_block.inner.header.number;
     let latest_block_hash = latest_block.inner.header.hash;
 
+    let maybe_rpc_adapter = if args.rpc_adapter_enabled {
+        let rpc_url = std::env::var("RPC_URL").expect("`RPC_URL` env not set");
+        Some(RpcAdapterProvider::new(&rpc_url)?)
+    } else {
+        None
+    };
     let node = Node::launch_test_node(
         local_node,
         MAINNET.clone(),
         NumHash::new(latest_block_number, latest_block_hash),
-        args.rpc_adapter_enabled,
+        maybe_rpc_adapter,
     )
     .await;
     assert!(local_node.is_ports_alive());
