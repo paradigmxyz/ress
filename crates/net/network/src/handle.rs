@@ -15,10 +15,7 @@ pub struct RessNetworkHandle {
 
 impl RessNetworkHandle {
     /// Get contract bytecode by code hash.
-    pub async fn fetch_bytecode(
-        &self,
-        code_hash: B256,
-    ) -> Result<Option<Bytes>, NetworkStorageError> {
+    pub async fn fetch_bytecode(&self, code_hash: B256) -> Result<Option<Bytes>, RessNetworkError> {
         trace!(target: "ress::net", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn
@@ -32,7 +29,7 @@ impl RessNetworkHandle {
     pub async fn fetch_witness(
         &self,
         block_hash: B256,
-    ) -> Result<StateWitnessNet, NetworkStorageError> {
+    ) -> Result<StateWitnessNet, RessNetworkError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn
@@ -43,10 +40,9 @@ impl RessNetworkHandle {
     }
 }
 
-// TODO: rename
-/// Errors that can occur during network storage operations.
+/// Errors that can occur during ress network
 #[derive(Debug, thiserror::Error)]
-pub enum NetworkStorageError {
+pub enum RessNetworkError {
     /// Failed to send a request through the channel.
     #[error("Failed to send request through channel: {0}")]
     ChannelSend(#[from] mpsc::error::SendError<RessPeerRequest>),
