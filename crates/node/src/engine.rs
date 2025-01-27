@@ -9,7 +9,6 @@ use alloy_rpc_types_engine::PayloadStatusEnum;
 use rayon::iter::IntoParallelRefIterator;
 use ress_common::rpc_utils::initialize_provider;
 use ress_common::rpc_utils::parallel_latest_headers_download;
-use ress_provider::errors::MemoryStorageError;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
@@ -230,21 +229,18 @@ impl ConsensusEngine {
         // todo: invalid_ancestors check
         let parent_hash = payload.parent_hash();
         if !self.provider.storage.is_canonical(parent_hash) {
-            let latest_head = self.provider.storage.get_canonical_head().number;
-            self.on_sync(latest_head)
-                .await
-                .map_err(|e| EngineError::Sync(e.to_string()))?;
             warn!(target: "ress::engine", %parent_hash, "Parent is not canonical");
-            return Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing));
         }
 
-        let parent =
-            self.provider
-                .storage
-                .header_by_hash(parent_hash)
-                .ok_or(StorageError::Memory(
-                    MemoryStorageError::BlockNotFoundFromHash(parent_hash),
-                ))?;
+        let Some(parent) = self.provider.storage.header_by_hash(parent_hash) else {
+            let latest_head = self.provider.storage.get_canonical_head();
+            info!("head:{:?}", latest_head);
+            self.on_sync(latest_head.number)
+                .await
+                .map_err(|e| EngineError::Sync(e.to_string()))?;
+            return Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing));
+        };
+
         let parent_header: SealedHeader = SealedHeader::new(parent, parent_hash);
         let state_root_of_parent = parent_header.state_root;
         let block = self
@@ -307,12 +303,14 @@ impl ConsensusEngine {
             .with_latest_valid_hash(latest_valid_hash))
     }
 
+    /// Synchronizes the node with the latest blockchain state up to the specified `latest_head` block number.
+    /// This involves downloading and processing the headers of missing blocks to ensure the node's storage is up-to-date.
     async fn on_sync(&mut self, latest_head: u64) -> eyre::Result<()> {
         let rpc_provider = initialize_provider().await;
-        // fill the gap with latency
         let headers =
             parallel_latest_headers_download(&rpc_provider, Some(latest_head), None).await?;
         for header in headers {
+            println!("{}", header.number);
             self.provider
                 .storage
                 .set_canonical_hash(header.hash_slow(), header.number)?;
