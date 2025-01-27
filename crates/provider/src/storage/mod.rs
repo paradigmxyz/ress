@@ -1,7 +1,6 @@
 use crate::errors::StorageError;
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{map::B256HashMap, BlockHash, BlockNumber, Bytes, B256};
-use ress_common::utils::read_example_witness;
 use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
@@ -142,18 +141,13 @@ impl Storage {
     }
 }
 
+// TODO: implement
 impl RessProtocolProvider for Storage {
-    fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        match self.get_contract_bytecode(code_hash) {
-            Ok(bytecode) => Ok(Some(bytecode.bytes())),
-            Err(_) => Ok(None),
-        }
+    fn bytecode(&self, _code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        Ok(None)
     }
 
-    fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        match read_example_witness(block_hash) {
-            Ok(witness) => Ok(Some(witness.state)),
-            Err(_) => Ok(None),
-        }
+    fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        Ok(None)
     }
 }
