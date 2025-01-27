@@ -7,6 +7,7 @@ use ress_common::test_utils::TestPeers;
 use ress_network::{RessNetworkHandle, RessNetworkLauncher};
 use ress_provider::{provider::RessProvider, storage::Storage};
 use ress_rpc::RpcHandle;
+use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
 use reth_rpc_builder::auth::AuthServerHandle;
 use std::sync::Arc;
@@ -40,12 +41,21 @@ impl Node {
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
         current_head: BlockNumHash,
+        use_rpc_adapter: bool,
     ) -> Self {
         let storage = Storage::new(chain_spec.clone(), current_head);
 
-        let network_handle = RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
-            .launch(id)
-            .await;
+        let network_handle = if use_rpc_adapter {
+            let rpc_url = std::env::var("RPC_URL").expect("`RPC_URL` env not set");
+            let rpc_adapter = RpcAdapterProvider::new(&rpc_url).unwrap();
+            RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
+                .launch(id)
+                .await
+        } else {
+            RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
+                .launch(id)
+                .await
+        };
         let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;
 
         // ================ initial update ==================

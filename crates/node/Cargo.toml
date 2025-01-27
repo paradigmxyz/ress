@@ -9,12 +9,12 @@ workspace = true
 
 [dependencies]
 # ress
-ress-primitives.workspace = true
 ress-common.workspace = true
 ress-network.workspace = true
 ress-rpc.workspace = true
 ress-vm.workspace = true
 ress-provider.workspace = true
+ress-testing.workspace = true
 
 # reth
 reth-primitives.workspace = true
@@ -24,7 +24,6 @@ reth-consensus.workspace = true
 reth-node-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-builder.workspace = true
-reth-rpc-api.workspace = true
 reth-trie-sparse.workspace = true
 reth-errors.workspace = true
 reth-trie.workspace = true
@@ -39,7 +38,6 @@ alloy-eips.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
-jsonrpsee-http-client.workspace = true
 serde_json.workspace = true
 rayon.workspace = true
 itertools.workspace = true

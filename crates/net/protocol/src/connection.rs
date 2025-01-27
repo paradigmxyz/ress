@@ -131,12 +131,15 @@ where
         loop {
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 let message = this.on_command(cmd);
-                return Poll::Ready(Some(message.encoded()));
+                let encoded = message.encoded();
+                trace!(target: "ress::network::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
+                return Poll::Ready(Some(encoded));
             }
 
             if let Poll::Ready(Some(next)) = this.conn.poll_next_unpin(cx) {
                 // TODO: handle error
                 let msg = RessProtocolMessage::decode_message(&mut &next[..]).unwrap();
+                trace!(target: "ress::network::connection", message = ?msg.message_type, "Processing message");
 
                 match msg.message {
                     RessMessageKind::NodeType(node_type) => {

@@ -20,10 +20,19 @@ struct Args {
     /// Peer number (1 or 2)
     #[arg(value_parser = clap::value_parser!(u8).range(1..=2))]
     peer_number: u8,
+
+    #[arg(long = "enable-rpc-adapter")]
+    rpc_adapter_enabled: bool,
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    let orig_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        orig_hook(panic_info);
+        std::process::exit(1);
+    }));
+
     tracing_subscriber::fmt::init();
     dotenvy::dotenv()?;
 
@@ -55,6 +64,7 @@ async fn main() -> eyre::Result<()> {
         local_node,
         MAINNET.clone(),
         NumHash::new(latest_block_number, latest_block_hash),
+        args.rpc_adapter_enabled,
     )
     .await;
     assert!(local_node.is_ports_alive());
@@ -141,7 +151,7 @@ async fn main() -> eyre::Result<()> {
 
     let mut events = node.network_handle.network_handle.event_listener();
     while let Some(event) = events.next().await {
-        info!(target: "ress","Received event: {:?}", event);
+        info!(target: "ress", ?event, "Received network event");
     }
 
     Ok(())

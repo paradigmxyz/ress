@@ -3,10 +3,8 @@ use alloy_primitives::U256;
 use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
-use jsonrpsee_http_client::HttpClientBuilder;
 use rayon::iter::IntoParallelRefIterator;
 use ress_common::utils::get_witness_path;
-use ress_primitives::witness_rpc::RpcExecutionWitness;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
@@ -31,13 +29,11 @@ use reth_primitives::BlockWithSenders;
 use reth_primitives::GotExpected;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
-use reth_rpc_api::DebugApiClient;
 use reth_trie::HashedPostState;
 use reth_trie::KeccakKeyHasher;
 use reth_trie_sparse::SparseStateTrie;
 use std::result::Result::Ok;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::*;
 
@@ -93,41 +89,19 @@ impl ConsensusEngine {
             } => {
                 let block_number = payload.block_number();
                 let block_hash = payload.block_hash();
-                info!(?block_hash, ?block_number, "👋 new payload");
-                let storage = self.provider.storage.clone();
-
-                // ===================== Witness =====================
-
-                // todo: we will get witness from fullnode connection later
-                let start_time = std::time::Instant::now();
-                let client = HttpClientBuilder::default()
-                    .max_response_size(50 * 1024 * 1024)
-                    .request_timeout(Duration::from_secs(500))
-                    .build(std::env::var("RPC_URL").expect("RPC_URL"))
-                    .map_err(|e| EngineError::DebugApiClient(e.to_string()))?;
-                let execution_witness =
-                    DebugApiClient::debug_execution_witness(&client, payload.block_number().into())
-                        .await
-                        .map_err(|e| EngineError::DebugApiClient(e.to_string()))?;
-                let json_data = serde_json::to_string(&RpcExecutionWitness::new(
-                    execution_witness.state,
-                    execution_witness.codes,
-                ))?;
-                std::fs::write(get_witness_path(block_hash), json_data)
-                    .expect("Unable to write file");
-                info!(elapsed = ?start_time.elapsed(), "🟢 fetched witness");
+                info!(%block_hash, block_number, "👋 new payload");
 
                 // ===================== Validation =====================
-
                 // todo: invalid_ancestors check
                 let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
-                if !storage.is_canonical(parent_hash_from_payload) {
+                if !self.provider.storage.is_canonical(parent_hash_from_payload) {
                     warn!(?parent_hash_from_payload, "not in canonical");
                 }
 
                 let parent_header: SealedHeader = SealedHeader::new(
-                    storage
+                    self.provider
+                        .storage
                         .get_executed_header_by_hash(parent_hash_from_payload)
                         .unwrap_or_else(|| {
                             panic!("should have parent header: {}", parent_hash_from_payload)
@@ -143,18 +117,19 @@ impl ConsensusEngine {
                 // ===================== Witness =====================
                 let execution_witness = self.provider.fetch_witness(block_hash).await?;
                 let start_time = std::time::Instant::now();
-                let bytecode_hashes = execution_witness.get_bytecode_hashes()?;
+                let bytecode_hashes = execution_witness.get_bytecode_hashes();
                 let bytecode_hashes_len = bytecode_hashes.len();
                 self.prefetch_bytecodes(bytecode_hashes).await;
                 info!(elapsed = ?start_time.elapsed(), len = bytecode_hashes_len, "✨ ensured all bytecodes are present");
                 let mut trie = SparseStateTrie::default();
                 trie.reveal_witness(state_root_of_parent, &execution_witness.state_witness)?;
-                let database = WitnessDatabase::new(storage.clone(), &trie);
+                let database = WitnessDatabase::new(self.provider.storage.clone(), &trie);
 
                 // ===================== Execution =====================
 
                 let start_time = std::time::Instant::now();
-                let mut block_executor = BlockExecutor::new(storage.chain_spec(), database);
+                let mut block_executor =
+                    BlockExecutor::new(self.provider.storage.chain_spec(), database);
                 let senders = block.senders().expect("no senders");
                 let block = BlockWithSenders::new(block.clone().unseal(), senders)
                     .expect("cannot construct block");
@@ -226,10 +201,11 @@ impl ConsensusEngine {
         state: ForkchoiceState,
         payload_attrs: Option<<EthEngineTypes as PayloadTypes>::PayloadAttributes>,
     ) -> RethResult<OnForkChoiceUpdated> {
-        info!("👋 new fork choice");
-        debug!(
-            "head={:#x}, safe={:#x}, finalized={:#x}",
-            state.head_block_hash, state.safe_block_hash, state.finalized_block_hash
+        info!(
+            head = %state.head_block_hash,
+            safe = %state.safe_block_hash,
+            finalized = %state.finalized_block_hash,
+            "👋 new fork choice"
         );
 
         // ===================== Validation =====================
