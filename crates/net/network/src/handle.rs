@@ -44,10 +44,10 @@ impl RessNetworkHandle {
 #[derive(Debug, thiserror::Error)]
 pub enum RessNetworkError {
     /// Failed to send a request through the channel.
-    #[error("Failed to send request through channel: {0}")]
-    ChannelSend(#[from] mpsc::error::SendError<RessPeerRequest>),
+    #[error("Channel closed while sending request: {0}")]
+    ConnectionClosed(#[from] mpsc::error::SendError<RessPeerRequest>),
 
     /// Failed to receive a response from the channel.
-    #[error("Failed to receive response from channel: {0}")]
-    ChannelReceive(#[from] oneshot::error::RecvError),
+    #[error("Request dropped while receiving response: {0}")]
+    RequestDropped(#[from] oneshot::error::RecvError),
 }
