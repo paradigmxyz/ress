@@ -6,6 +6,7 @@ use alloy_transport_http::Http;
 use parking_lot::RwLock;
 use reqwest::Client;
 use ress_protocol::RessProtocolProvider;
+use reth_primitives::Header;
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use std::{collections::HashMap, sync::Arc};
 
@@ -49,6 +50,27 @@ impl RessProtocolProvider for RpcAdapterProvider {
         }
         result.map(|witness| Some(witness.state))
     }
+
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        let provider = self.provider.clone();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async { get_header_by_hash(provider, block_hash).await })
+        })
+        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash));
+        result.map(Some)
+    }
+}
+
+async fn get_header_by_hash(
+    provider: RootProvider<Http<Client>>,
+    block_hash: B256,
+) -> eyre::Result<Header> {
+    let block = provider
+        .get_block_by_hash(block_hash, BlockTransactionsKind::Hashes)
+        .await?
+        .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+    Ok(block.header.into_consensus())
 }
 
 async fn get_witness_by_hash(

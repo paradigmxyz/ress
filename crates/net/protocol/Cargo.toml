@@ -13,6 +13,7 @@ reth-eth-wire.workspace = true
 reth-network-api.workspace = true
 reth-network.workspace = true
 reth-storage-errors.workspace = true
+reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

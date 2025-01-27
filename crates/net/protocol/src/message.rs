@@ -5,6 +5,7 @@ use alloy_primitives::{
 };
 use alloy_rlp::{BytesMut, Decodable, Encodable};
 use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
+use reth_primitives::Header;
 
 /// Represents message IDs for `ress` protocol messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +24,11 @@ pub enum RessMessageType {
     GetWitness = 0x03,
     /// Witness response message.
     Witness = 0x04,
+
+    /// Header request message.
+    GetHeader = 0x05,
+    /// Header response message.
+    Header = 0x06,
 }
 
 impl Encodable for RessMessageType {
@@ -43,6 +49,8 @@ impl Decodable for RessMessageType {
             0x02 => Self::Bytecode,
             0x03 => Self::GetWitness,
             0x04 => Self::Witness,
+            0x05 => Self::GetHeader,
+            0x06 => Self::Header,
             _ => return Err(alloy_rlp::Error::Custom("Invalid message type")),
         };
         buf.advance(1);
@@ -65,6 +73,11 @@ pub enum RessMessageKind {
     GetBytecode(RequestPair<B256>),
     /// Represents a bytecode response message.
     Bytecode(RequestPair<Bytes>),
+
+    /// Represents a header request message.
+    GetHeader(RequestPair<B256>),
+    /// Represents a header response message.
+    Header(RequestPair<Header>),
 }
 
 impl Encodable for RessMessageKind {
@@ -75,6 +88,8 @@ impl Encodable for RessMessageKind {
             Self::Witness(witness) => witness.encode(out),
             Self::GetBytecode(request) => request.encode(out),
             Self::Bytecode(bytecode) => bytecode.encode(out),
+            Self::GetHeader(request) => request.encode(out),
+            Self::Header(header) => header.encode(out),
         }
     }
 
@@ -85,6 +100,8 @@ impl Encodable for RessMessageKind {
             Self::Witness(witness) => witness.length(),
             Self::GetBytecode(request) => request.length(),
             Self::Bytecode(bytecode) => bytecode.length(),
+            Self::GetHeader(request) => request.length(),
+            Self::Header(header) => header.length(),
         }
     }
 }
@@ -161,6 +178,28 @@ impl RessProtocolMessage {
         }
     }
 
+    /// Header request.
+    pub fn get_header(request_id: u64, block_hash: BlockHash) -> Self {
+        Self {
+            message_type: RessMessageType::GetHeader,
+            message: RessMessageKind::GetHeader(RequestPair {
+                request_id,
+                message: block_hash,
+            }),
+        }
+    }
+
+    /// Header response.
+    pub fn header(request_id: u64, header: Header) -> Self {
+        Self {
+            message_type: RessMessageType::Witness,
+            message: RessMessageKind::Header(RequestPair {
+                request_id,
+                message: header,
+            }),
+        }
+    }
+
     /// Return RLP encoded message.
     pub fn encoded(&self) -> BytesMut {
         let mut buf = BytesMut::with_capacity(self.length());
@@ -177,6 +216,8 @@ impl RessProtocolMessage {
             RessMessageType::Bytecode => RessMessageKind::Bytecode(RequestPair::decode(buf)?),
             RessMessageType::GetWitness => RessMessageKind::GetWitness(RequestPair::decode(buf)?),
             RessMessageType::Witness => RessMessageKind::Witness(RequestPair::decode(buf)?),
+            RessMessageType::GetHeader => RessMessageKind::GetHeader(RequestPair::decode(buf)?),
+            RessMessageType::Header => RessMessageKind::Header(RequestPair::decode(buf)?),
         };
         Ok(Self {
             message_type,

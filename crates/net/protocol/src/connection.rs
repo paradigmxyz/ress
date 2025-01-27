@@ -4,6 +4,7 @@ use crate::{
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth_eth_wire::multiplex::ProtocolConnection;
+use reth_primitives::Header;
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -29,6 +30,13 @@ pub enum RessPeerRequest {
         block_hash: BlockHash,
         /// The sender for the response.
         tx: oneshot::Sender<StateWitnessNet>,
+    },
+    /// Get header for specific block hash
+    GetHeader {
+        /// target block hash that we want to get header from
+        block_hash: BlockHash,
+        /// The sender for the response.
+        tx: oneshot::Sender<Header>,
     },
 }
 
@@ -83,6 +91,9 @@ impl<P> RessProtocolConnection<P> {
             RessPeerRequest::GetBytecode { code_hash, .. } => {
                 RessProtocolMessage::get_bytecode(next_id, *code_hash)
             }
+            RessPeerRequest::GetHeader { block_hash, .. } => {
+                RessProtocolMessage::get_header(next_id, *block_hash)
+            }
         };
         self.inflight_requests.insert(next_id, command);
         message
@@ -114,6 +125,20 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
             Err(error) => {
                 trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
                 StateWitnessNet::default()
+            }
+        }
+    }
+
+    fn on_header_request(&self, block_hash: B256) -> Header {
+        match self.provider.header(block_hash) {
+            Ok(Some(header)) => header,
+            Ok(None) => {
+                trace!(target: "ress::net::connection", %block_hash, "header not found");
+                Header::default()
+            }
+            Err(error) => {
+                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
+                Header::default()
             }
         }
     }
@@ -176,6 +201,16 @@ where
                             // TODO: report bad message
                         }
                     }
+                    RessMessageKind::Header(res) => {
+                        if let Some(RessPeerRequest::GetHeader { tx, .. }) =
+                            this.inflight_requests.remove(&res.request_id)
+                        {
+                            // TODO: validate the header.
+                            let _ = tx.send(res.message);
+                        } else {
+                            // TODO: report bad message
+                        }
+                    }
                     RessMessageKind::GetBytecode(req) => {
                         let code_hash = req.message;
                         debug!(target: "ress::net::connection", %code_hash, "serving bytecode");
@@ -188,6 +223,13 @@ where
                         debug!(target: "ress::net::connection", %block_hash, "serving witness");
                         let witness = this.on_witness_request(block_hash);
                         let response = RessProtocolMessage::witness(req.request_id, witness);
+                        return Poll::Ready(Some(response.encoded()));
+                    }
+                    RessMessageKind::GetHeader(req) => {
+                        let block_hash = req.message;
+                        debug!(target: "ress::net::connection", %block_hash, "serving header");
+                        let header = this.on_header_request(block_hash);
+                        let response = RessProtocolMessage::header(req.request_id, header);
                         return Poll::Ready(Some(response.encoded()));
                     }
                 };

@@ -150,4 +150,8 @@ impl RessProtocolProvider for Storage {
     fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         Ok(None)
     }
+
+    fn header(&self, _block_hash: B256) -> ProviderResult<Option<Header>> {
+        Ok(None)
+    }
 }

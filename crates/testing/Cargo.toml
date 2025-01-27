@@ -13,6 +13,7 @@ ress-protocol.workspace = true
 
 # reth
 reth-storage-errors.workspace = true
+reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
