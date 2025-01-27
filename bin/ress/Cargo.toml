@@ -31,7 +31,6 @@ reth-consensus-debug-client.workspace = true
 
 # misc
 clap.workspace = true
-jsonrpsee-core.workspace = true
 eyre.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing.workspace = true

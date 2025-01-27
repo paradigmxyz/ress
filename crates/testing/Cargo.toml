@@ -12,7 +12,6 @@ workspace = true
 ress-protocol.workspace = true
 
 # reth
-reth-rpc-api.workspace = true
 reth-storage-errors.workspace = true
 
 # alloy
@@ -23,12 +22,7 @@ alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-debug.workspace = true
 
 # misc
-futures.workspace = true
 tokio.workspace = true
-jsonrpsee-core.workspace = true
-jsonrpsee-http-client.workspace = true
 parking_lot.workspace = true
-tracing.workspace = true
 reqwest.workspace = true
 eyre.workspace = true
-

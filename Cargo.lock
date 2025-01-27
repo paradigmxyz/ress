@@ -5371,7 +5371,6 @@ dependencies = [
  "dotenvy",
  "eyre",
  "futures",
- "jsonrpsee-core",
  "parking_lot",
  "rand",
  "ress-common",
@@ -5530,16 +5529,11 @@ dependencies = [
  "alloy-rpc-types-eth",
  "alloy-transport-http",
  "eyre",
- "futures",
- "jsonrpsee-core",
- "jsonrpsee-http-client",
  "parking_lot",
  "reqwest",
  "ress-protocol",
- "reth-rpc-api",
  "reth-storage-errors",
  "tokio",
- "tracing",
 ]
 
 [[package]]
