@@ -236,7 +236,7 @@ impl MemoryStorage {
         inner.remove_canonical_until(upper_bound, last_persisted_hash);
     }
 
-    pub(crate) fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
+    pub(crate) fn header_by_hash(&self, hash: B256) -> Option<Header> {
         let inner = self.inner.read();
         inner.headers_by_hash.get(&hash).cloned()
     }

@@ -68,8 +68,8 @@ impl Storage {
     }
 
     /// Return block header by hash.
-    pub fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
-        self.memory.get_executed_header_by_hash(hash)
+    pub fn header_by_hash(&self, hash: B256) -> Option<Header> {
+        self.memory.header_by_hash(hash)
     }
 
     /// Insert executed block into the state.

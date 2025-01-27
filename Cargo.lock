@@ -5444,7 +5444,6 @@ dependencies = [
  "reth-rpc-builder",
  "reth-trie",
  "reth-trie-sparse",
- "serde_json",
  "thiserror 2.0.9",
  "tokio",
  "tracing",
