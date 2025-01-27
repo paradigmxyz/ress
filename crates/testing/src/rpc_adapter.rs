@@ -35,8 +35,8 @@ impl RessProtocolProvider for RpcAdapterProvider {
             tokio::runtime::Handle::current()
                 .block_on(async { get_header_by_hash(provider, block_hash).await })
         })
-        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash));
-        result.map(Some)
+        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash))?;
+        Ok(Some(result))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {

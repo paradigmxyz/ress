@@ -29,7 +29,6 @@ use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::BlockWithSenders;
 use reth_primitives::GotExpected;
-use reth_primitives::Header;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_trie::HashedPostState;
@@ -230,18 +229,11 @@ impl ConsensusEngine {
         if !self.provider.storage.is_canonical(parent_hash) {
             warn!(target: "ress::engine", %parent_hash, "Parent is not canonical, fetching from network");
             let header = self.provider.fetch_header(parent_hash).await?;
-            if header == Header::default() {
-                return Err(EngineError::Storage(StorageError::Memory(
-                    MemoryStorageError::BlockNotFoundFromHash(parent_hash),
-                )));
-            } else {
-                self.provider
-                    .storage
-                    .set_canonical_hash(header.hash_slow(), header.number)?;
-                self.provider.storage.insert_executed(header);
-            }
+            self.provider
+                .storage
+                .set_unsafe_canonical_hash(header.hash_slow(), header.number)?;
+            self.provider.storage.insert_executed(header);
         }
-
         let parent =
             self.provider
                 .storage

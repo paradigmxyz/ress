@@ -148,7 +148,7 @@ impl RessProtocolMessage {
     /// Header response.
     pub fn header(request_id: u64, header: Header) -> Self {
         Self {
-            message_type: RessMessageType::Witness,
+            message_type: RessMessageType::Header,
             message: RessMessageKind::Header(RequestPair {
                 request_id,
                 message: header,

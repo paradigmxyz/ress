@@ -272,7 +272,7 @@ impl MemoryStorage {
         inner.current_canonical_head
     }
 
-    pub(crate) fn set_canonical_hash(
+    pub(crate) fn set_safe_canonical_hash(
         &self,
         block_hash: B256,
         block_number: BlockNumber,
@@ -284,6 +284,16 @@ impl MemoryStorage {
         } else {
             Err(MemoryStorageError::NonCanonicalChain(block_hash))
         }
+    }
+
+    pub(crate) fn set_unsafe_canonical_hash(
+        &self,
+        block_hash: B256,
+        block_number: BlockNumber,
+    ) -> Result<(), MemoryStorageError> {
+        let mut inner = self.inner.write();
+        inner.canonical_hashes.insert(block_number, block_hash);
+        Ok(())
     }
 
     pub(crate) fn get_block_hash(
