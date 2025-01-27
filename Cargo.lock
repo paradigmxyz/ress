@@ -5396,11 +5396,8 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
- "eyre",
- "ress-primitives",
  "reth-network",
  "reth-transaction-pool",
- "serde_json",
 ]
 
 [[package]]
