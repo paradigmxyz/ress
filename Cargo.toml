@@ -146,7 +146,6 @@ bincode = "1.3"
 jsonrpsee-core = "0.24"
 jsonrpsee-http-client = "0.24"
 parking_lot = "0.12"
-assert_matches = "1.5.0"
 serde_json = "1.0.1"
 reqwest = { version = "0.12", features = ["json"] }
 dotenvy = "0.15.7"
@@ -154,3 +153,10 @@ itertools = "0.13"
 
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }
+
+# testing
+arbitrary = "1.3"
+proptest = "1.4"
+proptest-derive = "0.5"
+proptest-arbitrary-interop = "0.1.0"
+assert_matches = "1.5.0"

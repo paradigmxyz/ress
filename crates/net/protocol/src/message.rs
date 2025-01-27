@@ -8,6 +8,7 @@ use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
 
 /// Represents message IDs for `ress` protocol messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[repr(u8)]
 pub enum RessMessageType {
     /// Node type message.
@@ -192,5 +193,29 @@ impl Encodable for RessProtocolMessage {
 
     fn length(&self) -> usize {
         self.message_type.length() + self.message.length()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+    use proptest_arbitrary_interop::arb;
+    use std::fmt;
+
+    fn rlp_roundtrip<V>(value: V)
+    where
+        V: Encodable + Decodable + PartialEq + fmt::Debug,
+    {
+        let encoded = alloy_rlp::encode(&value);
+        let decoded = V::decode(&mut &encoded[..]);
+        assert_eq!(Ok(value), decoded);
+    }
+
+    proptest! {
+        #[test]
+        fn message_type_roundtrip(message_type in arb::<RessMessageType>()) {
+            rlp_roundtrip(message_type);
+        }
     }
 }

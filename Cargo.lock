@@ -5367,7 +5367,10 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
+ "arbitrary",
  "futures",
+ "proptest",
+ "proptest-arbitrary-interop",
  "reth-eth-wire",
  "reth-network",
  "reth-network-api",
