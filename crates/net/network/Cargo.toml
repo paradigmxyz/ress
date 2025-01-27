@@ -16,6 +16,7 @@ ress-common.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
 reth-chainspec.workspace = true
+reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

@@ -17,6 +17,13 @@ use tracing::*;
 /// Ress peer request.
 #[derive(Debug)]
 pub enum RessPeerRequest {
+    /// Get header for specific block hash
+    GetHeader {
+        /// target block hash that we want to get header from
+        block_hash: BlockHash,
+        /// The sender for the response.
+        tx: oneshot::Sender<Header>,
+    },
     /// Get bytecode for specific code hash
     GetBytecode {
         /// Target code hash that we want to get bytecode for.
@@ -30,13 +37,6 @@ pub enum RessPeerRequest {
         block_hash: BlockHash,
         /// The sender for the response.
         tx: oneshot::Sender<StateWitnessNet>,
-    },
-    /// Get header for specific block hash
-    GetHeader {
-        /// target block hash that we want to get header from
-        block_hash: BlockHash,
-        /// The sender for the response.
-        tx: oneshot::Sender<Header>,
     },
 }
 

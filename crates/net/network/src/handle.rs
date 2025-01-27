@@ -1,6 +1,7 @@
 use alloy_primitives::{Bytes, B256};
 use ress_protocol::{RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
+use reth_primitives::Header;
 use tokio::sync::{mpsc, mpsc::UnboundedSender, oneshot};
 use tracing::trace;
 
@@ -14,6 +15,17 @@ pub struct RessNetworkHandle {
 }
 
 impl RessNetworkHandle {
+    /// Get header from block hash
+    pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, NetworkStorageError> {
+        trace!(target: "ress::net", %block_hash, "requesting header");
+        let (tx, rx) = oneshot::channel();
+        self.network_peer_conn
+            .send(RessPeerRequest::GetHeader { block_hash, tx })?;
+        let response = rx.await?;
+        trace!(target: "ress::net", "header received");
+        Ok(response)
+    }
+
     /// Get contract bytecode by code hash.
     pub async fn fetch_bytecode(
         &self,
