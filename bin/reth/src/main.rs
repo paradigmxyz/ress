@@ -1,5 +1,6 @@
 //! Reth node that supports ress subprotocol.
 
+use alloy_consensus::BlockHeader;
 use alloy_primitives::{map::B256HashMap, Bytes, B256};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
@@ -11,8 +12,10 @@ use reth::{
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
+use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
+use reth_primitives::Header;
 use tokio::sync::mpsc;
 
 fn main() -> eyre::Result<()> {
@@ -79,5 +82,37 @@ where
         Ok(Some(
             state_provider.witness(Default::default(), record.hashed_state)?,
         ))
+    }
+
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        let block = self
+            .provider
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?
+            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+        let header = block.block.header();
+        let header = Header {
+            parent_hash: header.parent_hash(),
+            ommers_hash: header.ommers_hash(),
+            beneficiary: header.beneficiary(),
+            state_root: header.state_root(),
+            transactions_root: header.transactions_root(),
+            receipts_root: header.receipts_root(),
+            logs_bloom: header.logs_bloom(),
+            difficulty: header.difficulty(),
+            number: header.number(),
+            gas_limit: header.gas_limit(),
+            gas_used: header.gas_used(),
+            timestamp: header.timestamp(),
+            extra_data: header.extra_data().clone(),
+            mix_hash: header.mix_hash().expect("invalid mix hash"),
+            nonce: header.nonce().expect("invalid nonce"),
+            base_fee_per_gas: header.base_fee_per_gas(),
+            withdrawals_root: header.withdrawals_root(),
+            blob_gas_used: header.blob_gas_used(),
+            excess_blob_gas: header.excess_blob_gas(),
+            parent_beacon_block_root: header.parent_beacon_block_root(),
+            requests_hash: header.requests_hash(),
+        };
+        Ok(Some(header))
     }
 }

@@ -5562,6 +5562,7 @@ dependencies = [
 name = "reth"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
  "alloy-primitives",
  "eyre",
  "ress-network",
@@ -5572,6 +5573,7 @@ dependencies = [
  "reth-network-api",
  "reth-node-builder",
  "reth-node-ethereum",
+ "reth-primitives",
  "tokio",
  "tracing",
 ]
