@@ -85,14 +85,14 @@ impl<P> RessProtocolConnection<P> {
     fn on_command(&mut self, command: RessPeerRequest) -> RessProtocolMessage {
         let next_id = self.next_id();
         let message = match &command {
+            RessPeerRequest::GetHeader { block_hash, .. } => {
+                RessProtocolMessage::get_header(next_id, *block_hash)
+            }
             RessPeerRequest::GetWitness { block_hash, .. } => {
                 RessProtocolMessage::get_witness(next_id, *block_hash)
             }
             RessPeerRequest::GetBytecode { code_hash, .. } => {
                 RessProtocolMessage::get_bytecode(next_id, *code_hash)
-            }
-            RessPeerRequest::GetHeader { block_hash, .. } => {
-                RessProtocolMessage::get_header(next_id, *block_hash)
             }
         };
         self.inflight_requests.insert(next_id, command);
@@ -181,6 +181,16 @@ where
                             return Poll::Ready(None);
                         }
                     }
+                    RessMessageKind::Header(res) => {
+                        if let Some(RessPeerRequest::GetHeader { tx, .. }) =
+                            this.inflight_requests.remove(&res.request_id)
+                        {
+                            // TODO: validate the header.
+                            let _ = tx.send(res.message);
+                        } else {
+                            // TODO: report bad message
+                        }
+                    }
                     RessMessageKind::Bytecode(res) => {
                         if let Some(RessPeerRequest::GetBytecode { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
@@ -201,15 +211,12 @@ where
                             // TODO: report bad message
                         }
                     }
-                    RessMessageKind::Header(res) => {
-                        if let Some(RessPeerRequest::GetHeader { tx, .. }) =
-                            this.inflight_requests.remove(&res.request_id)
-                        {
-                            // TODO: validate the header.
-                            let _ = tx.send(res.message);
-                        } else {
-                            // TODO: report bad message
-                        }
+                    RessMessageKind::GetHeader(req) => {
+                        let block_hash = req.message;
+                        debug!(target: "ress::net::connection", %block_hash, "serving header");
+                        let header = this.on_header_request(block_hash);
+                        let response = RessProtocolMessage::header(req.request_id, header);
+                        return Poll::Ready(Some(response.encoded()));
                     }
                     RessMessageKind::GetBytecode(req) => {
                         let code_hash = req.message;
@@ -223,13 +230,6 @@ where
                         debug!(target: "ress::net::connection", %block_hash, "serving witness");
                         let witness = this.on_witness_request(block_hash);
                         let response = RessProtocolMessage::witness(req.request_id, witness);
-                        return Poll::Ready(Some(response.encoded()));
-                    }
-                    RessMessageKind::GetHeader(req) => {
-                        let block_hash = req.message;
-                        debug!(target: "ress::net::connection", %block_hash, "serving header");
-                        let header = this.on_header_request(block_hash);
-                        let response = RessProtocolMessage::header(req.request_id, header);
                         return Poll::Ready(Some(response.encoded()));
                     }
                 };
