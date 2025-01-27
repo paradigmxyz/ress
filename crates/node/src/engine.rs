@@ -4,7 +4,6 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use rayon::iter::IntoParallelRefIterator;
-use ress_common::utils::get_witness_path;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
@@ -93,7 +92,6 @@ impl ConsensusEngine {
 
                 // ===================== Validation =====================
                 // todo: invalid_ancestors check
-                let total_difficulty = U256::MAX;
                 let parent_hash_from_payload = payload.parent_hash();
                 if !self.provider.storage.is_canonical(parent_hash_from_payload) {
                     warn!(?parent_hash_from_payload, "not in canonical");
@@ -112,7 +110,7 @@ impl ConsensusEngine {
                 let block = self
                     .engine_validator
                     .ensure_well_formed_payload(payload, sidecar)?;
-                self.validate_header(&block, total_difficulty, parent_header);
+                self.validate_block(&block, parent_header)?;
 
                 // ===================== Witness =====================
                 let execution_witness = self.provider.fetch_witness(block_hash).await?;
@@ -264,15 +262,6 @@ impl ConsensusEngine {
 
         self.forkchoice_state = Some(state);
 
-        // ========================================================
-
-        // todo: also need to prune witness, but will handle by getting witness from stateful node
-        let witness_path = get_witness_path(state.safe_block_hash);
-        // remove witness of the fcu
-        if let Err(e) = std::fs::remove_file(witness_path) {
-            debug!("Unable to remove finalized witness file: {:?}", e);
-        }
-
         Ok(OnForkChoiceUpdated::valid(
             PayloadStatus::from_status(PayloadStatusEnum::Valid)
                 .with_latest_valid_hash(state.head_block_hash),
@@ -306,31 +295,36 @@ impl ConsensusEngine {
     }
 
     /// validate new payload's block via consensus
-    fn validate_header(
+    fn validate_block(
         &self,
         block: &SealedBlock,
-        total_difficulty: U256,
         parent_header: SealedHeader,
-    ) {
+    ) -> Result<(), ConsensusError> {
         let header = block.sealed_header();
-        if let Err(e) = self.consensus.validate_header(header) {
-            error!("Failed to validate header: {e}");
-        }
-        if let Err(e) = self
-            .consensus
-            .validate_header_with_total_difficulty(header, total_difficulty)
-        {
-            error!("Failed to validate header against totoal difficulty: {e}");
-        }
-        if let Err(e) = self
-            .consensus
+
+        self.consensus
+            .validate_header(header)
+            .inspect_err(|error| {
+                error!(target: "ress::engine", %error, "Failed to validate header");
+            })?;
+
+        self.consensus.validate_header_with_total_difficulty(header, U256::MAX).inspect_err(|error| {
+            error!(target: "ress::engine", %error, "Failed to validate header against total difficulty");
+        })?;
+
+        self.consensus
             .validate_header_against_parent(header, &parent_header)
-        {
-            error!("Failed to validate header against parent: {e}");
-        }
-        if let Err(e) = self.consensus.validate_block_pre_execution(block) {
-            error!("Failed to pre vavalidate header : {e}");
-        }
+            .inspect_err(|error| {
+                error!(target: "ress::engine", %error, "Failed to validate header against parent");
+            })?;
+
+        self.consensus
+            .validate_block_pre_execution(block)
+            .inspect_err(|error| {
+                error!(target: "ress::engine", %error, "Failed to validate block");
+            })?;
+
+        Ok(())
     }
 
     /// Prefetch all bytecodes found in the witness.
