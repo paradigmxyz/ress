@@ -2,6 +2,7 @@ use crate::{errors::StorageError, storage::Storage};
 use alloy_primitives::B256;
 use ress_network::RessNetworkHandle;
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
+use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
 
 /// Provider for retrieving blockchain data.
@@ -19,6 +20,12 @@ impl RessProvider {
     /// Instantiate new provider.
     pub fn new(storage: Storage, network: RessNetworkHandle) -> Self {
         Self { storage, network }
+    }
+
+    /// Fetch header of target block hash
+    pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, StorageError> {
+        let header = self.network.fetch_header(block_hash).await?;
+        Ok(header)
     }
 
     /// Fetch witness of target block hash
