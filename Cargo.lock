@@ -5559,10 +5559,12 @@ dependencies = [
 name = "reth"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "eyre",
  "ress-network",
  "ress-protocol",
  "reth 1.1.5",
+ "reth-evm",
  "reth-network",
  "reth-network-api",
  "reth-node-builder",
