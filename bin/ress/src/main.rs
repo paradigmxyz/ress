@@ -49,7 +49,7 @@ async fn main() -> eyre::Result<()> {
 
     // =============================== Launch Node ==================================
 
-    // initalize necessary headers/hashes
+    // initialize necessary headers/hashes
     // todo: there could be gap between new payload and this prefetching latest block number
     let rpc_block_provider = ProviderBuilder::new()
         .network::<AnyNetwork>()
