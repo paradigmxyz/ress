@@ -1,7 +1,11 @@
 [workspace.package]
-rust-version = "1.83.0"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.83"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/ithacaxyz/reth-stateless"
+repository = "https://github.com/ithacaxyz/reth-stateless"
+exclude = [".github/"]
 
 [workspace]
 members = [
