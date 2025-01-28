@@ -5429,12 +5429,12 @@ dependencies = [
  "dotenvy",
  "eyre",
  "futures",
- "jsonrpsee-core",
  "parking_lot",
  "rand",
  "ress-common",
  "ress-node",
- "ress-subprotocol",
+ "ress-protocol",
+ "ress-testing",
  "reth-chainspec",
  "reth-cli",
  "reth-consensus-debug-client",
@@ -5459,36 +5459,27 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "eyre",
- "reqwest",
  "ress-primitives",
  "reth-network",
- "reth-primitives",
  "reth-transaction-pool",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
 name = "ress-network"
 version = "0.1.0"
 dependencies = [
- "alloy-rpc-types-engine",
- "alloy-rpc-types-eth",
+ "alloy-primitives",
  "ress-common",
- "ress-subprotocol",
+ "ress-protocol",
  "reth-chainspec",
- "reth-engine-primitives",
  "reth-network",
  "reth-network-peers",
  "reth-node-api",
  "reth-node-ethereum",
  "reth-payload-builder",
  "reth-primitives",
- "reth-provider",
- "reth-rpc-builder",
- "reth-rpc-engine-api",
- "reth-tasks",
- "reth-transaction-pool",
+ "thiserror 2.0.9",
  "tokio",
  "tracing",
 ]
@@ -5499,23 +5490,18 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
- "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-types-engine",
- "alloy-trie",
- "eyre",
- "futures",
- "jsonrpsee-http-client",
+ "itertools 0.13.0",
+ "rayon",
  "ress-common",
  "ress-network",
- "ress-primitives",
  "ress-provider",
- "ress-subprotocol",
+ "ress-rpc",
+ "ress-testing",
  "ress-vm",
  "reth-chainspec",
  "reth-consensus",
- "reth-consensus-debug-client",
- "reth-engine-primitives",
  "reth-errors",
  "reth-ethereum-engine-primitives",
  "reth-network-peers",
@@ -5523,10 +5509,9 @@ dependencies = [
  "reth-node-ethereum",
  "reth-primitives",
  "reth-primitives-traits",
- "reth-rpc-api",
  "reth-rpc-builder",
+ "reth-trie",
  "reth-trie-sparse",
- "serde_json",
  "thiserror 2.0.9",
  "tokio",
  "tracing",
@@ -5537,7 +5522,29 @@ name = "ress-primitives"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
  "serde",
+]
+
+[[package]]
+name = "ress-protocol"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "arbitrary",
+ "futures",
+ "proptest",
+ "proptest-arbitrary-interop",
+ "reth-eth-wire",
+ "reth-network",
+ "reth-network-api",
+ "reth-primitives",
+ "reth-storage-errors",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -5546,66 +5553,71 @@ version = "0.1.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
  "parking_lot",
- "ress-common",
  "ress-network",
  "ress-primitives",
- "ress-subprotocol",
+ "ress-protocol",
  "reth-chainspec",
  "reth-primitives",
  "reth-revm",
- "reth-trie",
- "reth-trie-sparse",
+ "reth-storage-errors",
  "rusqlite",
  "tempfile",
  "thiserror 2.0.9",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
 
 [[package]]
-name = "ress-subprotocol"
+name = "ress-rpc"
+version = "0.1.0"
+dependencies = [
+ "alloy-rpc-types-engine",
+ "ress-common",
+ "reth-chainspec",
+ "reth-engine-primitives",
+ "reth-node-api",
+ "reth-node-ethereum",
+ "reth-payload-builder",
+ "reth-primitives",
+ "reth-provider",
+ "reth-rpc-builder",
+ "reth-rpc-engine-api",
+ "reth-tasks",
+ "reth-transaction-pool",
+ "tokio",
+]
+
+[[package]]
+name = "ress-testing"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
- "bincode",
- "futures",
- "ress-common",
- "ress-primitives",
- "reth-db",
- "reth-eth-wire",
- "reth-network",
- "reth-network-api",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-provider",
- "reth-revm",
- "serde",
+ "alloy-provider",
+ "alloy-rpc-types-debug",
+ "alloy-rpc-types-eth",
+ "alloy-transport-http",
+ "eyre",
+ "parking_lot",
+ "reqwest",
+ "ress-protocol",
+ "reth-primitives",
+ "reth-storage-errors",
  "tokio",
- "tokio-stream",
- "tracing",
 ]
 
 [[package]]
 name = "ress-vm"
 version = "0.1.0"
 dependencies = [
- "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
- "eyre",
- "parking_lot",
- "ress-primitives",
  "ress-provider",
  "reth-chainspec",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-primitives",
- "reth-primitives-traits",
  "reth-provider",
  "reth-revm",
  "reth-trie-sparse",
@@ -5617,13 +5629,18 @@ dependencies = [
 name = "reth"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
  "eyre",
- "ress-subprotocol",
+ "ress-network",
+ "ress-protocol",
  "reth 1.1.5",
+ "reth-evm",
  "reth-network",
  "reth-network-api",
  "reth-node-builder",
  "reth-node-ethereum",
+ "reth-primitives",
  "tokio",
  "tracing",
 ]

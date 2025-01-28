@@ -1,5 +1,5 @@
 [package]
-name = "reth"
+name = "ress-network"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -9,24 +9,19 @@ workspace = true
 
 [dependencies]
 # ress
-ress-network.workspace = true
 ress-protocol.workspace = true
+ress-common.workspace = true
 
 # reth
-reth.workspace = true
-reth-node-builder.workspace = true
 reth-network.workspace = true
 reth-network-api.workspace = true
-reth-node-ethereum.workspace = true
-reth-evm.workspace = true
+reth-chainspec.workspace = true
 reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-consensus.workspace = true
-
 
 # misc
-eyre.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+thiserror.workspace = true

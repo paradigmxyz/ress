@@ -1,3 +1,5 @@
+//! Main ress executable.
+
 use alloy_eips::{BlockId, BlockNumHash, NumHash};
 use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
 use alloy_rpc_types::BlockTransactionsKind;
@@ -5,7 +7,9 @@ use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
 use ress_common::test_utils::TestPeers;
 use ress_node::Node;
+use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
+use reth_chainspec::MAINNET;
 use reth_cli::chainspec::ChainSpecParser;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
@@ -43,10 +47,18 @@ struct Args {
     #[arg(long)]
     /// If passed, the debug consensus client will NOT be started
     pub no_debug_consensus: bool,
+    #[arg(long = "enable-rpc-adapter")]
+    rpc_adapter_enabled: bool,
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    let orig_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        orig_hook(panic_info);
+        std::process::exit(1);
+    }));
+
     tracing_subscriber::fmt::init();
     dotenvy::dotenv()?;
 
@@ -74,11 +86,18 @@ async fn main() -> eyre::Result<()> {
     let latest_block_number = latest_block.inner.header.number;
     let latest_block_hash = latest_block.inner.header.hash;
 
+    let maybe_rpc_adapter = if args.rpc_adapter_enabled {
+        let rpc_url = std::env::var("RPC_URL").expect("`RPC_URL` env not set");
+        Some(RpcAdapterProvider::new(&rpc_url)?)
+    } else {
+        None
+    };
     let node = Node::launch_test_node(
         local_node,
         args.chain,
         args.remote_peer,
         NumHash::new(latest_block_number, latest_block_hash),
+        maybe_rpc_adapter,
     )
     .await;
     assert!(local_node.is_ports_alive());
@@ -111,7 +130,7 @@ async fn main() -> eyre::Result<()> {
     let tree_state = &node.provider.storage;
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
-        tree_state.insert_executed(header);
+        tree_state.insert_header(header);
     }
     let latest_block_number_updated = rpc_block_provider.get_block_number().await?;
     let range = latest_block_number..=latest_block_number_updated;
@@ -137,7 +156,7 @@ async fn main() -> eyre::Result<()> {
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
         tree_state.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
-        tree_state.insert_executed(header);
+        tree_state.insert_header(header);
     }
     node.provider
         .storage
@@ -167,9 +186,9 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    let mut events = node.p2p_handler.network_handle.event_listener();
+    let mut events = node.network_handle.network_handle.event_listener();
     while let Some(event) = events.next().await {
-        info!(target: "ress","Received event: {:?}", event);
+        info!(target: "ress", ?event, "Received network event");
     }
 
     Ok(())

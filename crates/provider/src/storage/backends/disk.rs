@@ -8,13 +8,14 @@ use rusqlite::{Connection, OptionalExtension, Result};
 use crate::errors::DiskStorageError;
 
 // todo: for now for simplicity using sqlite, mb later move kv storage like libmbdx
-
-#[derive(Debug)]
+/// On disk storage.
+#[derive(Clone, Debug)]
 pub struct DiskStorage {
     conn: Arc<Mutex<Connection>>,
 }
 
 impl DiskStorage {
+    /// Return new disk storage.
     pub fn new(path: &str) -> Self {
         let conn = Arc::new(Mutex::new(Connection::open(path).unwrap()));
         conn.lock()
@@ -30,6 +31,7 @@ impl DiskStorage {
         Self { conn }
     }
 
+    // TODO: remove
     pub(crate) fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
         code_hashes
             .into_iter()
@@ -37,7 +39,7 @@ impl DiskStorage {
             .collect()
     }
 
-    fn code_hash_exists_in_db(&self, code_hash: &B256) -> bool {
+    pub(crate) fn code_hash_exists_in_db(&self, code_hash: &B256) -> bool {
         let conn = self.conn.lock();
         let mut stmt = conn
             .prepare("SELECT COUNT(*) FROM account_code WHERE codehash = ?1")

@@ -10,7 +10,8 @@ use tracing::debug;
 
 use crate::errors::MemoryStorageError;
 
-#[derive(Debug)]
+/// In-memory storage.
+#[derive(Clone, Debug)]
 pub struct MemoryStorage {
     inner: Arc<RwLock<MemoryStorageInner>>,
 }
@@ -46,7 +47,7 @@ pub struct MemoryStorageInner {
 }
 
 impl MemoryStorageInner {
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method takes O(n) of complexity by walk through all the executed headers to check canonical chain.
     pub(crate) fn is_canonical_by_walk_through(&self, hash: B256) -> bool {
@@ -65,7 +66,7 @@ impl MemoryStorageInner {
         false
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
@@ -142,10 +143,10 @@ impl MemoryStorageInner {
         Some((executed, children))
     }
 
-    /// Insert executed block into the state.
+    /// Insert header into the state.
     ///
     /// This does not update any canonical chain regarding information.
-    pub(crate) fn insert_executed(&mut self, executed: Header) {
+    pub(crate) fn insert_header(&mut self, executed: Header) {
         let hash = executed.hash_slow();
         let parent_hash = executed.parent_hash;
         let block_number = executed.number;
@@ -204,7 +205,7 @@ impl From<ChainInfo> for BlockNumHash {
 }
 
 impl MemoryStorageInner {
-    /// Returns a new, empty tree state that points to the given canonical head.
+    /// Return a new, empty tree state that points to the given canonical head.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
         Self {
             canonical_hashes: HashMap::new(),
@@ -217,6 +218,7 @@ impl MemoryStorageInner {
 }
 
 impl MemoryStorage {
+    /// Create new in-memory storage.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
         Self {
             inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))),
@@ -234,18 +236,18 @@ impl MemoryStorage {
         inner.remove_canonical_until(upper_bound, last_persisted_hash);
     }
 
-    pub(crate) fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
+    pub(crate) fn header_by_hash(&self, hash: B256) -> Option<Header> {
         let inner = self.inner.read();
         inner.headers_by_hash.get(&hash).cloned()
     }
 
-    /// Insert executed block into the state.
-    pub(crate) fn insert_executed(&self, executed: Header) {
+    /// Insert header into the state.
+    pub(crate) fn insert_header(&self, header: Header) {
         let mut inner = self.inner.write();
-        inner.insert_executed(executed);
+        inner.insert_header(header);
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
@@ -280,6 +282,7 @@ impl MemoryStorage {
             inner.canonical_hashes.insert(block_number, block_hash);
             Ok(())
         } else {
+            println!("🍕");
             Err(MemoryStorageError::NonCanonicalChain(block_hash))
         }
     }

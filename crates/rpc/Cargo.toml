@@ -1,18 +1,19 @@
 [package]
-name = "ress-network"
+name = "ress-rpc"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 # ress
-ress-subprotocol.workspace = true
 ress-common.workspace = true
 
 # reth
 reth-primitives.workspace = true
 reth-chainspec.workspace = true
-reth-network.workspace = true
 reth-provider.workspace = true
 reth-engine-primitives.workspace = true
 reth-rpc-builder.workspace = true
@@ -25,9 +26,7 @@ reth-tasks.workspace = true
 reth-network-peers.workspace = true
 
 # alloy
-alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-engine.workspace = true
 
 # misc
 tokio.workspace = true
-tracing.workspace = true

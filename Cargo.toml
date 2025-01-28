@@ -8,13 +8,17 @@ members = [
     "bin/adapter",
     "bin/ress",
     "bin/reth",
+
     "crates/common",
-    "crates/network",
+    "crates/net/network",
+    "crates/net/protocol",
     "crates/node",
     "crates/primitives",
     "crates/provider",
-    "crates/subprotocol",
+    "crates/rpc",
     "crates/vm",
+
+    "crates/testing",
 ]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -31,16 +35,35 @@ unused_must_use = "deny"
 [workspace.lints.rustdoc]
 all = "warn"
 
+[profile.release]
+codegen-units = 16
+debug = "line-tables-only"
+lto = "thin"
+opt-level = 3
+panic = "unwind"
+strip = true
+
+[profile.profiling]
+debug = 2
+inherits = "release"
+strip = false
+
+[profile.maxperf]
+codegen-units = 1
+inherits = "release"
+lto = "fat"
 
 [workspace.dependencies]
 # ress
 ress-node = { path = "crates/node" }
-ress-subprotocol = { path = "crates/subprotocol" }
+ress-network = { path = "crates/net/network" }
+ress-protocol = { path = "crates/net/protocol" }
 ress-provider = { path = "crates/provider" }
-ress-network = { path = "crates/network" }
 ress-common = { path = "crates/common" }
 ress-vm = { path = "crates/vm" }
 ress-primitives = { path = "crates/primitives" }
+ress-rpc = { path = "crates/rpc" }
+ress-testing = { path = "crates/testing" }
 
 # reth
 reth = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
@@ -49,6 +72,7 @@ reth = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
+reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-errors = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 
 ## db
@@ -56,6 +80,7 @@ reth-db = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "986c754", features = [
     "test-utils",
 ] }
+
 ## network
 reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
 reth-network-api = { git = "https://github.com/paradigmxyz/reth", rev = "986c754" }
@@ -103,19 +128,21 @@ reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", rev = "986c75
 # alloy
 alloy-primitives = { version = "0.8.15", default-features = false }
 alloy-eips = { version = "0.9.2", default-features = false }
-alloy-rpc-types-eth = { version = "0.9.2", default-features = false }
 alloy-rpc-types = { version = "0.9.2", default-features = false }
+alloy-rpc-types-eth = { version = "0.9.2", default-features = false }
 alloy-rpc-types-engine = { version = "0.9.2", default-features = false }
+alloy-rpc-types-debug = { version = "0.9.2", default-features = false }
 alloy-provider = { version = "0.9.2", default-features = false }
 alloy-transport-http = { version = "0.9.2", default-features = false }
 alloy-serde = { version = "0.9.2", default-features = false }
+alloy-consensus = { version = "0.9.2", default-features = false }
 alloy-trie = { version = "0.7.8", default-features = false }
 alloy-rlp = "0.3.10"
 alloy-genesis = { version = "0.9.2", default-features = false }
 
 # misc
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.39", features = ["full"] }
+tokio = { version = "1.39", default-features = false }
 tokio-stream = "0.1.11"
 futures = "0.3"
 eyre = "0.6"
@@ -126,13 +153,18 @@ thiserror = "2.0.9"
 rayon = "1.8"
 serde = { version = "1.0", features = ["derive"] }
 bincode = "1.3"
-jsonrpsee-core = "0.24"
-jsonrpsee-http-client = "0.24"
 parking_lot = "0.12"
-assert_matches = "1.5.0"
 serde_json = "1.0.1"
 reqwest = { version = "0.12", features = ["json"] }
 dotenvy = "0.15.7"
+itertools = "0.13"
 
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }
+
+# testing
+arbitrary = "1.3"
+proptest = "1.4"
+proptest-derive = "0.5"
+proptest-arbitrary-interop = "0.1.0"
+assert_matches = "1.5.0"

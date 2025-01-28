@@ -1,4 +1,6 @@
-use ress_provider::storage::Storage;
+//! EVM block executor.
+
+use reth_chainspec::ChainSpec;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{BlockWithSenders, Receipt};
@@ -8,14 +10,15 @@ use std::sync::Arc;
 
 use crate::{db::WitnessDatabase, errors::EvmError};
 
-pub struct BlockExecutor {
-    strategy: EthExecutionStrategy<WitnessDatabase, EthEvmConfig>,
+/// Block executor that wraps reth's [`EthExecutionStrategy`].
+#[allow(missing_debug_implementations)]
+pub struct BlockExecutor<'a> {
+    strategy: EthExecutionStrategy<WitnessDatabase<'a>, EthEvmConfig>,
 }
 
-impl BlockExecutor {
-    /// specific block's executor by initiate with parent block post execution state and hash
-    pub fn new(db: WitnessDatabase, storage: Arc<Storage>) -> Self {
-        let chain_spec = storage.get_chain_config();
+impl<'a> BlockExecutor<'a> {
+    /// Instantiate new block executor with chain spec and witness database.
+    pub fn new(chain_spec: Arc<ChainSpec>, db: WitnessDatabase<'a>) -> Self {
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state = StateBuilder::new_with_database(db)
             .with_bundle_update()
@@ -25,7 +28,7 @@ impl BlockExecutor {
         Self { strategy }
     }
 
-    /// from `BasicBlockExecutor`'s execute
+    /// Execute a block.
     pub fn execute(
         &mut self,
         block: &BlockWithSenders,
