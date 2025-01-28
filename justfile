@@ -29,7 +29,7 @@ test:
 
 # Build binary for `x86_64-unknown-linux-musl`
 build-linux:
-    CFLAGS=-march=x86_64_v4 cargo +stable zigbuild --bins --target x86_64-unknown-linux-musl
+    CFLAGS=-march=x86_64_v4 cargo +stable zigbuild --bins --target x86_64-unknown-linux-musl --profile hivetests
 
 # Run the entire CI pipeline including format, clippy, docs, and test checks
 ci: format clippy docs deny test
