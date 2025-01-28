@@ -1,6 +1,12 @@
 # Set environment variable
 export CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE := "true"
 
+
+
+# Runs cargo deny to check for any vulnerabilities in the project
+deny:
+    cargo deny --all-features check all
+
 # Run rustfmt to check the code formatting without making changes
 format:
     cargo fmt -- --check
@@ -22,5 +28,5 @@ test:
     cargo llvm-cov nextest
 
 # Run the entire CI pipeline including format, clippy, docs, and test checks
-ci: format clippy docs test
+ci: format clippy docs deny test
     @echo "CI flow completed"
