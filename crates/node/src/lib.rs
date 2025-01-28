@@ -42,21 +42,18 @@ impl Node {
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
         remote_peer: Option<TrustedPeer>,
-        rpc_adapter: Option<RpcAdapterProvider>,
         current_head: BlockNumHash,
+        rpc_adapter: Option<RpcAdapterProvider>,
     ) -> Self {
-        let (p2p_handler, rpc_handler) =
-            ress_network::start_network(id, Arc::clone(&chain_spec), remote_peer).await;
-
         let storage = Storage::new(chain_spec.clone(), current_head);
 
         let network_handle = if let Some(rpc_adapter) = rpc_adapter {
             RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
-                .launch(id)
+                .launch(id, remote_peer)
                 .await
         } else {
             RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
-                .launch(id)
+                .launch(id, remote_peer)
                 .await
         };
         let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;

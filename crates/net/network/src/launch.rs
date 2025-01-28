@@ -10,6 +10,7 @@ use reth_network::{
     NetworkManager,
 };
 use reth_network_api::PeerId;
+use reth_network_peers::TrustedPeer;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
@@ -34,10 +35,27 @@ where
     }
 
     /// Start network manager.
-    pub async fn launch(&self, id: TestPeers) -> RessNetworkHandle {
+    pub async fn launch(
+        &self,
+        id: TestPeers,
+        remote_peer: Option<TrustedPeer>,
+    ) -> RessNetworkHandle {
         let (subnetwork_handle, from_peer) = self
             .launch_subprotocol_network(id.get_key(), id.get_network_addr())
             .await;
+
+        let (remote_id, remote_addr) = if let Some(remote_peer) = remote_peer {
+            (
+                remote_peer.id,
+                remote_peer.resolve_blocking().expect("peer").tcp_addr(),
+            )
+        } else {
+            (
+                id.get_peer().get_peer_id(),
+                id.get_peer().get_network_addr(),
+            )
+        };
+
         // connect peer to own network
         subnetwork_handle
             .peers_handle()
@@ -60,7 +78,6 @@ where
         &self,
         secret_key: SecretKey,
         socket: SocketAddr,
-        chain_spec: Arc<ChainSpec>,
     ) -> (NetworkManager, UnboundedReceiver<ProtocolEvent>) {
         let (tx, from_peer) = tokio::sync::mpsc::unbounded_channel();
         let protocol_handler = RessProtocolHandler {

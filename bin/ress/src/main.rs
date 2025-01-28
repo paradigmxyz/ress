@@ -9,7 +9,6 @@ use ress_common::test_utils::TestPeers;
 use ress_node::Node;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
-use reth_chainspec::MAINNET;
 use reth_cli::chainspec::ChainSpecParser;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
@@ -47,6 +46,8 @@ struct Args {
     #[arg(long)]
     /// If passed, the debug consensus client will NOT be started
     pub no_debug_consensus: bool,
+
+    /// Enables the RPC adapter.
     #[arg(long = "enable-rpc-adapter")]
     rpc_adapter_enabled: bool,
 }
@@ -92,6 +93,7 @@ async fn main() -> eyre::Result<()> {
     } else {
         None
     };
+
     let node = Node::launch_test_node(
         local_node,
         args.chain,
@@ -175,7 +177,7 @@ async fn main() -> eyre::Result<()> {
         let ws_block_provider =
             RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
         let rpc_consensus_client =
-            DebugConsensusClient::new(node.authserver_handler, Arc::new(ws_block_provider));
+            DebugConsensusClient::new(node.authserver_handle, Arc::new(ws_block_provider));
         tokio::spawn(async move {
             info!("💨 running debug consensus client");
             rpc_consensus_client

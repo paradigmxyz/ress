@@ -23,7 +23,6 @@ reth-payload-builder.workspace = true
 reth-transaction-pool.workspace = true
 reth-node-api.workspace = true
 reth-tasks.workspace = true
-reth-network-peers.workspace = true
 
 # alloy
 alloy-rpc-types-engine.workspace = true
