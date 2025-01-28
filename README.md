@@ -1,20 +1,13 @@
 # ress(reth stateless)
 
-# ress(reth stateless)
+## Hive test
 
-## Scenario
+Ress had tested with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
 
-Before a new ress node can join the network, the network must already be formed with at least 1 reth (subprotocol implemented) node and 2 ress nodes. These 2 ress nodes should all be synced via the reth node.
+- `reth`: auth port(8651), rpc port(8544)
+- `ress`: auth port(8552), rpc port(-)
 
-The new ress node is then spawned to join the network. It should quickly discover the reth node with the subprotocol.
 
-The first step is to prefetch A. 256 canonical block hashes, B. the parent block header to memory.
-
-Then, via the message sent from the consensus client, the ress node requests witness data from the network. It then performs validation and execution of this new payload given the witness that turns into a spare trie. While executing, it determines the necessary contract bytecode and gets it from disk, then falls back to request it from the network - the reth node. The disk is just a simple KV storage that can get bytecode from the code hash.
-
-The consensus client then sends a new fork choice message, and the ress node performs a validation check and updates the node and storage state. It also removes the witness and any unnecessary block data that is stored in memory.
-
-The ress node then continues to sync.
 
 
 ## run
