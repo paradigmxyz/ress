@@ -35,23 +35,40 @@ unused_must_use = "deny"
 [workspace.lints.rustdoc]
 all = "warn"
 
-[profile.release]
-codegen-units = 16
+# Speed up compilation time for dev builds by reducing emitted debug info.
+# NOTE: Debuggers may provide less useful information with this setting.
+# Uncomment this section if you're using a debugger.
+[profile.dev]
+# https://davidlattimore.github.io/posts/2024/02/04/speeding-up-the-rust-edit-build-run-cycle.html
 debug = "line-tables-only"
-lto = "thin"
+split-debuginfo = "unpacked"
+
+# Meant for testing - all optimizations, but with debug assertions and overflow checks.
+[profile.hivetests]
+inherits = "test"
 opt-level = 3
+lto = "thin"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+debug = "none"
+strip = "symbols"
 panic = "unwind"
-strip = true
+codegen-units = 16
 
 [profile.profiling]
-debug = 2
 inherits = "release"
-strip = false
+debug = "full"
+strip = "none"
+
+[profile.bench]
+inherits = "profiling"
 
 [profile.maxperf]
-codegen-units = 1
 inherits = "release"
 lto = "fat"
+codegen-units = 1
 
 [workspace.dependencies]
 # ress
