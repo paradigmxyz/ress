@@ -90,5 +90,5 @@ index 40db5e37..1abca61e 100644
  echo "Running reth with flags: $FLAGS"
 -RUST_LOG=info $reth node $FLAGS
 +
-+RUST_LOG=info $reth node $FLAGS & sleep 1 && RUST_LOG=info /usr/local/bin/ress --remote-peer "enode://060bb5ab4a20bbb2465a4db24de7a740db00207e34044454504bf004d6396bd9b03bf08b1df3f1f468366a2c0b809dee7aa54069af94fa11bdb26b9103ee76d6@127.0.0.1:30303" --chain /genesis.json --no-debug-consensus 2 & while ! resp=$(curl -s --max-time 5 http://127.0.0.1:8552); do sleep 1; done; echo "$resp"  && RUST_LOG=info adapter
++RUST_LOG=info $reth node $FLAGS & sleep 1 && RUST_LOG=info /usr/local/bin/ress --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" --chain /genesis.json --enable-rpc-adapter --no-debug-consensus 2 & while ! resp=$(curl -s --max-time 5 http://127.0.0.1:8552); do sleep 1; done; echo "$resp"  && RUST_LOG=info adapter
  

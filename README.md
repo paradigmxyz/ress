@@ -4,8 +4,8 @@
 
 Ress had tested with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
 
-- `reth`: auth port(8651), rpc port(8544)
-- `ress`: auth port(8552), rpc port(-)
+- `reth`: auth port(8651), rpc port(8544), subnetwork(30303)
+- `ress`: auth port(8552), rpc port(-), subnetwork(61398)
 
 
 
@@ -19,7 +19,7 @@ RUST_LOG=info cargo run -r --bin reth node --authrpc.port 8651 --http.port 8544 
 
 - ress
 ```console
-RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://060bb5ab4a20bbb2465a4db24de7a740db00207e34044454504bf004d6396bd9b03bf08b1df3f1f468366a2c0b809dee7aa54069af94fa11bdb26b9103ee76d6@127.0.0.1:30303" --no-debug-consensus 2
+RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" --no-debug-consensus 2
 ```
 
 ### 1. launch ress node
