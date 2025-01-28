@@ -1,8 +1,11 @@
 [package]
 name = "ress"
-rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -46,7 +49,6 @@ parking_lot.workspace = true
 assert_matches.workspace = true
 dotenvy.workspace = true
 serde_json.workspace = true
-
 
 [dev-dependencies]
 reth-tokio-util.workspace = true
