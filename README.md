@@ -2,6 +2,8 @@
 
 ## Poc seniaro
 
+RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://060bb5ab4a20bbb2465a4db24de7a740db00207e34044454504bf004d6396bd9b03bf08b1df3f1f468366a2c0b809dee7aa54069af94fa11bdb26b9103ee76d6@127.0.0.1:30303"  --no-debug-consensus 2 --enable-rpc-adapter
+
 *note example payload generated from [here](https://github.com/Rjected/execution-payload-builder/tree/main)*
 
 ### 1. launch ress node
