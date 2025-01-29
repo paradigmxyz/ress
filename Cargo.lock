@@ -5323,6 +5323,7 @@ name = "ress-node"
 version = "0.1.0"
 dependencies = [
  "alloy-eips",
+ "alloy-genesis",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-engine",
@@ -5344,9 +5345,11 @@ dependencies = [
  "reth-rpc-builder",
  "reth-trie",
  "reth-trie-sparse",
+ "serde_json",
  "thiserror 2.0.9",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
