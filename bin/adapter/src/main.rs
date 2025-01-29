@@ -57,25 +57,20 @@ async fn forward_request(
     let reth = if is_auth_server { RETH_AUTH } else { RETH_HTTP };
     let reth_req = build_request(reth).unwrap();
     let reth_resp = client.request(reth_req).await?;
-    info!("Received from Reth: {:?}", reth_resp);
-    if !is_engine_method {
-        return Ok(reth_resp);
-    }
-
-    let (reth_parts, reth_body) = reth_resp.into_parts();
-    let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
-    let is_payload_id = match serde_json::from_slice::<RethPayloadResponse>(&reth_body_bytes) {
-        Ok(json_value) => json_value.payload_id,
-        Err(_) => None,
-    };
 
     // If it's an engine method, send request to Ress and await its response
     if is_engine_method {
+        let (_reth_parts, reth_body) = reth_resp.into_parts();
+        let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
+        let is_payload_id = match serde_json::from_slice::<RethPayloadResponse>(&reth_body_bytes) {
+            Ok(json_value) => json_value.payload_id,
+            Err(_) => None,
+        };
+
         let ress_req = build_request(RESS_AUTH).unwrap();
         info!("Sending request to Ress: {:?}", ress_req);
 
         let ress_resp = client.request(ress_req).await?;
-        info!("Received response from Ress: {:?}", ress_resp);
         if let Some(reth_payload_id) = is_payload_id {
             let (mut ress_parts, ress_body) = ress_resp.into_parts();
             info!("reth payload id: {:?}", reth_payload_id);
@@ -90,15 +85,15 @@ async fn forward_request(
                 hyper::header::HeaderValue::from_str(&new_body_bytes.len().to_string()).unwrap(),
             );
             let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
-            return Ok(new_response);
+            Ok(new_response)
         } else {
-            return Ok(ress_resp);
+            info!("Received from Ress, not payload: {:?}", ress_resp);
+            Ok(ress_resp)
         }
+    } else {
+        info!("Received from Reth, not engine: {:?}", reth_resp);
+        Ok(reth_resp)
     }
-
-    let new_body_bytes = serde_json::to_vec(&reth_body_bytes).unwrap();
-    let new_response = Response::from_parts(reth_parts, Body::from(new_body_bytes));
-    Ok(new_response)
 }
 
 #[tokio::main]
