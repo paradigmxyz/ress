@@ -56,13 +56,13 @@ async fn forward_request(
         let ress_resp = client.request(ress_req).await?;
         info!("Received response from Ress: {:?}", ress_resp);
 
-        let body = hyper::body::to_bytes(ress_resp.into_body()).await.unwrap();
-        info!(
-            "Ress Response: Status:, Body: {} ",
-            String::from_utf8_lossy(&body)
-        );
+        // let body = hyper::body::to_bytes(ress_resp.into_body()).await.unwrap();
+        // info!(
+        //     "Ress Response: Status:, Body: {} ",
+        //     String::from_utf8_lossy(&body)
+        // );
 
-        // return Ok(ress_resp)
+        return Ok(ress_resp);
     }
 
     Ok(reth_resp)
