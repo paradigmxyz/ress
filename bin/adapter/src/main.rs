@@ -78,12 +78,19 @@ async fn forward_request(
             let (mut ress_parts, ress_body) = ress_resp.into_parts();
             info!("reth payload id: {:?}", reth_payload_id);
             let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
-            let top_level: Value = serde_json::from_slice(&ress_body_bytes).unwrap();
-            let result_value = top_level.get("result").unwrap();
-            let mut payload =
-                serde_json::from_value::<RethPayloadResponse>(result_value.clone()).unwrap();
-            payload.payload_id = Some(reth_payload_id);
-            let new_body_bytes = serde_json::to_vec(&payload).unwrap();
+            let mut top_level: Value = serde_json::from_slice(&ress_body_bytes).unwrap();
+            if let Some(result_obj) = top_level.get_mut("result") {
+                if let Some(result_map) = result_obj.as_object_mut() {
+                    result_map.insert(
+                        "payloadId".to_string(),
+                        serde_json::Value::String(reth_payload_id.to_string()),
+                    );
+                }
+            }
+
+            let new_body_bytes = serde_json::to_vec(&top_level).unwrap();
+
+            // Remove or recalc content-length
             ress_parts.headers.remove("content-length");
             ress_parts.headers.insert(
                 hyper::header::CONTENT_LENGTH,
