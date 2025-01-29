@@ -35,9 +35,12 @@ async fn forward_request(
     let mut is_engine_method = false;
     if is_auth_server {
         if let Ok(json_body) = serde_json::from_str::<Value>(&body_str) {
-            if let Some(method) = json_body.get("method") {
-                info!("method: {}", method);
-                if method.as_str().unwrap_or_default().starts_with("engine") {
+            if let Some(method_value) = json_body.get("method") {
+                let method_str = method_value.as_str().unwrap_or_default();
+                // Mark `is_engine_method` as true if:
+                //  1) method starts with "engine"
+                //  2) method does NOT start with "engine_get"
+                if method_str.starts_with("engine") && !method_str.starts_with("engine_get") {
                     is_engine_method = true;
                 }
             }
