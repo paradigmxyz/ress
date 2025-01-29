@@ -16,6 +16,7 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
+use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -56,6 +57,7 @@ where
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        info!(target: "reth::procotol", %block_hash, "requested header");
         let block = self
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
@@ -64,6 +66,7 @@ where
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        info!(target: "reth::procotol", %code_hash, "requested bytecode");
         Ok(self
             .provider
             .latest()?
@@ -72,6 +75,7 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        info!(target: "reth::procotol", %block_hash, "requested witness");
         let block = self
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
