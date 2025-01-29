@@ -185,6 +185,9 @@ where
                         if let Some(RessPeerRequest::GetHeader { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
+                            if res.message == Header::default() {
+                                error!(target: "ress::net::connection", "invalid header");
+                            }
                             // TODO: validate the header.
                             let _ = tx.send(res.message);
                         } else {
@@ -195,6 +198,9 @@ where
                         if let Some(RessPeerRequest::GetBytecode { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
+                            if res.message == Bytes::default() {
+                                error!(target: "ress::net::connection", "invalid bytes");
+                            }
                             // TODO: validate the bytecode.
                             let _ = tx.send(res.message);
                         } else {
@@ -205,6 +211,9 @@ where
                         if let Some(RessPeerRequest::GetWitness { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
+                            if res.message == StateWitnessNet::default() {
+                                error!(target: "ress::net::connection", "invalid witness");
+                            }
                             // TODO: validate the witness.
                             let _ = tx.send(res.message);
                         } else {
