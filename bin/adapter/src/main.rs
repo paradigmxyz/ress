@@ -1,8 +1,10 @@
+use alloy_rpc_types_engine::{PayloadId, PayloadStatus};
 use futures_util::TryFutureExt;
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Client, Request, Response, Server,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::convert::Infallible;
 use tokio::io::{self};
@@ -12,6 +14,15 @@ const RETH_AUTH: &str = "http://127.0.0.1:8651";
 const RETH_HTTP: &str = "http://127.0.0.1:8544";
 
 const RESS_AUTH: &str = "http://127.0.0.1:8552";
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RethPayloadResponse {
+    #[serde(rename = "payloadStatus")]
+    pub payload_status: PayloadStatus,
+    #[serde(rename = "payloadId")]
+    pub payload_id: Option<PayloadId>,
+}
 
 async fn forward_request(
     req: Request<Body>,
@@ -47,6 +58,12 @@ async fn forward_request(
     let reth_req = build_request(reth).unwrap();
     let reth_resp = client.request(reth_req).await?;
     info!("Received from Reth: {:?}", reth_resp);
+    let (reth_parts, reth_body) = reth_resp.into_parts();
+    let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
+    let is_payload_id = match serde_json::from_slice::<RethPayloadResponse>(&reth_body_bytes) {
+        Ok(json_value) => json_value.payload_id,
+        Err(_) => None,
+    };
 
     // If it's an engine method, send request to Ress and await its response
     if is_engine_method {
@@ -55,17 +72,27 @@ async fn forward_request(
 
         let ress_resp = client.request(ress_req).await?;
         info!("Received response from Ress: {:?}", ress_resp);
-
-        // let body = hyper::body::to_bytes(ress_resp.into_body()).await.unwrap();
-        // info!(
-        //     "Ress Response: Status:, Body: {} ",
-        //     String::from_utf8_lossy(&body)
-        // );
-
-        return Ok(ress_resp);
+        let (ress_parts, ress_body) = ress_resp.into_parts();
+        if let Some(reth_payload_id) = is_payload_id {
+            info!("reth payload id: {:?}", reth_payload_id);
+            let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
+            let mut payload =
+                serde_json::from_slice::<RethPayloadResponse>(&ress_body_bytes).unwrap();
+            payload.payload_id = Some(reth_payload_id);
+            let new_body_bytes = serde_json::to_vec(&payload).unwrap_or_default();
+            let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
+            return Ok(new_response);
+        } else {
+            let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
+            let new_body_bytes = serde_json::to_vec(&ress_body_bytes).unwrap_or_default();
+            let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
+            return Ok(new_response);
+        }
     }
 
-    Ok(reth_resp)
+    let new_body_bytes = serde_json::to_vec(&reth_body_bytes).unwrap_or_default();
+    let new_response = Response::from_parts(reth_parts, Body::from(new_body_bytes));
+    Ok(new_response)
 }
 
 #[tokio::main]
