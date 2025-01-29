@@ -62,10 +62,13 @@ async fn forward_request(
     if is_engine_method {
         let (_reth_parts, reth_body) = reth_resp.into_parts();
         let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
-        let is_payload_id = match serde_json::from_slice::<RethPayloadResponse>(&reth_body_bytes) {
-            Ok(json_value) => json_value.payload_id,
-            Err(_) => None,
-        };
+        let top_level: Value = serde_json::from_slice(&reth_body_bytes).unwrap();
+        let result_value = top_level.get("result").unwrap();
+        let is_payload_id =
+            match serde_json::from_value::<RethPayloadResponse>(result_value.clone()) {
+                Ok(json_value) => json_value.payload_id,
+                Err(_) => None,
+            };
 
         let ress_req = build_request(RESS_AUTH).unwrap();
         info!("Sending request to Ress: {:?}", ress_req);
@@ -75,8 +78,10 @@ async fn forward_request(
             let (mut ress_parts, ress_body) = ress_resp.into_parts();
             info!("reth payload id: {:?}", reth_payload_id);
             let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
+            let top_level: Value = serde_json::from_slice(&ress_body_bytes).unwrap();
+            let result_value = top_level.get("result").unwrap();
             let mut payload =
-                serde_json::from_slice::<RethPayloadResponse>(&ress_body_bytes).unwrap();
+                serde_json::from_value::<RethPayloadResponse>(result_value.clone()).unwrap();
             payload.payload_id = Some(reth_payload_id);
             let new_body_bytes = serde_json::to_vec(&payload).unwrap();
             ress_parts.headers.remove("content-length");
