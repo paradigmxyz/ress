@@ -58,6 +58,10 @@ async fn forward_request(
     let reth_req = build_request(reth).unwrap();
     let reth_resp = client.request(reth_req).await?;
     info!("Received from Reth: {:?}", reth_resp);
+    if !is_engine_method {
+        return Ok(reth_resp);
+    }
+
     let (reth_parts, reth_body) = reth_resp.into_parts();
     let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
     let is_payload_id = match serde_json::from_slice::<RethPayloadResponse>(&reth_body_bytes) {
@@ -88,7 +92,7 @@ async fn forward_request(
             let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
             return Ok(new_response);
         }
-    }
+    } 
 
     let new_body_bytes = serde_json::to_vec(&reth_body_bytes).unwrap_or_default();
     let new_response = Response::from_parts(reth_parts, Body::from(new_body_bytes));
