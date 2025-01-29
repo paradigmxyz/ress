@@ -76,25 +76,26 @@ async fn forward_request(
 
         let ress_resp = client.request(ress_req).await?;
         info!("Received response from Ress: {:?}", ress_resp);
-        let (ress_parts, ress_body) = ress_resp.into_parts();
+        let (mut ress_parts, ress_body) = ress_resp.into_parts();
         if let Some(reth_payload_id) = is_payload_id {
             info!("reth payload id: {:?}", reth_payload_id);
             let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
             let mut payload =
                 serde_json::from_slice::<RethPayloadResponse>(&ress_body_bytes).unwrap();
             payload.payload_id = Some(reth_payload_id);
-            let new_body_bytes = serde_json::to_vec(&payload).unwrap_or_default();
+            ress_parts.headers.remove("content-length");
+            let new_body_bytes = serde_json::to_vec(&payload).unwrap();
             let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
             return Ok(new_response);
         } else {
             let ress_body_bytes = hyper::body::to_bytes(ress_body).await?;
-            let new_body_bytes = serde_json::to_vec(&ress_body_bytes).unwrap_or_default();
+            let new_body_bytes = serde_json::to_vec(&ress_body_bytes).unwrap();
             let new_response = Response::from_parts(ress_parts, Body::from(new_body_bytes));
             return Ok(new_response);
         }
-    } 
+    }
 
-    let new_body_bytes = serde_json::to_vec(&reth_body_bytes).unwrap_or_default();
+    let new_body_bytes = serde_json::to_vec(&reth_body_bytes).unwrap();
     let new_response = Response::from_parts(reth_parts, Body::from(new_body_bytes));
     Ok(new_response)
 }
