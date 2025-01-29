@@ -273,6 +273,7 @@ impl ConsensusEngine {
         )?;
 
         // ===================== State Root =====================
+        info!(target: "ress::engine", "{:?}", block);
         let hashed_state =
             HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
         let state_root = calculate_state_root(&mut trie, hashed_state)?;
