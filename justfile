@@ -34,6 +34,7 @@ build-cross-hive:
 # Build hivetest binary, run on linux
 build-hive:
     cargo build --bins --profile hivetests
+    cp target/hivetests/{adapter,ress,reth} ../hive/clients/reth/ 
 
 # Run the entire CI pipeline including format, clippy, docs, and test checks
 ci: format clippy docs deny test
