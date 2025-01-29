@@ -8,7 +8,7 @@ use reth_chainspec::ChainSpec;
 use reth_engine_primitives::BeaconConsensusEngineHandle;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_ethereum::{node::EthereumEngineValidator, EthEngineTypes};
-use reth_payload_builder::test_utils::spawn_test_payload_service;
+use reth_payload_builder::{PayloadBuilderHandle, PayloadStore};
 use reth_primitives::EthPrimitives;
 use reth_provider::noop::NoopProvider;
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
@@ -61,12 +61,15 @@ impl RpcHandle {
             version: "".to_string(),
             commit: "".to_string(),
         };
+        let (to_payload_service, _payload_command_rx) = unbounded_channel();
+        let payload_builder = PayloadBuilderHandle::new(to_payload_service);
+        let payload_store = PayloadStore::new(payload_builder.clone());
 
         let engine_api = EngineApi::new(
             NoopProvider::<ChainSpec, EthPrimitives>::new(chain_spec.clone()),
             chain_spec.clone(),
             beacon_engine_handle,
-            spawn_test_payload_service().into(),
+            payload_store,
             NoopTransactionPool::default(),
             Box::<TokioTaskExecutor>::default(),
             client,
