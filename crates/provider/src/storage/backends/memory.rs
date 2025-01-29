@@ -324,18 +324,20 @@ impl MemoryStorage {
         inner.set_canonical_head(new_head);
         inner.canonical_hashes.clear();
         let mut current_hash = new_head.hash;
-        let mut current_num = new_head.number;
+        let current_num = new_head.number;
+        let range = (current_num.saturating_sub(255))..=current_num;
 
         // Traverse up to 256 blocks or genesis
-        for _ in 0..256 {
-            inner.canonical_hashes.insert(current_num, current_hash);
-            let header = inner
-                .headers_by_hash
-                .get(&current_hash)
-                .cloned()
-                .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
-            current_hash = header.parent_hash;
-            current_num = current_num.checked_sub(1).unwrap_or_default();
+        for block_number in range {
+            inner.canonical_hashes.insert(block_number, current_hash);
+            if block_number != 0 {
+                let header = inner
+                    .headers_by_hash
+                    .get(&current_hash)
+                    .cloned()
+                    .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
+                current_hash = header.parent_hash;
+            }
         }
 
         Ok(())
