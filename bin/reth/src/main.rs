@@ -86,10 +86,9 @@ where
         };
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
+        let block_executor = self.block_executor.executor(db);
         let mut record = ExecutionWitnessRecord::default();
-        let _ = self
-            .block_executor
-            .executor(db)
+        let _ = block_executor
             .execute_with_state_closure(&block, |state: &State<_>| {
                 record.record_executed_state(state);
             })
