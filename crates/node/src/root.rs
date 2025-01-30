@@ -1,7 +1,10 @@
 use alloy_primitives::B256;
+use alloy_rlp::{Decodable, Encodable};
 use itertools::Itertools;
 use rayon::prelude::*;
-use reth_trie::{HashedPostState, Nibbles};
+use reth_trie::{
+    HashedPostState, Nibbles, TrieAccount, EMPTY_ROOT_HASH, TRIE_ACCOUNT_RLP_MAX_SIZE,
+};
 use reth_trie_sparse::{
     errors::{SparseStateTrieResult, SparseTrieErrorKind},
     SparseStateTrie, SparseTrie,
@@ -56,12 +59,32 @@ pub fn calculate_state_root(
     }
 
     // Update accounts with new values
+    // TODO: upstream changes into reth so that `SparseStateTrie::update_account` handles this
+    let mut account_rlp_buf = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
     for (hashed_address, account) in state
         .accounts
         .into_iter()
         .sorted_unstable_by_key(|(hashed_address, _)| *hashed_address)
     {
-        trie.update_account(hashed_address, account.unwrap_or_default())?;
+        let nibbles = Nibbles::unpack(hashed_address);
+        let account = account.unwrap_or_default();
+        let storage_root = if let Some(storage_trie) = trie.storage_trie_mut(&hashed_address) {
+            storage_trie.root()
+        } else if let Some(value) = trie.get_account_value(&hashed_address) {
+            TrieAccount::decode(&mut &value[..])?.storage_root
+        } else {
+            EMPTY_ROOT_HASH
+        };
+
+        if account.is_empty() && storage_root == EMPTY_ROOT_HASH {
+            trie.remove_account_leaf(&nibbles)?;
+        } else {
+            account_rlp_buf.clear();
+            account
+                .into_trie_account(storage_root)
+                .encode(&mut account_rlp_buf);
+            trie.update_account_leaf(nibbles, account_rlp_buf.clone())?;
+        }
     }
 
     trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
