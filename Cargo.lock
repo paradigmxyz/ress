@@ -5362,7 +5362,6 @@ name = "ress"
 version = "0.1.0"
 dependencies = [
  "alloy-eips",
- "alloy-genesis",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",

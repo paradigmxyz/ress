@@ -19,7 +19,6 @@ ress-testing.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-genesis.workspace = true
 alloy-eips.workspace = true
 alloy-rpc-types.workspace = true
 alloy-rpc-types-engine.workspace = true
