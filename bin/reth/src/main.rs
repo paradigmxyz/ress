@@ -17,6 +17,7 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{BlockExt, EthPrimitives, Header};
 use tokio::sync::mpsc;
+use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -73,12 +74,14 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        info!(?block_hash, "requested witness");
         let block = self
             .provider
             .find_block_by_hash(block_hash, BlockSource::Any)?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?
+            .unwrap()
             .with_recovered_senders()
             .unwrap();
+        info!("block {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
@@ -89,6 +92,7 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
+        info!("state {:?}", record.hashed_state);
         Ok(Some(
             state_provider.witness(Default::default(), record.hashed_state)?,
         ))
