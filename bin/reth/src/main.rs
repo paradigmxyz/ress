@@ -11,7 +11,6 @@ use reth::{
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
-use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
@@ -61,7 +60,7 @@ where
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
             .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(block.block.header().clone()))
+        Ok(Some(block.header().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
@@ -74,27 +73,11 @@ where
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         info!(?block_hash, "requested witness");
-        // let latest = self
-        //     .provider
-        //     .canonical_in_memory_state()
-        //     .get_canonical_head()
-        //     .number;
-        // info!(?latest, "block head");
-        // let latest = self.provider.pending_block();
-        // info!(?latest, "pending");
 
-        let block = if let Some(pending) = self
+        let block = self
             .provider
-            .pending_block_with_senders()?
-            .filter(|b| b.hash() == block_hash)
-        {
-            info!("pending {:?}", pending.number);
-            pending.unseal()
-        } else {
-            self.provider
-                .block_with_senders(block_hash.into(), TransactionVariant::default())?
-                .ok_or(ProviderError::BlockHashNotFound(block_hash))?
-        };
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?
+            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
         info!("block {:?}", block);
 
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;

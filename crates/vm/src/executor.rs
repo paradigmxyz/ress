@@ -3,7 +3,7 @@
 use reth_chainspec::ChainSpec;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
-use reth_primitives::{BlockWithSenders, Receipt};
+use reth_primitives::{Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
 use reth_revm::StateBuilder;
 use std::sync::Arc;
@@ -31,7 +31,7 @@ impl<'a> BlockExecutor<'a> {
     /// Execute a block.
     pub fn execute(
         &mut self,
-        block: &BlockWithSenders,
+        block: &RecoveredBlock<reth_ethereum_primitives::Block>,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
         self.strategy.apply_pre_execution_changes(block)?;
         let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
