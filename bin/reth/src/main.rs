@@ -1,6 +1,6 @@
 //! Reth node that supports ress subprotocol.
 
-use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use alloy_primitives::{address, map::B256HashMap, Bytes, B256};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
@@ -87,6 +87,9 @@ where
         };
         info!("block {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.hash())?;
+        let balance = state_provider
+            .account_balance(&address!("0000000000000000000000000000000000000314"))?;
+        info!("balance {:?}", balance);
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let _ = self
