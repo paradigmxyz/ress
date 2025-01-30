@@ -91,10 +91,9 @@ where
             .account_balance(&address!("0000000000000000000000000000000000000315"))?;
         info!("balance {:?}", balance);
         let db = StateProviderDatabase::new(&state_provider);
+        let block_executor = self.block_executor.executor(db);
         let mut record = ExecutionWitnessRecord::default();
-        let _ = self
-            .block_executor
-            .executor(db)
+        let _ = block_executor
             .execute_with_state_closure(&block, |state: &State<_>| {
                 info!("state account:{:?}", state.cache.accounts);
                 record.record_executed_state(state);
