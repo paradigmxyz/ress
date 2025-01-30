@@ -18,70 +18,53 @@ pub fn calculate_state_root(
     // Update storage slots with new values and calculate storage roots.
     let (storage_tx, storage_rx) = mpsc::channel();
 
-    if state == HashedPostState::default() {
-        SparseTrie::revealed_empty()
-            .root()
-            .ok_or_else(|| SparseTrieErrorKind::Blind.into())
-    } else {
-        state
-            .storages
-            .into_iter()
-            .map(|(address, storage)| (address, storage, trie.take_storage_trie(&address)))
-            .par_bridge()
-            .map(|(address, storage, storage_trie)| {
-                let mut storage_trie = storage_trie.unwrap_or_else(SparseTrie::revealed_empty);
+    state
+        .storages
+        .into_iter()
+        .map(|(address, storage)| (address, storage, trie.take_storage_trie(&address)))
+        .par_bridge()
+        .map(|(address, storage, storage_trie)| {
+            let mut storage_trie = storage_trie.unwrap_or_else(SparseTrie::revealed_empty);
 
-                if storage.wiped {
-                    storage_trie.wipe()?;
+            if storage.wiped {
+                storage_trie.wipe()?;
+            }
+            for (hashed_slot, value) in storage
+                .storage
+                .into_iter()
+                .sorted_unstable_by_key(|(hashed_slot, _)| *hashed_slot)
+            {
+                let nibbles = Nibbles::unpack(hashed_slot);
+                if value.is_zero() {
+                    storage_trie.remove_leaf(&nibbles)?;
+                } else {
+                    storage_trie
+                        .update_leaf(nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
                 }
-                for (hashed_slot, value) in storage
-                    .storage
-                    .into_iter()
-                    .sorted_unstable_by_key(|(hashed_slot, _)| *hashed_slot)
-                {
-                    let nibbles = Nibbles::unpack(hashed_slot);
-                    if value.is_zero() {
-                        storage_trie.remove_leaf(&nibbles)?;
-                    } else {
-                        storage_trie
-                            .update_leaf(nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
-                    }
-                }
+            }
 
-                storage_trie.root();
+            storage_trie.root();
 
-                SparseStateTrieResult::Ok((address, storage_trie))
-            })
-            .for_each_init(
-                || storage_tx.clone(),
-                |storage_tx, result| storage_tx.send(result).unwrap(),
-            );
-        drop(storage_tx);
-        for result in storage_rx {
-            let (address, storage_trie) = result?;
-            trie.insert_storage_trie(address, storage_trie);
-        }
-
-        // Update accounts with new values
-        for (hashed_address, account) in state
-            .accounts
-            .into_iter()
-            .sorted_unstable_by_key(|(hashed_address, _)| *hashed_address)
-        {
-            trie.update_account(hashed_address, account.unwrap_or_default())?;
-        }
-
-        trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
+            SparseStateTrieResult::Ok((address, storage_trie))
+        })
+        .for_each_init(
+            || storage_tx.clone(),
+            |storage_tx, result| storage_tx.send(result).unwrap(),
+        );
+    drop(storage_tx);
+    for result in storage_rx {
+        let (address, storage_trie) = result?;
+        trie.insert_storage_trie(address, storage_trie);
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_root() {
-        let r = SparseTrie::revealed_empty().root().unwrap();
-        println!("{:?}", r);
+    // Update accounts with new values
+    for (hashed_address, account) in state
+        .accounts
+        .into_iter()
+        .sorted_unstable_by_key(|(hashed_address, _)| *hashed_address)
+    {
+        trie.update_account(hashed_address, account.unwrap_or_default())?;
     }
+
+    trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
 }
