@@ -77,7 +77,7 @@ where
         info!(?block_hash, "requested witness");
         let block = self
             .provider
-            .find_block_by_hash(block_hash, BlockSource::Any)?
+            .find_block_by_hash(block_hash, BlockSource::Pending)?
             .unwrap()
             .with_recovered_senders()
             .unwrap();
