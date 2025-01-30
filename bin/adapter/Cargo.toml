@@ -1,17 +1,25 @@
 [package]
 name = "adapter"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
+# alloy
+alloy-rpc-types-engine = { workspace = true, features = ["serde"] }
+
 hyper = { version = "0.14", features = [
     "client",
     "server",
     "http1",
     "runtime",
 ] }
-tokio = { version = "1.39", features = ["full"] }
-serde_json = "1.0"
-tracing = "0.1"
-tracing-subscriber = "0.3"
+tokio = { workspace = true, features = ["full"] }
+serde_json.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 futures-util = "*"

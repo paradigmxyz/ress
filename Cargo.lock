@@ -6,8 +6,10 @@ version = 4
 name = "adapter"
 version = "0.1.0"
 dependencies = [
+ "alloy-rpc-types-engine",
  "futures-util",
  "hyper 0.14.32",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",
