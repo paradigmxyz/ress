@@ -86,8 +86,7 @@ where
                 .ok_or(ProviderError::BlockHashNotFound(block_hash))?
         };
         info!("block {:?}", block);
-        let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
-
+        let state_provider = self.provider.state_by_block_hash(block.hash())?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let _ = self
