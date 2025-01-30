@@ -8,9 +8,7 @@ Ress is testing with [hive](https://github.com/ethereum/hive). Simulator send re
 - `ress`: auth port(8552), rpc port(-), subnetwork(61398)
 
 
-
-
-## run
+### run
 
 - reth with subprotocol
 ```console
@@ -19,7 +17,7 @@ RUST_LOG=info cargo run -r --bin reth node --authrpc.port 8651 --http.port 8544 
 
 - ress
 ```console
-RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" --no-debug-consensus 2
+RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" 2
 ```
 
 ### 1. launch ress node
