@@ -1,26 +1,28 @@
+use crate::errors::StorageError;
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{BlockHash, BlockNumber, B256};
-use backends::{disk::DiskStorage, memory::MemoryStorage};
+use alloy_primitives::{map::B256HashMap, BlockHash, BlockNumber, Bytes, B256};
+use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
+use reth_storage_errors::provider::ProviderResult;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::errors::StorageError;
-
 pub mod backends;
+use backends::{disk::DiskStorage, memory::MemoryStorage};
 
-/// Orchestrate 3 different type of backends (in-memory, disk, network)
-#[derive(Debug)]
+/// Wrapper around in-memory and on-disk storages.
+#[derive(Clone, Debug)]
 pub struct Storage {
     chain_spec: Arc<ChainSpec>,
-    pub memory: MemoryStorage,
-    pub disk: DiskStorage,
+    pub(crate) memory: MemoryStorage,
+    pub(crate) disk: DiskStorage,
 }
 
 impl Storage {
-    pub fn new(chain_spec: Arc<ChainSpec>, current_canonical_head: BlockNumHash) -> Self {
-        let memory = MemoryStorage::new(current_canonical_head);
+    /// Instantiate new storage.
+    pub fn new(chain_spec: Arc<ChainSpec>, current_head: BlockNumHash) -> Self {
+        let memory = MemoryStorage::new(current_head);
         let disk = DiskStorage::new("test.db");
         Self {
             chain_spec,
@@ -29,8 +31,13 @@ impl Storage {
         }
     }
 
-    /// manage storage when new fork choice update message is pointing reorg
-    pub fn post_fcu_reorg_update(
+    /// Get chain spec.
+    pub fn chain_spec(&self) -> Arc<ChainSpec> {
+        self.chain_spec.clone()
+    }
+
+    /// Update canonical hashes on reorg.
+    pub fn on_fcu_reorg_update(
         &self,
         new_head: Header,
         last_persisted_hash: B256,
@@ -43,7 +50,8 @@ impl Storage {
         Ok(())
     }
 
-    pub fn post_fcu_update(
+    /// Update canonical hashes on forkchoice update.
+    pub fn on_fcu_update(
         &self,
         new_head: Header,
         last_persisted_hash: B256,
@@ -59,24 +67,27 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_executed_header_by_hash(&self, hash: B256) -> Option<Header> {
-        self.memory.get_executed_header_by_hash(hash)
+    /// Return block header by hash.
+    pub fn header_by_hash(&self, hash: B256) -> Option<Header> {
+        self.memory.header_by_hash(hash)
     }
 
-    /// Insert executed block into the state.
-    pub fn insert_executed(&self, executed: Header) {
-        self.memory.insert_executed(executed);
+    /// Insert header into the state.
+    pub fn insert_header(&self, header: Header) {
+        self.memory.insert_header(header);
     }
 
-    /// Returns whether or not the hash is part of the canonical chain.
+    /// Return whether or not the hash is part of the canonical chain.
     pub fn is_canonical(&self, hash: B256) -> bool {
         self.memory.is_canonical_lookup(hash)
     }
 
+    /// Update current canonical head.
     pub fn set_canonical_head(&self, new_head: BlockNumHash) {
         self.memory.set_canonical_head(new_head);
     }
 
+    /// Return current canonical head.
     pub fn get_canonical_head(&self) -> BlockNumHash {
         self.memory.get_canonical_head()
     }
@@ -94,7 +105,9 @@ impl Storage {
         self.disk.filter_code_hashes(code_hashes)
     }
 
-    /// Set canonical block hash that historical 256 blocks from canonical head
+    /// Set safe canonical block hash that historical 256 blocks from canonical head
+    ///
+    /// It have canonical hash validation check
     pub fn set_canonical_hash(
         &self,
         block_hash: B256,
@@ -128,9 +141,19 @@ impl Storage {
             .get_block_hash(block_number)
             .map_err(StorageError::Memory)
     }
+}
 
-    /// Get chain config
-    pub fn get_chain_config(&self) -> Arc<ChainSpec> {
-        self.chain_spec.clone()
+// TODO: implement
+impl RessProtocolProvider for Storage {
+    fn header(&self, _block_hash: B256) -> ProviderResult<Option<Header>> {
+        Ok(None)
+    }
+
+    fn bytecode(&self, _code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        Ok(None)
+    }
+
+    fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        Ok(None)
     }
 }

@@ -2,10 +2,11 @@ use alloy_rpc_types_engine::PayloadError;
 use ress_provider::errors::StorageError;
 use ress_vm::errors::EvmError;
 use reth_consensus::ConsensusError;
-use reth_errors::RethError;
+use reth_errors::ProviderError;
 use reth_node_api::{EngineObjectValidationError, InvalidPayloadAttributesError};
 use reth_trie_sparse::errors::SparseStateTrieError;
 
+/// Error variant for consensus engine.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
     /// Error related to storage operations.
@@ -15,14 +16,6 @@ pub enum EngineError {
     /// Error related to EVM operations.
     #[error("Evm error: {0}")]
     Evm(#[from] EvmError),
-
-    /// Error from the debug API client.
-    #[error("Debug api client: {0}")]
-    DebugApiClient(String),
-
-    /// Serialization error.
-    #[error("Serialize error: {0}")]
-    Serialize(#[from] serde_json::Error),
 
     /// Error related to payload processing.
     #[error("Payload error: {0}")]
@@ -44,6 +37,7 @@ pub enum EngineError {
     #[error("Consensus error: {0}")]
     Consensus(#[from] ConsensusError),
 
-    #[error("Error from reth: {0}")]
-    RethError(#[from] RethError),
+    /// Provider-related error.
+    #[error("Provider error: {0}")]
+    Provider(#[from] ProviderError),
 }

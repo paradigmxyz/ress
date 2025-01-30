@@ -1,3 +1,5 @@
+//! EVM database implementation.
+
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
@@ -8,25 +10,28 @@ use reth_revm::{
     Database,
 };
 use reth_trie_sparse::SparseStateTrie;
-use std::sync::Arc;
 use tracing::debug;
 
-pub struct WitnessDatabase {
-    trie: SparseStateTrie,
-    storage: Arc<Storage>,
+/// EVM database implementation that uses state witness for account and storage data retrieval.
+/// Block hashes and bytecodes are retrieved from ress node storage.
+#[derive(Debug)]
+pub struct WitnessDatabase<'a> {
+    storage: Storage,
+    trie: &'a SparseStateTrie,
 }
 
-impl WitnessDatabase {
-    pub fn new(trie: SparseStateTrie, storage: Arc<Storage>) -> Self {
+impl<'a> WitnessDatabase<'a> {
+    /// Create new witness database.
+    pub fn new(storage: Storage, trie: &'a SparseStateTrie) -> Self {
         Self { trie, storage }
     }
 }
 
-impl Database for WitnessDatabase {
-    #[doc = " The witness state provider error type."]
+impl Database for WitnessDatabase<'_> {
+    /// The witness state provider error type.
     type Error = ProviderError;
 
-    #[doc = " Get basic account information."]
+    /// Get basic account information.
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         debug!("request for basic for address: {}", address);
         match self.trie.get_account_value(&keccak256(address)) {
@@ -45,7 +50,7 @@ impl Database for WitnessDatabase {
         }
     }
 
-    #[doc = " Get storage value of address at index."]
+    /// Get storage value of address at index.
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         debug!("request for storage: {}, index: {}", address, index);
         let storage_value = match self
@@ -59,7 +64,7 @@ impl Database for WitnessDatabase {
         Ok(storage_value)
     }
 
-    #[doc = " Get account code by its hash."]
+    /// Get account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
         self.storage
@@ -67,7 +72,7 @@ impl Database for WitnessDatabase {
             .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))
     }
 
-    #[doc = " Get block hash by block number."]
+    /// Get block hash by block number.
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         debug!("request for blockhash: {}", number);
         self.storage

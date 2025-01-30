@@ -1,5 +1,5 @@
 [package]
-name = "reth"
+name = "ress-testing"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,23 +12,21 @@ workspace = true
 
 [dependencies]
 # ress
-ress-network.workspace = true
 ress-protocol.workspace = true
 
 # reth
-reth.workspace = true
-reth-node-builder.workspace = true
-reth-network.workspace = true
-reth-network-api.workspace = true
-reth-node-ethereum.workspace = true
-reth-evm.workspace = true
+reth-storage-errors.workspace = true
 reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-consensus.workspace = true
+alloy-provider.workspace = true
+alloy-transport-http.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-rpc-types-debug.workspace = true
 
 # misc
-eyre.workspace = true
 tokio.workspace = true
-tracing.workspace = true
+parking_lot.workspace = true
+reqwest.workspace = true
+eyre.workspace = true
