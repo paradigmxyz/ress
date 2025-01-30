@@ -105,11 +105,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
         match self.provider.header(block_hash) {
             Ok(Some(header)) => header,
             Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "header not found");
+                info!(target: "ress::net::connection", %block_hash, "header not found");
                 Header::default()
             }
             Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
+                info!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
                 Header::default()
             }
         }
@@ -119,11 +119,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
         match self.provider.bytecode(code_hash) {
             Ok(Some(bytecode)) => bytecode,
             Ok(None) => {
-                trace!(target: "ress::net::connection", %code_hash, "bytecode not found");
+                info!(target: "ress::net::connection", %code_hash, "bytecode not found");
                 Bytes::default()
             }
             Err(error) => {
-                trace!(target: "ress::net::connection", %code_hash, %error, "error retrieving bytecode");
+                info!(target: "ress::net::connection", %code_hash, %error, "error retrieving bytecode");
                 Bytes::default()
             }
         }
@@ -131,13 +131,16 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
 
     fn on_witness_request(&self, block_hash: B256) -> StateWitnessNet {
         match self.provider.witness(block_hash) {
-            Ok(Some(witness)) => StateWitnessNet::from_iter(witness),
+            Ok(Some(witness)) => {
+                info!(target: "ress::net::connection", %block_hash, "witness found");
+                StateWitnessNet::from_iter(witness)
+            }
             Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "witness not found");
+                info!(target: "ress::net::connection", %block_hash, "witness not found");
                 StateWitnessNet::default()
             }
             Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
+                info!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
                 StateWitnessNet::default()
             }
         }
@@ -157,18 +160,18 @@ where
             if let Poll::Ready(Some(cmd)) = this.commands.poll_next_unpin(cx) {
                 let message = this.on_command(cmd);
                 let encoded = message.encoded();
-                trace!(target: "ress::net::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
+                info!(target: "ress::net::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
                 return Poll::Ready(Some(encoded));
             }
 
             if let Poll::Ready(Some(next)) = this.conn.poll_next_unpin(cx) {
                 let msg = match RessProtocolMessage::decode_message(&mut &next[..]) {
                     Ok(msg) => {
-                        trace!(target: "ress::net::connection", message = ?msg.message_type, "Processing message");
+                        info!(target: "ress::net::connection", message = ?msg.message_type, "Processing message");
                         msg
                     }
                     Err(error) => {
-                        trace!(target: "ress::net::connection", %error, "Error decoding peer message");
+                        info!(target: "ress::net::connection", %error, "Error decoding peer message");
                         // TODO: report bad message
                         continue;
                     }
