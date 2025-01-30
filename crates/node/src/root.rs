@@ -14,7 +14,7 @@ pub fn calculate_state_root(
     trie: &mut SparseStateTrie,
     state: HashedPostState,
 ) -> SparseStateTrieResult<B256> {
-    info!("state calculate_state_root:{:?}", state);
+    info!("state calculate_state_root:{:?}, trie:{:?}", state, trie);
     // Update storage slots with new values and calculate storage roots.
     let (storage_tx, storage_rx) = mpsc::channel();
 
@@ -72,5 +72,16 @@ pub fn calculate_state_root(
         }
 
         trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_root() {
+        let r = SparseTrie::revealed_empty().root().unwrap();
+        println!("{:?}", r);
     }
 }
