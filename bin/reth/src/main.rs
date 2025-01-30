@@ -75,6 +75,15 @@ where
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         info!(?block_hash, "requested witness");
+        let latest = self
+            .provider
+            .canonical_in_memory_state()
+            .get_canonical_head()
+            .number;
+        info!(?latest, "block head");
+        let latest = self.provider.pending_block();
+        info!(?latest, "pending");
+
         let block = self
             .provider
             .find_block_by_hash(block_hash, BlockSource::Pending)?
