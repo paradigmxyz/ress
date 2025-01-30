@@ -16,7 +16,6 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
-use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -57,7 +56,6 @@ where
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
-        info!(target: "reth::procotol", %block_hash, "requested header");
         let block = self
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
@@ -66,7 +64,6 @@ where
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        info!(target: "reth::procotol", %code_hash, "requested bytecode");
         Ok(self
             .provider
             .latest()?
@@ -75,13 +72,10 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        info!(target: "reth::procotol", %block_hash, "requested witness");
-        std::thread::sleep(std::time::Duration::from_secs(1));
         let block = self
             .provider
-            .block_with_senders(block_hash.into(), TransactionVariant::default())?;
-        info!(target: "reth::procotol", "requested block {:?}", block);
-        let block = block.unwrap();
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?
+            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
         let state_provider = self.provider.history_by_block_hash(block_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
@@ -92,7 +86,6 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        info!(target: "reth::procotol", "requested record {:?}", record.hashed_state);
         Ok(Some(
             state_provider.witness(Default::default(), record.hashed_state)?,
         ))

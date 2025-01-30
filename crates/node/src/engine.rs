@@ -273,11 +273,9 @@ impl ConsensusEngine {
         )?;
 
         // ===================== State Root =====================
-        info!(target: "ress::engine", "{:?}", block);
         let hashed_state =
             HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
         let state_root = calculate_state_root(&mut trie, hashed_state)?;
-        info!(target: "ress::engine", "{}", state_root);
         if state_root != block.state_root {
             return Err(ConsensusError::BodyStateRootDiff(
                 GotExpected {
@@ -346,92 +344,3 @@ impl ConsensusEngine {
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use alloy_eips::BlockNumHash;
-//     use alloy_genesis::Genesis;
-//     use alloy_primitives::{address, b256};
-//     use alloy_rpc_types_engine::PayloadAttributes;
-//     use ress_common::test_utils::TestPeers;
-//     use ress_network::RessNetworkLauncher;
-//     use ress_provider::storage::Storage;
-//     use tokio::sync::{
-//         mpsc::{unbounded_channel, UnboundedSender},
-//         oneshot,
-//     };
-
-//     use super::*;
-
-//     fn get_genesis() -> Genesis {
-//         let genesis_data =
-//             std::fs::read("./test-data/genesis1.json").expect("Failed to read genesis file");
-//         let genesis: Genesis = serde_json::from_slice(&genesis_data).unwrap();
-//         genesis
-//     }
-
-//     async fn setup_provider() -> RessProvider {
-//         let chain_spec = Arc::new(ChainSpec::from_genesis(get_genesis()));
-//         println!("{:?}", chain_spec);
-//         let storage = Storage::new(
-//             chain_spec.clone(),
-//             BlockNumHash {
-//                 number: 0,
-//                 hash: b256!("d462b6793c2895fd61cd63e098874774d3e03556e14ec40fb9861956e39eb8b0"),
-//             },
-//         );
-//         let network_handle = RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
-//             .launch(TestPeers::Peer1, None)
-//             .await;
-//         RessProvider::new(storage, network_handle.clone())
-//     }
-
-//     async fn setup_engine() -> (
-//         ConsensusEngine,
-//         UnboundedSender<BeaconEngineMessage<EthEngineTypes>>,
-//     ) {
-//         let provider = setup_provider().await;
-//         let (tx, rx) = unbounded_channel();
-//         let engine = ConsensusEngine::new(provider, rx);
-//         (engine, tx)
-//     }
-
-//     #[tokio::test]
-//     async fn test_hive_1() {
-//         tracing_subscriber::fmt::init();
-//         let (mut engine, _tx) = setup_engine().await;
-
-//         let (engine_tx, _engine_rx) = oneshot::channel();
-
-//         // send fcu message
-//         engine
-//             .on_engine_message(BeaconEngineMessage::ForkchoiceUpdated {
-//                 state: ForkchoiceState {
-//                     head_block_hash: b256!(
-//                         "d462b6793c2895fd61cd63e098874774d3e03556e14ec40fb9861956e39eb8b0"
-//                     ),
-//                     safe_block_hash: b256!(
-//                         "0000000000000000000000000000000000000000000000000000000000000000"
-//                     ),
-//                     finalized_block_hash: b256!(
-//                         "0000000000000000000000000000000000000000000000000000000000000000"
-//                     ),
-//                 },
-//                 payload_attrs: Some(PayloadAttributes {
-//                     timestamp: 0x1235,
-//                     prev_randao: b256!(
-//                         "def7620a0f9cf5b0af855e319e3e6d45fa54a12925b79cf1f209385400898a56"
-//                     ),
-//                     suggested_fee_recipient: address!("0000000000000000000000000000000000000000"),
-//                     withdrawals: None,
-//                     parent_beacon_block_root: None,
-//                 }),
-//                 version: reth_node_api::EngineApiMessageVersion::V1,
-//                 tx: engine_tx,
-//             })
-//             .await;
-
-//         // let r = engine_rx.await.unwrap().unwrap();
-//         // println!("{:#?}", r)
-//     }
-// }
