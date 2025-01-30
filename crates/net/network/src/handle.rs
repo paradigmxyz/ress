@@ -3,7 +3,7 @@ use ress_protocol::{RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use reth_primitives::Header;
 use tokio::sync::{mpsc, mpsc::UnboundedSender, oneshot};
-use tracing::info;
+use tracing::trace;
 
 /// Ress networking handle.
 #[derive(Clone, Debug)]
@@ -17,12 +17,12 @@ pub struct RessNetworkHandle {
 impl RessNetworkHandle {
     /// Get header from block hash
     pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, NetworkStorageError> {
-        info!(target: "ress::net", %block_hash, "requesting header");
+        trace!(target: "ress::net", %block_hash, "requesting header");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn
             .send(RessPeerRequest::GetHeader { block_hash, tx })?;
         let response = rx.await?;
-        info!(target: "ress::net", "header received");
+        trace!(target: "ress::net", "header received");
         Ok(response)
     }
 
@@ -31,12 +31,12 @@ impl RessNetworkHandle {
         &self,
         code_hash: B256,
     ) -> Result<Option<Bytes>, NetworkStorageError> {
-        info!(target: "ress::net", %code_hash, "requesting bytecode");
+        trace!(target: "ress::net", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn
             .send(RessPeerRequest::GetBytecode { code_hash, tx })?;
         let response = rx.await?;
-        info!(target: "ress::net", "bytecode received");
+        trace!(target: "ress::net", "bytecode received");
         Ok(Some(response))
     }
 
@@ -45,12 +45,12 @@ impl RessNetworkHandle {
         &self,
         block_hash: B256,
     ) -> Result<StateWitnessNet, NetworkStorageError> {
-        info!(target: "ress::net", %block_hash, "requesting witness");
+        trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn
             .send(RessPeerRequest::GetWitness { block_hash, tx })?;
         let response = rx.await?;
-        info!(target: "ress::net", "witness received");
+        trace!(target: "ress::net", "witness received");
         Ok(response)
     }
 }
