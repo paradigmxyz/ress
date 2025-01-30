@@ -88,7 +88,7 @@ where
         info!("block {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.hash())?;
         let balance = state_provider
-            .account_balance(&address!("0000000000000000000000000000000000000314"))?;
+            .account_balance(&address!("0000000000000000000000000000000000000315"))?;
         info!("balance {:?}", balance);
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
@@ -96,6 +96,7 @@ where
             .block_executor
             .executor(db)
             .execute_with_state_closure(&block, |state: &State<_>| {
+                info!("state account:{:?}", state.cache.accounts);
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
