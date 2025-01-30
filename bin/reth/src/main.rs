@@ -78,9 +78,9 @@ where
         info!(target: "reth::procotol", %block_hash, "requested witness");
         let block = self
             .provider
-            .block_with_senders(block_hash.into(), TransactionVariant::default())?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?;
         info!(target: "reth::procotol", "requested block {:?}", block);
+        let block = block.unwrap();
         let state_provider = self.provider.history_by_block_hash(block_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
