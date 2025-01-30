@@ -43,9 +43,10 @@ struct Args {
     #[arg(long)]
     pub remote_peer: Option<TrustedPeer>,
 
-    #[arg(long)]
-    /// If passed, the debug consensus client will NOT be started
-    pub no_debug_consensus: bool,
+    #[arg(long = "enable-debug-consensus")]
+    /// If passed, the debug consensus client will be started
+    pub enable_debug_consensus: bool,
+
     #[arg(long = "enable-rpc-adapter")]
     rpc_adapter_enabled: bool,
 }
@@ -170,7 +171,7 @@ async fn main() -> eyre::Result<()> {
 
     // ================ CONSENSUS CLIENT ================
 
-    if !args.no_debug_consensus {
+    if args.enable_debug_consensus {
         let ws_block_provider =
             RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
         let rpc_consensus_client =
