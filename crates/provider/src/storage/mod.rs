@@ -44,9 +44,11 @@ impl Storage {
     ) -> Result<(), StorageError> {
         self.memory
             .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
-        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
-        self.memory
-            .remove_canonical_until(upper_bound, last_persisted_hash);
+        if last_persisted_hash != B256::ZERO {
+            let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
+            self.memory
+                .remove_canonical_until(upper_bound, last_persisted_hash);
+        }
         Ok(())
     }
 
