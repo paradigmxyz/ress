@@ -6,8 +6,7 @@ use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
     providers::{
         providers::{BlockchainProvider, ProviderNodeTypes},
-        BlockReader, BlockSource, ProviderError, ProviderResult, StateProviderFactory,
-        TransactionVariant,
+        BlockReader, ProviderError, ProviderResult, StateProviderFactory, TransactionVariant,
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
@@ -15,7 +14,7 @@ use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
-use reth_primitives::{BlockExt, EthPrimitives, Header};
+use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
 
 fn main() -> eyre::Result<()> {
@@ -73,12 +72,18 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        let block = self
+        // TODO: this is a workaround because reth's `find_block_by_hash` does not work as expected
+        let block = if let Some(pending) = self
             .provider
-            .find_block_by_hash(block_hash, BlockSource::Any)?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?
-            .with_recovered_senders()
-            .ok_or(ProviderError::SenderRecoveryError)?;
+            .pending_block_with_senders()?
+            .filter(|b| b.hash() == block_hash)
+        {
+            pending.unseal()
+        } else {
+            self.provider
+                .block_with_senders(block_hash.into(), TransactionVariant::default())?
+                .ok_or(ProviderError::BlockHashNotFound(block_hash))?
+        };
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
