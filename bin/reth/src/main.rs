@@ -78,7 +78,7 @@ where
             .find_block_by_hash(block_hash, BlockSource::Any)?
             .ok_or(ProviderError::BlockHashNotFound(block_hash))?
             .with_recovered_senders()
-            .ok_or(ProviderError::SenderRecoveryError)?;
+            .unwrap();
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
