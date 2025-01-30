@@ -86,7 +86,7 @@ where
                 .ok_or(ProviderError::BlockHashNotFound(block_hash))?
         };
         info!("block {:?}", block);
-        let state_provider = self.provider.state_by_block_hash(block.hash())?;
+        let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let balance = state_provider
             .account_balance(&address!("0000000000000000000000000000000000000315"))?;
         info!("balance {:?}", balance);
