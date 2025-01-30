@@ -76,6 +76,7 @@ where
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         info!(target: "reth::procotol", %block_hash, "requested witness");
+        std::thread::sleep(std::time::Duration::from_secs(1));
         let block = self
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?;
