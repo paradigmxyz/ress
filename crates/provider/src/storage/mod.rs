@@ -5,7 +5,7 @@ use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
 use reth_revm::primitives::Bytecode;
-use reth_storage_errors::provider::ProviderResult;
+use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use std::{collections::HashMap, sync::Arc};
 
 pub mod backends;
@@ -147,12 +147,15 @@ impl Storage {
 
 // TODO: implement
 impl RessProtocolProvider for Storage {
-    fn header(&self, _block_hash: B256) -> ProviderResult<Option<Header>> {
-        Ok(None)
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        Ok(self.header_by_hash(block_hash))
     }
-
-    fn bytecode(&self, _code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        Ok(None)
+    fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        let bytes = self
+            .get_contract_bytecode(code_hash)
+            .map_err(|_| ProviderError::StateForHashNotFound(code_hash))?
+            .bytes();
+        Ok(Some(bytes))
     }
 
     fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {

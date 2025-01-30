@@ -10,6 +10,7 @@ use reth_network::{
     NetworkManager,
 };
 use reth_network_api::PeerId;
+use reth_network_peers::TrustedPeer;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::info;
@@ -34,23 +35,38 @@ where
     }
 
     /// Start network manager.
-    pub async fn launch(&self, id: TestPeers) -> RessNetworkHandle {
+    pub async fn launch(
+        &self,
+        id: TestPeers,
+        remote_peer: Option<TrustedPeer>,
+    ) -> RessNetworkHandle {
         let (subnetwork_handle, from_peer) = self
             .launch_subprotocol_network(id.get_key(), id.get_network_addr())
             .await;
+
+        let (remote_id, remote_addr) = if let Some(remote_peer) = remote_peer {
+            (
+                remote_peer.id,
+                remote_peer.resolve_blocking().expect("peer").tcp_addr(),
+            )
+        } else {
+            (
+                id.get_peer().get_peer_id(),
+                id.get_peer().get_network_addr(),
+            )
+        };
+
         // connect peer to own network
-        subnetwork_handle.peers_handle().add_peer(
-            id.get_peer().get_peer_id(),
-            id.get_peer().get_network_addr(),
-        );
+        subnetwork_handle
+            .peers_handle()
+            .add_peer(remote_id, remote_addr);
 
         // get a handle to the network to interact with it
         let network_handle = subnetwork_handle.handle().clone();
         // spawn the network
         tokio::task::spawn(subnetwork_handle);
 
-        let network_peer_conn =
-            Self::setup_subprotocol_network(from_peer, id.get_peer().get_peer_id()).await;
+        let network_peer_conn = Self::setup_subprotocol_network(from_peer, remote_id).await;
 
         RessNetworkHandle {
             network_handle,

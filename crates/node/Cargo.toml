@@ -29,6 +29,7 @@ reth-node-ethereum.workspace = true
 reth-rpc-builder.workspace = true
 reth-trie-sparse.workspace = true
 reth-errors.workspace = true
+reth-network-peers.workspace = true
 reth-trie.workspace = true
 
 # alloy

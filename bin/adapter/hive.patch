@@ -1,0 +1,94 @@
+diff --git a/clients/reth/Dockerfile b/clients/reth/Dockerfile
+index 2f70b6aa..07fcbed7 100644
+--- a/clients/reth/Dockerfile
++++ b/clients/reth/Dockerfile
+@@ -1,28 +1,41 @@
+-ARG baseimage=ghcr.io/paradigmxyz/reth
+-ARG tag=latest
++### Build Reth Locally:
++## Requires a copy of <reth>/ -> hive/clients/reth/<reth>
+ 
+-FROM $baseimage:$tag as builder
++## Builder stage: Compiles reth from a git repository
++FROM rust:latest as builder
+ 
+-# Install script tools.
+-RUN apt-get update -y
+-RUN apt-get install -y bash curl jq
++# Default local client path: clients/reth/<reth>
++ARG local_path=reth
++COPY $local_path reth
+ 
+-# Add genesis mapper script.
+-ADD genesis.json /genesis.json
+-ADD mapper.jq /mapper.jq
++RUN apt-get update && apt-get install -y libclang-dev pkg-config build-essential 
++    # && cd reth && cargo build --release \
++    # && cp target/release/reth /usr/local/bin/reth
+ 
+-# Add the startup script.
+-ADD reth.sh /reth.sh
+-RUN chmod +x /reth.sh
++## Final stage: Sets up the environment for running reth
++FROM debian:latest
++RUN apt-get update && apt-get install -y bash curl jq \
++    && apt-get clean && rm -rf /var/lib/apt/lists/*
+ 
+-# Add the enode URL retriever script.
+-ADD enode.sh /hive-bin/enode.sh
+-RUN chmod +x /hive-bin/enode.sh
++# Copy compiled binary from builder
++COPY reth /usr/local/bin/reth
++COPY ress /usr/local/bin/ress
++COPY adapter /usr/local/bin/adapter
++
++# Add genesis mapper script, startup script, and enode URL retriever script
++COPY discovery-secret /discovery-secret
++COPY genesis.json /genesis.json
++COPY mapper.jq /mapper.jq
++COPY reth.sh /reth.sh
++COPY enode.sh /hive-bin/enode.sh
++
++# Set execute permissions for scripts
++RUN chmod +x /reth.sh /hive-bin/enode.sh
+ 
+ # Create version.txt
+-RUN /usr/local/bin/reth --version | sed -e 's/reth \(.*\)/\1/' > /version.txt
++RUN /usr/local/bin/reth --version | head -1 > /version.txt
+ 
+-# Export the usual networking ports to allow outside access to the node.
++# Export the usual networking ports
+ EXPOSE 8545 8546 30303 30303/udp
+ 
+ ENTRYPOINT ["/reth.sh"]
+diff --git a/clients/reth/discovery-secret b/clients/reth/discovery-secret
+new file mode 100644
+index 00000000..266cb554
+--- /dev/null
++++ b/clients/reth/discovery-secret
+@@ -0,0 +1 @@
++24ff0cc5a8d69a3e8901cf744ecdc59c9b2795b309979a34d947e4fa34b7fd12
+\ No newline at end of file
+diff --git a/clients/reth/reth.sh b/clients/reth/reth.sh
+index 40db5e37..1abca61e 100644
+--- a/clients/reth/reth.sh
++++ b/clients/reth/reth.sh
+@@ -159,6 +159,16 @@ fi
+ # Configure NAT
+ FLAGS="$FLAGS --nat none"
+ 
++# Configure reth so that everything goes through the proxy + ress peer
++FLAGS="$FLAGS --authrpc.port 8651 --http.port 8544 -d --trusted-peers enode://4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d07662a3eada2d0fe208b6d257ceb0f064284662e857f57b66b54c198bd310ded36d0@127.0.0.1:61398"
++
++# Ensure reth has always the same PeerId
++cp /discovery-secret $DATADIR
++
++# Configure ress env
++echo "RPC_URL=http://localhost:8544" > .env
++
+ # Launch the main client.
+ echo "Running reth with flags: $FLAGS"
+-RUST_LOG=info $reth node $FLAGS
++
++RUST_LOG=info $reth node $FLAGS & sleep 1 && RUST_LOG=info /usr/local/bin/ress --remote-peer "enode://060bb5ab4a20bbb2465a4db24de7a740db00207e34044454504bf004d6396bd9b03bf08b1df3f1f468366a2c0b809dee7aa54069af94fa11bdb26b9103ee76d6@127.0.0.1:30303" --chain /genesis.json --no-debug-consensus 2 & while ! resp=$(curl -s --max-time 5 http://127.0.0.1:8552); do sleep 1; done; echo "$resp"  && RUST_LOG=info adapter
+ 

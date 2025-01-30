@@ -27,8 +27,9 @@ use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
 use reth_node_ethereum::EthEngineTypes;
-use reth_primitives::BlockWithSenders;
+use reth_primitives::EthPrimitives;
 use reth_primitives::GotExpected;
+use reth_primitives::RecoveredBlock;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_trie::HashedPostState;
@@ -46,7 +47,7 @@ use crate::root::calculate_state_root;
 #[allow(missing_debug_implementations)]
 pub struct ConsensusEngine {
     provider: RessProvider,
-    consensus: Arc<dyn FullConsensus<Error = ConsensusError>>,
+    consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     forkchoice_state: Option<ForkchoiceState>,
@@ -61,7 +62,7 @@ impl ConsensusEngine {
         // we have it in auth server for now to leverage the methods in here, we also init new validator
         let chain_spec = provider.storage.chain_spec();
         let engine_validator = EthereumEngineValidator::new(chain_spec.clone());
-        let consensus: Arc<dyn FullConsensus<Error = ConsensusError>> =
+        let consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>> =
             Arc::new(EthBeaconConsensus::<ChainSpec>::new(chain_spec));
         Self {
             consensus,
@@ -261,8 +262,7 @@ impl ConsensusEngine {
         let start_time = std::time::Instant::now();
         let mut block_executor = BlockExecutor::new(self.provider.storage.chain_spec(), database);
         let senders = block.senders().expect("no senders");
-        let block =
-            BlockWithSenders::new(block.clone().unseal(), senders).expect("cannot construct block");
+        let block = RecoveredBlock::new_unhashed(block.clone().unseal(), senders);
         let output = block_executor.execute(&block)?;
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
@@ -290,7 +290,7 @@ impl ConsensusEngine {
         }
 
         // ===================== Update Node State =====================
-        let header_from_payload = block.header.clone();
+        let header_from_payload = block.sealed_block().header().clone();
         self.provider.storage.insert_header(header_from_payload);
         let latest_valid_hash = match self.forkchoice_state {
             Some(fcu_state) => fcu_state.head_block_hash,

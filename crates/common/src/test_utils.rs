@@ -26,8 +26,9 @@ impl TestPeers {
                 "0x4cbc48e87389399a0ea0b382b1c46962c4b8e398014bf0cc610f9c672bee3155",
             )
             .expect("32 bytes"),
+            // hive
             TestPeers::Peer2 => JwtSecret::from_hex(
-                "0xd829192799c73ef28a7332313b3c03af1f2d5da2c36f8ecfafe7a83a3bfb8d1e",
+                "0x7365637265747365637265747365637265747365637265747365637265747365",
             )
             .expect("32 bytes"),
         }

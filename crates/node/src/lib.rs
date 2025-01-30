@@ -9,6 +9,7 @@ use ress_provider::{provider::RessProvider, storage::Storage};
 use ress_rpc::RpcHandle;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
+use reth_network_peers::TrustedPeer;
 use reth_rpc_builder::auth::AuthServerHandle;
 use std::sync::Arc;
 
@@ -40,6 +41,7 @@ impl Node {
     pub async fn launch_test_node(
         id: TestPeers,
         chain_spec: Arc<ChainSpec>,
+        remote_peer: Option<TrustedPeer>,
         current_head: BlockNumHash,
         rpc_adapter: Option<RpcAdapterProvider>,
     ) -> Self {
@@ -47,11 +49,11 @@ impl Node {
 
         let network_handle = if let Some(rpc_adapter) = rpc_adapter {
             RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
-                .launch(id)
+                .launch(id, remote_peer)
                 .await
         } else {
             RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
-                .launch(id)
+                .launch(id, remote_peer)
                 .await
         };
         let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;

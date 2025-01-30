@@ -1,8 +1,26 @@
 # ress(reth stateless)
 
-## Poc scenario
+## Hive test
 
-*note example payload generated from [here](https://github.com/Rjected/execution-payload-builder/tree/main)*
+Ress had tested with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
+
+- `reth`: auth port(8651), rpc port(8544), subnetwork(30303)
+- `ress`: auth port(8552), rpc port(-), subnetwork(61398)
+
+
+
+
+## run
+
+- reth with subprotocol
+```console
+RUST_LOG=info cargo run -r --bin reth node --authrpc.port 8651 --http.port 8544 -d --trusted-peers enode://4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d07662a3eada2d0fe208b6d257ceb0f064284662e857f57b66b54c198bd310ded36d0@127.0.0.1:61398
+```
+
+- ress
+```console
+RUST_LOG=info cargo run -r --bin ress -- --remote-peer "enode://cc25edb29102f8307282b9217971563801e3db4fb424e61ff39162d7659675426a4f5710e56de9857c2f666283bc04fc009a3cfccf20ef6827a660317ecb18e0@127.0.0.1:30303" --no-debug-consensus 2
+```
 
 ### 1. launch ress node
 

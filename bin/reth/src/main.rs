@@ -1,6 +1,6 @@
 //! Reth node that supports ress subprotocol.
 
-use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use alloy_primitives::{address, map::B256HashMap, Bytes, B256};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
@@ -11,11 +11,11 @@ use reth::{
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
-use reth_node_builder::Block;
 use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
+use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -60,7 +60,7 @@ where
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
             .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(block.block.header().clone()))
+        Ok(Some(block.header().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
@@ -78,7 +78,7 @@ where
             .pending_block_with_senders()?
             .filter(|b| b.hash() == block_hash)
         {
-            pending.unseal()
+            pending
         } else {
             self.provider
                 .block_with_senders(block_hash.into(), TransactionVariant::default())?
@@ -90,11 +90,20 @@ where
         let mut record = ExecutionWitnessRecord::default();
         let _ = block_executor
             .execute_with_state_closure(&block, |state: &State<_>| {
+                info!("state account:{:?}", state.cache.accounts);
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        Ok(Some(
-            state_provider.witness(Default::default(), record.hashed_state)?,
-        ))
+
+        let ExecutionWitnessRecord {
+            hashed_state,
+            codes,
+            keys,
+        } = record;
+        info!("state {:?}", hashed_state);
+        info!("codes {:?}", codes);
+        info!("keys {:?}", keys);
+        let state = state_provider.witness(Default::default(), hashed_state)?;
+        Ok(Some(state))
     }
 }
