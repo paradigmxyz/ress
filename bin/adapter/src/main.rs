@@ -32,6 +32,7 @@ async fn forward_request(
     let whole_body = hyper::body::to_bytes(body).await?;
     let body_str = String::from_utf8_lossy(&whole_body);
 
+    // todo: handle it as enum
     let mut is_engine_method = false;
     if is_auth_server {
         if let Ok(json_body) = serde_json::from_str::<Value>(&body_str) {

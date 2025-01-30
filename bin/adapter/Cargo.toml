@@ -11,6 +11,7 @@ repository.workspace = true
 # alloy
 alloy-rpc-types-engine = { workspace = true, features = ["serde"] }
 
+# todo: update hyper to version 1
 hyper = { version = "0.14", features = [
     "client",
     "server",
