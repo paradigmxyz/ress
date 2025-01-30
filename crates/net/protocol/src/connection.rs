@@ -1,7 +1,5 @@
-use crate::{
-    NodeType, RessMessageKind, RessProtocolMessage, RessProtocolProvider, StateWitnessNet,
-};
-use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
+use crate::{NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, StateWitnessNet};
+use alloy_primitives::{bytes::BytesMut, keccak256, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_primitives::Header;
@@ -178,18 +176,18 @@ where
                 };
 
                 match msg.message {
-                    RessMessageKind::NodeType(node_type) => {
+                    RessMessage::NodeType(node_type) => {
                         if !this.node_type.is_valid_connection(&node_type) {
                             // Terminating the stream disconnects the peer.
                             return Poll::Ready(None);
                         }
                     }
-                    RessMessageKind::Header(res) => {
+                    RessMessage::Header(res) => {
                         if let Some(RessPeerRequest::GetHeader { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == Header::default() {
-                                error!(target: "ress::net::connection", "invalid header");
+                                error!(target: "ress::net::connection", "failed to fetch header");
                             }
                             // TODO: validate the header.
                             let _ = tx.send(res.message);
@@ -197,11 +195,13 @@ where
                             // TODO: report bad message
                         }
                     }
-                    RessMessageKind::Bytecode(res) => {
-                        if let Some(RessPeerRequest::GetBytecode { tx, .. }) =
+                    RessMessage::Bytecode(res) => {
+                        if let Some(RessPeerRequest::GetBytecode { tx, code_hash }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == Bytes::default() {
+                                error!(target: "ress::net::connection", "failed to fetch bytes");
+                            } else if keccak256(res.message.clone()) != code_hash {
                                 error!(target: "ress::net::connection", "invalid bytes");
                             }
                             // TODO: validate the bytecode.
@@ -210,12 +210,12 @@ where
                             // TODO: report bad message
                         }
                     }
-                    RessMessageKind::Witness(res) => {
+                    RessMessage::Witness(res) => {
                         if let Some(RessPeerRequest::GetWitness { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == StateWitnessNet::default() {
-                                error!(target: "ress::net::connection", "invalid witness");
+                                error!(target: "ress::net::connection", "failed to fetch witness");
                             }
                             // TODO: validate the witness.
                             let _ = tx.send(res.message);
@@ -223,21 +223,21 @@ where
                             // TODO: report bad message
                         }
                     }
-                    RessMessageKind::GetHeader(req) => {
+                    RessMessage::GetHeader(req) => {
                         let block_hash = req.message;
                         debug!(target: "ress::net::connection", %block_hash, "serving header");
                         let header = this.on_header_request(block_hash);
                         let response = RessProtocolMessage::header(req.request_id, header);
                         return Poll::Ready(Some(response.encoded()));
                     }
-                    RessMessageKind::GetBytecode(req) => {
+                    RessMessage::GetBytecode(req) => {
                         let code_hash = req.message;
                         debug!(target: "ress::net::connection", %code_hash, "serving bytecode");
                         let bytecode = this.on_bytecode_request(code_hash);
                         let response = RessProtocolMessage::bytecode(req.request_id, bytecode);
                         return Poll::Ready(Some(response.encoded()));
                     }
-                    RessMessageKind::GetWitness(req) => {
+                    RessMessage::GetWitness(req) => {
                         let block_hash = req.message;
                         debug!(target: "ress::net::connection", %block_hash, "serving witness");
                         let witness = this.on_witness_request(block_hash);
