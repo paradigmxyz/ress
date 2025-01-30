@@ -19,7 +19,9 @@ pub fn calculate_state_root(
     let (storage_tx, storage_rx) = mpsc::channel();
 
     if state == HashedPostState::default() {
-        trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
+        SparseTrie::revealed_empty()
+            .root()
+            .ok_or_else(|| SparseTrieErrorKind::Blind.into())
     } else {
         state
             .storages
