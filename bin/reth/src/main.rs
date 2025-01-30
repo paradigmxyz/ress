@@ -80,6 +80,7 @@ where
             .provider
             .block_with_senders(block_hash.into(), TransactionVariant::default())?
             .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+        info!(target: "reth::procotol", "requested block {:?}", block);
         let state_provider = self.provider.history_by_block_hash(block_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
@@ -90,6 +91,7 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
+        info!(target: "reth::procotol", "requested record {:?}", record.hashed_state);
         Ok(Some(
             state_provider.witness(Default::default(), record.hashed_state)?,
         ))
