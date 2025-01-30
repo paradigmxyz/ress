@@ -100,9 +100,16 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        info!("state {:?}", record.hashed_state);
-        Ok(Some(
-            state_provider.witness(Default::default(), record.hashed_state)?,
-        ))
+
+        let ExecutionWitnessRecord {
+            hashed_state,
+            codes,
+            keys,
+        } = record;
+        info!("state {:?}", hashed_state);
+        info!("codes {:?}", codes);
+        info!("keys {:?}", keys);
+        let state = state_provider.witness(Default::default(), hashed_state)?;
+        Ok(Some(state))
     }
 }
