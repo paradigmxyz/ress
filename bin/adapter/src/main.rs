@@ -61,8 +61,6 @@ async fn forward_request(
             "Ress Response: Status:, Body: {} ",
             String::from_utf8_lossy(&body)
         );
-
-        // return Ok(ress_resp)
     }
 
     Ok(reth_resp)
