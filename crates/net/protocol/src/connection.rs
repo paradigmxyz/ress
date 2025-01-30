@@ -187,7 +187,7 @@ where
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == Header::default() {
-                                error!(target: "ress::net::connection", "failed to fetch header");
+                                warn!(target: "ress::net::connection", "header is default");
                             }
                             // TODO: validate the header.
                             let _ = tx.send(res.message);
@@ -200,7 +200,7 @@ where
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == Bytes::default() {
-                                error!(target: "ress::net::connection", "failed to fetch bytes");
+                                error!(target: "ress::net::connection", "bytes is default");
                             } else if keccak256(res.message.clone()) != code_hash {
                                 error!(target: "ress::net::connection", "invalid bytes");
                             }
@@ -215,7 +215,7 @@ where
                             this.inflight_requests.remove(&res.request_id)
                         {
                             if res.message == StateWitnessNet::default() {
-                                error!(target: "ress::net::connection", "failed to fetch witness");
+                                error!(target: "ress::net::connection", "witness is default");
                             }
                             // TODO: validate the witness.
                             let _ = tx.send(res.message);
