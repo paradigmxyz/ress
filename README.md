@@ -2,7 +2,7 @@
 
 ## Hive test
 
-Ress had tested with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
+Ress is testing with [hive](https://github.com/ethereum/hive). Simulator send request to `adapter`, which proxy `engine/*` request to `ress`, and other requests to `reth`. 
 
 - `reth`: auth port(8651), rpc port(8544), subnetwork(30303)
 - `ress`: auth port(8552), rpc port(-), subnetwork(61398)

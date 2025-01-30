@@ -7,14 +7,12 @@ use reth_trie_sparse::{
     SparseStateTrie, SparseTrie,
 };
 use std::sync::mpsc;
-use tracing::info;
 
 /// Compute the state root given a revealed sparse trie and hashed state update.
 pub fn calculate_state_root(
     trie: &mut SparseStateTrie,
     state: HashedPostState,
 ) -> SparseStateTrieResult<B256> {
-    info!("state calculate_state_root:{:?}, trie:{:?}", state, trie);
     // Update storage slots with new values and calculate storage roots.
     let (storage_tx, storage_rx) = mpsc::channel();
 

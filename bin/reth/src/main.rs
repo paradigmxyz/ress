@@ -15,7 +15,6 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
-use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -86,24 +85,16 @@ where
         };
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
-        let block_executor = self.block_executor.executor(db);
         let mut record = ExecutionWitnessRecord::default();
-        let _ = block_executor
+        let _ = self
+            .block_executor
+            .executor(db)
             .execute_with_state_closure(&block, |state: &State<_>| {
-                info!("state account:{:?}", state.cache.accounts);
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-
-        let ExecutionWitnessRecord {
-            hashed_state,
-            codes,
-            keys,
-        } = record;
-        info!("state {:?}", hashed_state);
-        info!("codes {:?}", codes);
-        info!("keys {:?}", keys);
-        let state = state_provider.witness(Default::default(), hashed_state)?;
-        Ok(Some(state))
+        Ok(Some(
+            state_provider.witness(Default::default(), record.hashed_state)?,
+        ))
     }
 }
