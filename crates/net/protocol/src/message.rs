@@ -12,14 +12,6 @@ use alloy_rlp::{BytesMut, Decodable, Encodable};
 use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
 use reth_primitives::Header;
 
-/// Error when sending/receiving a message
-#[derive(thiserror::Error, Debug)]
-pub enum MessageError {
-    /// Thrown when rlp decoding a message message failed.
-    #[error("RLP error: {0}")]
-    RlpError(#[from] alloy_rlp::Error),
-}
-
 /// An Ress protocol message, containing a message ID and payload.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RessProtocolMessage {

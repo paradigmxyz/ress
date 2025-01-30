@@ -1,6 +1,6 @@
 //! Reth node that supports ress subprotocol.
 
-use alloy_primitives::{address, map::B256HashMap, Bytes, B256};
+use alloy_primitives::{map::B256HashMap, Bytes, B256};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
