@@ -31,6 +31,7 @@ fn main() -> eyre::Result<()> {
             provider: node.provider,
             block_executor: node.block_executor,
         };
+
         let protocol_handler = RessProtocolHandler {
             provider,
             state: ProtocolState { events: tx },
@@ -97,6 +98,8 @@ where
                 b256!("6661e9d6d8b923d5bbaab1b96e1dd51ff6ea2a93520fdc9eb75d059238b8c5e9")
             )
         );
+
+        // ======
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let executor = self.block_executor.executor(db);
@@ -105,6 +108,9 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
+
+        // ===
+        info!("output: {:?}", output);
         info!("record: {:?}", output.state);
         let witness = state_provider.witness(Default::default(), record.hashed_state)?;
         info!("witness: {:?}", witness);
