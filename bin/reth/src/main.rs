@@ -99,9 +99,8 @@ where
         );
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
-        let _ = self
-            .block_executor
-            .executor(db)
+        let executor = self.block_executor.executor(db);
+        let _ = executor
             .execute_with_state_closure(&block, |state: &State<_>| {
                 record.record_executed_state(state);
             })
