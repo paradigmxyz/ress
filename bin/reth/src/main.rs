@@ -100,12 +100,12 @@ where
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let executor = self.block_executor.executor(db);
-        let _ = executor
+        let output = executor
             .execute_with_state_closure(&block, |state: &State<_>| {
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        info!("record: {:?}", record);
+        info!("record: {:?}", output.state);
         let witness = state_provider.witness(Default::default(), record.hashed_state)?;
         info!("witness: {:?}", witness);
         Ok(Some(witness))
