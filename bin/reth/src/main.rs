@@ -15,6 +15,7 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
+use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -93,8 +94,9 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        Ok(Some(
-            state_provider.witness(Default::default(), record.hashed_state)?,
-        ))
+        info!("record: {:?}", record);
+        let witness = state_provider.witness(Default::default(), record.hashed_state)?;
+        info!("witness: {:?}", witness);
+        Ok(Some(witness))
     }
 }
