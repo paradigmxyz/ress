@@ -292,7 +292,7 @@ impl ConsensusEngine {
         self.provider.storage.insert_header(header_from_payload);
         let latest_valid_hash = match self.forkchoice_state {
             Some(fcu_state) => fcu_state.head_block_hash,
-            None => parent_hash,
+            None => block_hash,
         };
 
         info!(target: "ress::engine", ?latest_valid_hash, "🟢 new payload is valid");
