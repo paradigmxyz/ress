@@ -87,20 +87,20 @@ where
         };
         info!("block: {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
+
+        // ======
+        let db = StateProviderDatabase::new(&state_provider);
         info!(
             "balance: {:?}",
-            state_provider.account_balance(&address!("0000000000000000000000000000000000000315"))
+            db.account_balance(&address!("0000000000000000000000000000000000000315"))
         );
         info!(
             "storage value: {:?}",
-            state_provider.storage(
+            db.storage(
                 address!("0000000000000000000000000000000000000314"),
                 b256!("6661e9d6d8b923d5bbaab1b96e1dd51ff6ea2a93520fdc9eb75d059238b8c5e9")
             )
         );
-
-        // ======
-        let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
         let executor = self.block_executor.executor(db);
         let output = executor
