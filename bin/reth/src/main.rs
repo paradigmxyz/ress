@@ -1,6 +1,6 @@
 //! Reth node that supports ress subprotocol.
 
-use alloy_primitives::{address, b256, map::B256HashMap, Bytes, B256};
+use alloy_primitives::{map::B256HashMap, Bytes, B256};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
@@ -15,7 +15,6 @@ use reth_node_builder::{NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
-use tracing::info;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -85,35 +84,16 @@ where
                 .block_with_senders(block_hash.into(), TransactionVariant::default())?
                 .ok_or(ProviderError::BlockHashNotFound(block_hash))?
         };
-        info!("block: {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
-
-        // ======
         let db = StateProviderDatabase::new(&state_provider);
-        info!(
-            "balance: {:?}",
-            db.account_balance(&address!("0000000000000000000000000000000000000315"))
-        );
-        info!(
-            "storage value: {:?}",
-            db.storage(
-                address!("0000000000000000000000000000000000000314"),
-                b256!("6661e9d6d8b923d5bbaab1b96e1dd51ff6ea2a93520fdc9eb75d059238b8c5e9")
-            )
-        );
         let mut record = ExecutionWitnessRecord::default();
         let executor = self.block_executor.executor(db);
-        let output = executor
+        let _ = executor
             .execute_with_state_closure(&block, |state: &State<_>| {
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-
-        // ===
-        info!("output: {:?}", output);
-        info!("record: {:?}", output.state);
         let witness = state_provider.witness(Default::default(), record.hashed_state)?;
-        info!("witness: {:?}", witness);
         Ok(Some(witness))
     }
 }
