@@ -104,10 +104,13 @@ where
         let mut record = ExecutionWitnessRecord::default();
         let executor = self.block_executor.executor(db);
         let output = executor
-            .execute_with_state_closure(&block, |state: &State<_>| {
-                record.record_executed_state(state);
-            })
+            .execute(&block)
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
+        // let output = executor
+        //     .execute_with_state_closure(&block, |state: &State<_>| {
+        //         record.record_executed_state(state);
+        //     })
+        //     .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
 
         // ===
         info!("output: {:?}", output);
