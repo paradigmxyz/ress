@@ -290,10 +290,7 @@ impl ConsensusEngine {
         // ===================== Update Node State =====================
         let header_from_payload = block.sealed_block().header().clone();
         self.provider.storage.insert_header(header_from_payload);
-        let latest_valid_hash = match self.forkchoice_state {
-            Some(fcu_state) => fcu_state.head_block_hash,
-            None => block_hash,
-        };
+        let latest_valid_hash = block_hash;
 
         info!(target: "ress::engine", ?latest_valid_hash, "🟢 new payload is valid");
         Ok(PayloadStatus::from_status(PayloadStatusEnum::Valid)
