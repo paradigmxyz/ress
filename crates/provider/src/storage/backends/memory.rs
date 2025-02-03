@@ -259,6 +259,7 @@ impl MemoryStorage {
     pub(crate) fn remove_oldest_canonical_hash(&self) {
         let mut inner = self.inner.write();
         if inner.canonical_hashes.len() > 256 {
+            println!("🍕 removed");
             let oldest_block_number = *inner.canonical_hashes.keys().min().unwrap();
             let _ = inner.canonical_hashes.remove(&oldest_block_number);
         }
@@ -332,12 +333,12 @@ impl MemoryStorage {
         for block_number in range {
             inner.canonical_hashes.insert(block_number, current_hash);
             if block_number != 0 && current_hash != B256::ZERO {
-                let header = inner
-                    .headers_by_hash
-                    .get(&current_hash)
-                    .cloned()
-                    .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
-                current_hash = header.parent_hash;
+                let header = inner.headers_by_hash.get(&current_hash).cloned();
+                if let Some(header) = header {
+                    current_hash = header.parent_hash;
+                } else {
+                    break; // Exit the loop if the block is not found, as it's before finalized block
+                }
             }
         }
 
