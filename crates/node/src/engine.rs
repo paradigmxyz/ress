@@ -165,10 +165,10 @@ impl ConsensusEngine {
         }
 
         // ===================== Handle Reorg =====================
-
-        if self.provider.storage.get_canonical_head().number + 1 != head.number {
+        let canonical_head = self.provider.storage.get_canonical_head().number;
+        if canonical_head + 1 != head.number {
             // fcu is pointing fork chain
-            warn!(target: "ress::engine", block_number = head.number, "Reorg or hash inconsistency detected");
+            warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
             self.provider
                 .storage
                 .on_fcu_reorg_update(head, state.finalized_block_hash)
