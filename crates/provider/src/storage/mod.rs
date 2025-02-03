@@ -45,6 +45,7 @@ impl Storage {
         self.memory
             .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
         if last_persisted_hash != B256::ZERO {
+            println!("last_persisted_hash:{}", last_persisted_hash);
             let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
             println!("upper_bound:{}", upper_bound);
             self.memory

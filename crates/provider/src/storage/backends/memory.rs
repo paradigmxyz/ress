@@ -337,6 +337,7 @@ impl MemoryStorage {
                     .get(&current_hash)
                     .cloned()
                     .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
+                println!("current_hash:{}", current_hash);
                 current_hash = header.parent_hash;
             }
         }
