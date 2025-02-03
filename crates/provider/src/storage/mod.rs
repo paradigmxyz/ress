@@ -37,18 +37,35 @@ impl Storage {
     }
 
     /// Update canonical hashes on reorg.
-    pub fn on_fcu_reorg_update(&self, new_head: Header) -> Result<(), StorageError> {
+    pub fn on_fcu_reorg_update(
+        &self,
+        new_head: Header,
+        finalized_hash: B256,
+    ) -> Result<(), StorageError> {
         self.memory
             .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
+        if finalized_hash != B256::ZERO {
+            let upper_bound = self.memory.get_block_number(finalized_hash)?;
+            self.memory
+                .remove_canonical_until(upper_bound, finalized_hash);
+        }
         Ok(())
     }
 
     /// Update canonical hashes on forkchoice update.
-    pub fn on_fcu_update(&self, new_head: Header) -> Result<(), StorageError> {
+    pub fn on_fcu_update(
+        &self,
+        new_head: Header,
+        finalized_hash: B256,
+    ) -> Result<(), StorageError> {
         self.memory
             .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
         self.memory
             .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
+        let upper_bound = self.memory.get_block_number(finalized_hash)?;
+        self.memory
+            .remove_canonical_until(upper_bound, finalized_hash);
+        self.memory.remove_oldest_canonical_hash();
         Ok(())
     }
 

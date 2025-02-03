@@ -169,13 +169,13 @@ impl ConsensusEngine {
             warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
             self.provider
                 .storage
-                .on_fcu_reorg_update(head)
+                .on_fcu_reorg_update(head, state.finalized_block_hash)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         } else {
             // fcu is on canonical chain
             self.provider
                 .storage
-                .on_fcu_update(head)
+                .on_fcu_update(head, state.finalized_block_hash)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         }
 
