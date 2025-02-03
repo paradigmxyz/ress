@@ -44,13 +44,13 @@ impl Storage {
     ) -> Result<(), StorageError> {
         self.memory
             .rebuild_canonical_hashes(BlockNumHash::new(new_head.number, new_head.hash_slow()))?;
-        if last_persisted_hash != B256::ZERO {
-            println!("last_persisted_hash:{}", last_persisted_hash);
-            let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
-            println!("upper_bound:{}", upper_bound);
-            // self.memory
-            //     .remove_canonical_until(upper_bound, last_persisted_hash);
-        }
+        // if last_persisted_hash != B256::ZERO {
+        //     println!("last_persisted_hash:{}", last_persisted_hash);
+        //     let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
+        //     println!("upper_bound:{}", upper_bound);
+        //     // self.memory
+        //     //     .remove_canonical_until(upper_bound, last_persisted_hash);
+        // }
         Ok(())
     }
 
@@ -64,8 +64,8 @@ impl Storage {
             .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
         self.memory
             .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
-        let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
-        println!("upper_bound:{}", upper_bound);
+        // let upper_bound = self.memory.get_block_number(last_persisted_hash)?;
+        // println!("upper_bound:{}", upper_bound);
         // self.memory
         //     .remove_canonical_until(upper_bound, last_persisted_hash);
         // self.memory.remove_oldest_canonical_hash();
