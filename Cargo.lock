@@ -5436,6 +5436,7 @@ dependencies = [
  "rayon",
  "ress-common",
  "ress-network",
+ "ress-protocol",
  "ress-provider",
  "ress-rpc",
  "ress-testing",
