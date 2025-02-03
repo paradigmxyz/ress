@@ -30,7 +30,6 @@ fn main() -> eyre::Result<()> {
             provider: node.provider,
             block_executor: node.block_executor,
         };
-
         let protocol_handler = RessProtocolHandler {
             provider,
             state: ProtocolState { events: tx },
@@ -87,13 +86,15 @@ where
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
-        let executor = self.block_executor.executor(db);
-        let _ = executor
+        let _ = self
+            .block_executor
+            .executor(db)
             .execute_with_state_closure(&block, |state: &State<_>| {
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        let witness = state_provider.witness(Default::default(), record.hashed_state)?;
-        Ok(Some(witness))
+        Ok(Some(
+            state_provider.witness(Default::default(), record.hashed_state)?,
+        ))
     }
 }

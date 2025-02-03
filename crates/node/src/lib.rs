@@ -12,7 +12,6 @@ use reth_chainspec::ChainSpec;
 use reth_network_peers::TrustedPeer;
 use reth_rpc_builder::auth::AuthServerHandle;
 use std::sync::Arc;
-use tracing::info;
 
 /// Consensus engine implementation.
 pub mod engine;
@@ -49,7 +48,6 @@ impl Node {
         let storage = Storage::new(chain_spec.clone(), current_head);
 
         let network_handle = if let Some(rpc_adapter) = rpc_adapter {
-            info!("rpc adaper enabled");
             RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
                 .launch(id, remote_peer)
                 .await

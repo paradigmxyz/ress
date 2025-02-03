@@ -281,7 +281,6 @@ impl MemoryStorage {
             inner.canonical_hashes.insert(block_number, block_hash);
             Ok(())
         } else {
-            println!("🍕");
             Err(MemoryStorageError::NonCanonicalChain(block_hash))
         }
     }
@@ -330,13 +329,11 @@ impl MemoryStorage {
         for block_number in range {
             inner.canonical_hashes.insert(block_number, current_hash);
             if block_number != 0 {
-                println!("block_number:{}", block_number);
                 let header = inner
                     .headers_by_hash
                     .get(&current_hash)
                     .cloned()
                     .ok_or(MemoryStorageError::BlockNotFoundFromHash(current_hash))?;
-                println!("current_hash:{}", current_hash);
                 current_hash = header.parent_hash;
             }
         }
