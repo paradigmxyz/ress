@@ -28,7 +28,6 @@ reth-revm.workspace = true
 
 # misc
 thiserror.workspace = true
-tracing.workspace = true
 rusqlite.workspace = true
 parking_lot.workspace = true
 

@@ -5436,7 +5436,6 @@ dependencies = [
  "rayon",
  "ress-common",
  "ress-network",
- "ress-protocol",
  "ress-provider",
  "ress-rpc",
  "ress-testing",
@@ -5504,7 +5503,6 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "thiserror 2.0.11",
- "tracing",
  "tracing-subscriber",
 ]
 

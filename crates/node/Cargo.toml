@@ -18,7 +18,6 @@ ress-rpc.workspace = true
 ress-vm.workspace = true
 ress-provider.workspace = true
 ress-testing.workspace = true
-ress-protocol.workspace = true
 
 # reth
 reth-primitives.workspace = true

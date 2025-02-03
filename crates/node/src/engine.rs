@@ -1,5 +1,4 @@
 use alloy_primitives::map::B256HashSet;
-use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::ExecutionPayload;
 use alloy_rpc_types_engine::ExecutionPayloadSidecar;
@@ -7,7 +6,6 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use rayon::iter::IntoParallelRefIterator;
-use ress_protocol::RessProtocolProvider;
 use ress_provider::errors::MemoryStorageError;
 use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
@@ -173,28 +171,13 @@ impl ConsensusEngine {
             warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
             self.provider
                 .storage
-                .on_fcu_reorg_update(head, state.finalized_block_hash)
+                .on_fcu_reorg_update(head)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         } else {
-            let block_hash = if state.finalized_block_hash != B256::ZERO {
-                let block = self
-                    .provider
-                    .storage
-                    .header(state.finalized_block_hash)?
-                    .unwrap();
-                println!("block.number - 1:{:?}", block.number - 1);
-                self.provider
-                    .storage
-                    .get_block_hash(block.number - 1)
-                    .map_err(|e: StorageError| RethError::Other(Box::new(e)))?
-            } else {
-                B256::ZERO
-            };
-
             // fcu is on canonical chain
             self.provider
                 .storage
-                .on_fcu_update(head, block_hash)
+                .on_fcu_update(head)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         }
 
