@@ -259,7 +259,6 @@ impl MemoryStorage {
     pub(crate) fn remove_oldest_canonical_hash(&self) {
         let mut inner = self.inner.write();
         if inner.canonical_hashes.len() > 256 {
-            println!("🍕 removed");
             let oldest_block_number = *inner.canonical_hashes.keys().min().unwrap();
             let _ = inner.canonical_hashes.remove(&oldest_block_number);
         }
