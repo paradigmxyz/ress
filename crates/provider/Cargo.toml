@@ -30,6 +30,7 @@ reth-revm.workspace = true
 thiserror.workspace = true
 rusqlite.workspace = true
 parking_lot.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile = "3.3"
