@@ -136,21 +136,19 @@ impl ConsensusEngine {
         }
         // todo: invalid_ancestors check
 
-        // check finalized bock hash and safe block hash all in storage
-        if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
-            return Ok(outcome);
-        }
+        // Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not belong to the chain defined by forkchoiceState.headBlockHash.
+        //
+        // if forkchoiceState.headBlockHash references an unknown payload or a payload that can't be validated because requisite data for the validation is missing
+        match self.provider.storage.header_by_hash(state.head_block_hash) {
+            Some(head) => {
+                // check finalized bock hash and safe block hash canonical
+                if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
+                    return Ok(outcome);
+                }
 
-        // retrieve head by hash
-        let Some(head) = self.provider.storage.header_by_hash(state.head_block_hash) else {
-            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
-                PayloadStatusEnum::Syncing,
-            )));
-        };
-
-        // payload attributes, version validation
-        if let Some(attrs) = payload_attrs {
-            if let Err(error) =
+                // payload attributes, version validation
+                if let Some(attrs) = payload_attrs {
+                    if let Err(error) =
                 EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
                     &self.engine_validator,
                     &attrs,
@@ -160,29 +158,34 @@ impl ConsensusEngine {
                 warn!(target: "ress::engine", %error, ?head, "Invalid payload attributes");
                 return Ok(OnForkChoiceUpdated::invalid_payload_attributes());
             }
-        }
+                }
 
-        // ===================== Handle Reorg =====================
-        let canonical_head = self.provider.storage.get_canonical_head().number;
-        if canonical_head + 1 != head.number {
-            // fcu is pointing fork chain
-            warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
-            self.provider
-                .storage
-                .on_fcu_reorg_update(head)
-                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-        } else {
-            // fcu is on canonical chain
-            self.provider
-                .storage
-                .on_fcu_update(head)
-                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-        }
+                // ===================== Handle Reorg =====================
+                let canonical_head = self.provider.storage.get_canonical_head().number;
+                if canonical_head + 1 != head.number {
+                    // fcu is pointing fork chain
+                    warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
+                    self.provider
+                        .storage
+                        .on_fcu_reorg_update(head)
+                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
+                } else {
+                    // fcu is on canonical chain
+                    self.provider
+                        .storage
+                        .on_fcu_update(head)
+                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
+                }
 
-        Ok(OnForkChoiceUpdated::valid(
-            PayloadStatus::from_status(PayloadStatusEnum::Valid)
-                .with_latest_valid_hash(state.head_block_hash),
-        ))
+                Ok(OnForkChoiceUpdated::valid(
+                    PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                        .with_latest_valid_hash(state.head_block_hash),
+                ))
+            }
+            None => {
+                return Ok(OnForkChoiceUpdated::syncing());
+            }
+        }
     }
 
     /// Ensures that the given forkchoice state is consistent, assuming the head block has been
