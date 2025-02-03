@@ -62,10 +62,12 @@ impl Storage {
             .set_canonical_head(BlockNumHash::new(new_head.number, new_head.hash_slow()));
         self.memory
             .set_canonical_hash(new_head.hash_slow(), new_head.number)?;
-        let upper_bound = self.memory.get_block_number(finalized_hash)?;
-        self.memory
-            .remove_canonical_until(upper_bound, finalized_hash);
-        self.memory.remove_oldest_canonical_hash();
+        if finalized_hash != B256::ZERO {
+            let upper_bound = self.memory.get_block_number(finalized_hash)?;
+            self.memory
+                .remove_canonical_until(upper_bound, finalized_hash);
+            self.memory.remove_oldest_canonical_hash();
+        }
         Ok(())
     }
 
