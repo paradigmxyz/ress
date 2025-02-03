@@ -182,6 +182,7 @@ impl ConsensusEngine {
                     .storage
                     .header(state.finalized_block_hash)?
                     .unwrap();
+                println!("block.number - 1:{:?}", block.number - 1);
                 self.provider
                     .storage
                     .get_block_hash(block.number - 1)
