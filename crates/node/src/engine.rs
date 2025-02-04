@@ -183,7 +183,7 @@ impl ConsensusEngine {
                 ))
             }
             None => {
-                return Ok(OnForkChoiceUpdated::syncing());
+                Ok(OnForkChoiceUpdated::syncing())
             }
         }
     }
