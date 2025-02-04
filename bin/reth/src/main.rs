@@ -6,12 +6,13 @@ use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
     providers::{
         providers::{BlockchainProvider, ProviderNodeTypes},
-        BlockReader, ProviderError, ProviderResult, StateProviderFactory, TransactionVariant,
+        BlockReader, BlockSource, ProviderError, ProviderResult, StateProviderFactory,
+        TransactionVariant,
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
 use reth_evm::execute::{BlockExecutorProvider, Executor};
-use reth_node_builder::{NodeHandle, NodeTypesWithDB};
+use reth_node_builder::{Block, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
@@ -78,11 +79,24 @@ where
             .pending_block_with_senders()?
             .filter(|b| b.hash() == block_hash)
         {
+            info!("🍕inpending");
             pending
         } else {
-            self.provider
+            if let Some(block) = self
+                .provider
                 .block_with_senders(block_hash.into(), TransactionVariant::default())?
-                .ok_or(ProviderError::BlockHashNotFound(block_hash))?
+            {
+                info!("🍕block_with_senders");
+                block
+            } else {
+                info!("🍕find_block_by_hash");
+                let block = self
+                    .provider
+                    .find_block_by_hash(block_hash.into(), BlockSource::Any)?
+                    .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+                let signers = block.recover_signers()?;
+                block.into_recovered_with_signers(signers)
+            }
         };
         info!(?block_hash, "block: {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
