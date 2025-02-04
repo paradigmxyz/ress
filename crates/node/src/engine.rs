@@ -50,6 +50,7 @@ pub struct ConsensusEngine {
     consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>>,
     engine_validator: EthereumEngineValidator,
     from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+    forkchoice_state: Option<ForkchoiceState>,
 }
 
 impl ConsensusEngine {
@@ -68,6 +69,7 @@ impl ConsensusEngine {
             engine_validator,
             provider,
             from_beacon_engine,
+            forkchoice_state: None,
         }
     }
 
@@ -178,6 +180,8 @@ impl ConsensusEngine {
                 .on_fcu_update(head, state.finalized_block_hash)
                 .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
         }
+
+        self.forkchoice_state = Some(state);
 
         Ok(OnForkChoiceUpdated::valid(
             PayloadStatus::from_status(PayloadStatusEnum::Valid)
