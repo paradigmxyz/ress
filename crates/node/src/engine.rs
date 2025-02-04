@@ -182,9 +182,7 @@ impl ConsensusEngine {
                         .with_latest_valid_hash(state.head_block_hash),
                 ))
             }
-            None => {
-                Ok(OnForkChoiceUpdated::syncing())
-            }
+            None => Ok(OnForkChoiceUpdated::syncing()),
         }
     }
 
