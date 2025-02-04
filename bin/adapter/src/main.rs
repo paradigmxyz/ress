@@ -61,6 +61,7 @@ async fn forward_request(
     let reth = if is_auth_server { RETH_AUTH } else { RETH_HTTP };
     let reth_req = build_request(reth).unwrap();
     let reth_resp = client.request(reth_req).await?;
+    info!("Received from Reth, not payload: {:?}", reth_resp);
 
     // If it's an engine method, send request to Ress and await its response
     if is_engine_method {
@@ -107,7 +108,6 @@ async fn forward_request(
             Ok(ress_resp)
         }
     } else {
-        info!("Received from Reth, not engine: {:?}", reth_resp);
         Ok(reth_resp)
     }
 }
