@@ -224,11 +224,6 @@ impl ConsensusEngine {
         // ===================== Validation =====================
         // todo: invalid_ancestors check
         let parent_hash = payload.parent_hash();
-        if !self.provider.storage.is_canonical(parent_hash) {
-            warn!(target: "ress::engine", %parent_hash, "Parent is not canonical, fetching from network");
-            let header = self.provider.fetch_header(parent_hash).await?;
-            self.provider.storage.insert_header(header);
-        }
         let parent =
             self.provider
                 .storage
