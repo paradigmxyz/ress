@@ -2,7 +2,7 @@ use alloy_rpc_types_engine::{PayloadId, PayloadStatus};
 use futures_util::TryFutureExt;
 use hyper::{
     service::{make_service_fn, service_fn},
-    Body, Client, Request, Response, Server,
+    Body, Client, Request, Response, Server, StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -65,9 +65,14 @@ async fn forward_request(
 
     // If it's an engine method, send request to Ress and await its response
     if is_engine_method {
-        let (_reth_parts, reth_body) = reth_resp.into_parts();
+        let (reth_parts, reth_body) = reth_resp.into_parts();
         let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
         let top_level: Value = serde_json::from_slice(&reth_body_bytes).unwrap();
+        if reth_parts.status != StatusCode::from_u16(200).unwrap() {
+            info!("rpc response status is: {:?}", reth_parts.status);
+            let new_response = Response::from_parts(reth_parts, Body::from(reth_body_bytes));
+            return Ok(new_response);
+        }
         let result_value = top_level.get("result").unwrap();
         let is_payload_id =
             match serde_json::from_value::<RethPayloadResponse>(result_value.clone()) {
