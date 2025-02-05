@@ -16,7 +16,7 @@ use reth_node_builder::{Block, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{EthPrimitives, Header};
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::debug;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -79,26 +79,21 @@ where
             .pending_block_with_senders()?
             .filter(|b| b.hash() == block_hash)
         {
-            info!("🍕inpending");
             pending
+        } else if let Some(block) = self
+            .provider
+            .block_with_senders(block_hash.into(), TransactionVariant::default())?
+        {
+            block
         } else {
-            if let Some(block) = self
+            let block = self
                 .provider
-                .block_with_senders(block_hash.into(), TransactionVariant::default())?
-            {
-                info!("🍕block_with_senders");
-                block
-            } else {
-                info!("🍕find_block_by_hash");
-                let block = self
-                    .provider
-                    .find_block_by_hash(block_hash.into(), BlockSource::Any)?
-                    .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-                let signers = block.recover_signers()?;
-                block.into_recovered_with_signers(signers)
-            }
+                .find_block_by_hash(block_hash, BlockSource::Any)?
+                .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+            let signers = block.recover_signers()?;
+            block.into_recovered_with_signers(signers)
         };
-        info!(?block_hash, "block: {:?}", block);
+        debug!(?block_hash, "fetched block: {:?}", block);
         let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
         let db = StateProviderDatabase::new(&state_provider);
         let mut record = ExecutionWitnessRecord::default();
