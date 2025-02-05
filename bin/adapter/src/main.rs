@@ -112,8 +112,10 @@ async fn forward_request(
             }
             None => {
                 info!("rpc response status is: {:?}", reth_parts.status);
-                let new_response = Response::from_parts(reth_parts, Body::from(reth_body_bytes));
-                Ok(new_response)
+                let ress_req = build_request(RESS_AUTH).unwrap();
+                info!("Sending request to Ress: {:?}", ress_req);
+                let ress_resp = client.request(ress_req).await?;
+                Ok(ress_resp)
             }
         }
     } else {
