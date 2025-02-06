@@ -1,11 +1,13 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, B256};
 use parking_lot::RwLock;
+use ress_primitives::chain_state::NewCanonicalChain;
 use reth_primitives::Header;
 use std::{
     collections::{btree_map, hash_map, BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
+use tokio::sync::watch;
 use tracing::debug;
 
 use crate::errors::MemoryStorageError;
@@ -44,6 +46,9 @@ pub struct MemoryStorageInner {
     ///
     /// This is for faster lookup `BLOCK_HASH` opcode
     canonical_hashes: HashMap<BlockNumber, BlockHash>,
+
+    /// The pending block that has not yet been made canonical.
+    pending: watch::Sender<Option<Header>>,
 }
 
 impl MemoryStorageInner {
@@ -208,12 +213,14 @@ impl From<ChainInfo> for BlockNumHash {
 impl MemoryStorageInner {
     /// Return a new, empty tree state that points to the given canonical head.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
+        let (pending, _) = watch::channel(None);
         Self {
             canonical_hashes: HashMap::new(),
             headers_by_hash: HashMap::default(),
             headers_by_number: BTreeMap::new(),
             current_canonical_head,
             parent_to_child: HashMap::default(),
+            pending,
         }
     }
 }
@@ -343,5 +350,45 @@ impl MemoryStorage {
         }
 
         Ok(())
+    }
+
+    /// Update the in memory state with the given chain update.
+    pub fn update_chain(&self, new_chain: NewCanonicalChain) {
+        match new_chain {
+            NewCanonicalChain::Commit { new } => {
+                self.update_blocks(new, vec![]);
+            }
+            NewCanonicalChain::Reorg { new, old } => {
+                self.update_blocks(new, old);
+            }
+        }
+    }
+
+    /// Append new blocks to the in memory state.
+    ///
+    /// This removes all reorged blocks and appends the new blocks to the tracked chain and connects
+    /// them to their parent blocks.
+    fn update_blocks(&self, new_blocks: Vec<Header>, reorged: Vec<Header>) {
+        {
+            // acquire locks, starting with the numbers lock
+            let mut inner = self.inner.write();
+
+            // we first remove the blocks from the reorged chain
+            for header in reorged {
+                let hash = header.hash_slow();
+                inner.remove_by_hash(hash);
+            }
+
+            // insert the new blocks
+            for header in new_blocks {
+                let parent = self.header_by_hash(header.parent_hash).unwrap();
+                inner.insert_header(parent);
+            }
+
+            // remove the pending state
+            inner.pending.send_modify(|p| {
+                p.take();
+            });
+        }
     }
 }

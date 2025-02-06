@@ -11,6 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+reth-primitives.workspace = true
+
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-trie.workspace = true

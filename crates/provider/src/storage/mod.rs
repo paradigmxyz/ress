@@ -1,6 +1,7 @@
 use crate::errors::StorageError;
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{map::B256HashMap, BlockHash, BlockNumber, Bytes, B256};
+use ress_primitives::chain_state::NewCanonicalChain;
 use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_primitives::Header;
@@ -69,6 +70,11 @@ impl Storage {
             self.memory.remove_oldest_canonical_hash();
         }
         Ok(())
+    }
+
+    /// Return update_chain
+    pub fn update_chain(&self, new_chain: NewCanonicalChain) {
+        self.memory.update_chain(new_chain)
     }
 
     /// Return block header by hash.

@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 # ress
+ress-primitives.workspace = true
 ress-common.workspace = true
 ress-network.workspace = true
 ress-rpc.workspace = true
@@ -22,6 +23,7 @@ ress-testing.workspace = true
 # reth
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
+reth-payload-builder.workspace = true
 reth-chainspec.workspace = true
 reth-consensus.workspace = true
 reth-node-api.workspace = true

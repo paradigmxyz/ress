@@ -61,8 +61,11 @@ impl Node {
         // ================ initial update ==================
 
         let provider = RessProvider::new(storage, network_handle.clone());
-        let consensus_engine =
-            ConsensusEngine::new(provider.clone(), rpc_handle.from_beacon_engine);
+        let consensus_engine = ConsensusEngine::new(
+            provider.clone(),
+            rpc_handle.from_beacon_engine,
+            rpc_handle.payload_builder,
+        );
         let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
 
         Self {

@@ -5436,6 +5436,7 @@ dependencies = [
  "rayon",
  "ress-common",
  "ress-network",
+ "ress-primitives",
  "ress-provider",
  "ress-rpc",
  "ress-testing",
@@ -5446,6 +5447,7 @@ dependencies = [
  "reth-network-peers",
  "reth-node-api",
  "reth-node-ethereum",
+ "reth-payload-builder",
  "reth-primitives",
  "reth-primitives-traits",
  "reth-rpc-builder",
@@ -5463,6 +5465,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
+ "reth-primitives",
  "serde",
 ]
 
@@ -5503,6 +5506,7 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "thiserror 2.0.11",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

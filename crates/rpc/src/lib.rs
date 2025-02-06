@@ -27,18 +27,23 @@ pub struct RpcHandle {
 
     /// Beacon engine receiver.
     pub from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+
+    /// Handle to the payload builder that will receive payload attributes for valid forkchoice
+    /// updates
+    pub payload_builder: PayloadBuilderHandle<EthEngineTypes>,
 }
 
 impl RpcHandle {
     /// Start RPC server.
     pub async fn start_server(id: TestPeers, chain_spec: Arc<ChainSpec>) -> Self {
-        let (authserver_handle, from_beacon_engine) =
+        let (authserver_handle, from_beacon_engine, payload_builder) =
             Self::launch_auth_server(id.get_jwt_secret(), id.get_authserver_addr(), chain_spec)
                 .await;
 
         Self {
             authserver_handle,
             from_beacon_engine,
+            payload_builder,
         }
     }
 
@@ -49,6 +54,7 @@ impl RpcHandle {
     ) -> (
         AuthServerHandle,
         UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        PayloadBuilderHandle<EthEngineTypes>,
     ) {
         let config = AuthServerConfig::builder(jwt_key)
             .socket_addr(socket)
@@ -78,6 +84,6 @@ impl RpcHandle {
         );
         let module = AuthRpcModule::new(engine_api);
         let handle = module.start_server(config).await.unwrap();
-        (handle, rx)
+        (handle, rx, payload_builder)
     }
 }
