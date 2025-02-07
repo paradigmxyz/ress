@@ -119,10 +119,11 @@ reth-evm = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 
 ## consensus
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-consensus = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
+reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
+reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
+reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 
 ## rpc
 reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }

@@ -5540,6 +5540,7 @@ dependencies = [
  "ress-vm",
  "reth-chainspec",
  "reth-consensus",
+ "reth-engine-tree",
  "reth-errors",
  "reth-network-peers",
  "reth-node-api",
