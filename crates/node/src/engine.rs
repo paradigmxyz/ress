@@ -143,7 +143,7 @@ impl ConsensusEngine {
         // if forkchoiceState.headBlockHash references an unknown payload or a payload that can't be validated because requisite data for the validation is missing
         match self.provider.storage.header_by_hash(state.head_block_hash) {
             Some(head) => {
-                // check finalized bock hash and safe block hash canonical
+                // check that the finalized and safe block hashes are canonical
                 if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
                     return Ok(outcome);
                 }
