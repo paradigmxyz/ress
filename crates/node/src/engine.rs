@@ -127,7 +127,6 @@ impl ConsensusEngine {
         );
 
         // ===================== Validation =====================
-
         if state.head_block_hash.is_zero() {
             return Ok(OnForkChoiceUpdated::invalid_state());
         }
@@ -217,6 +216,30 @@ impl ConsensusEngine {
         let parent_hash = payload.payload.parent_hash();
         info!(target: "ress::engine", %block_hash, block_number, %parent_hash, "👋 new payload");
 
+        // Ensures that the given payload does not violate any consensus rules.
+        let block = match self.engine_validator.ensure_well_formed_payload(payload) {
+            Ok(block) => block,
+            Err(error) => {
+                error!(target: "ress::engine", %error, "Invalid payload");
+
+                let latest_valid_hash =
+                    if error.is_block_hash_mismatch() || error.is_invalid_versioned_hashes() {
+                        // Engine-API rules:
+                        // > `latestValidHash: null` if the blockHash validation has failed (<https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/shanghai.md?plain=1#L113>)
+                        // > `latestValidHash: null` if the expected and the actual arrays don't match (<https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/cancun.md?plain=1#L103>)
+                        None
+                    } else {
+                        // TODO: self.latest_valid_hash_for_invalid_payload(parent_hash)?
+                        None
+                    };
+
+                return Ok(PayloadStatus::new(
+                    PayloadStatusEnum::from(error),
+                    latest_valid_hash,
+                ));
+            }
+        };
+
         // ===================== Validation =====================
         // todo: invalid_ancestors check
         let parent =
@@ -228,7 +251,6 @@ impl ConsensusEngine {
                 ))?;
         let parent_header: SealedHeader = SealedHeader::new(parent, parent_hash);
         let state_root_of_parent = parent_header.state_root;
-        let block = self.engine_validator.ensure_well_formed_payload(payload)?;
         self.validate_block(&block, parent_header)?;
 
         // ===================== Witness =====================
@@ -243,7 +265,6 @@ impl ConsensusEngine {
         let database = WitnessDatabase::new(self.provider.storage.clone(), &trie);
 
         // ===================== Execution =====================
-
         let start_time = std::time::Instant::now();
         let mut block_executor = BlockExecutor::new(self.provider.storage.chain_spec(), database);
         let senders = block.senders().expect("no senders");
