@@ -112,8 +112,7 @@ impl ConsensusEngine {
                 }
             }
             BeaconEngineMessage::TransitionConfigurationExchanged => {
-                // Implement transition configuration handling
-                todo!()
+                warn!(target: "ress::engine", "Transition configuration exchange is not supported");
             }
         }
     }
@@ -132,25 +131,26 @@ impl ConsensusEngine {
         );
 
         // ===================== Validation =====================
-
         if state.head_block_hash.is_zero() {
             return Ok(OnForkChoiceUpdated::invalid_state());
         }
-        // todo: invalid_ancestors check
 
         // Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not belong to the chain defined by forkchoiceState.headBlockHash.
-        //
-        // if forkchoiceState.headBlockHash references an unknown payload or a payload that can't be validated because requisite data for the validation is missing
-        match self.provider.storage.header_by_hash(state.head_block_hash) {
-            Some(head) => {
-                // check that the finalized and safe block hashes are canonical
-                if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
-                    return Ok(outcome);
-                }
+        // todo: invalid_ancestors check
 
-                // payload attributes, version validation
-                if let Some(attrs) = payload_attrs {
-                    if let Err(error) =
+        // if forkchoiceState.headBlockHash references an unknown payload or a payload that can't be validated because requisite data for the validation is missing
+        let Some(head) = self.provider.storage.header_by_hash(state.head_block_hash) else {
+            return Ok(OnForkChoiceUpdated::syncing());
+        };
+
+        // check that the finalized and safe block hashes are canonical
+        if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
+            return Ok(outcome);
+        }
+
+        // payload attributes, version validation
+        if let Some(attrs) = payload_attrs {
+            if let Err(error) =
                 EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
                     &self.engine_validator,
                     &attrs,
@@ -160,34 +160,31 @@ impl ConsensusEngine {
                 warn!(target: "ress::engine", %error, ?head, "Invalid payload attributes");
                 return Ok(OnForkChoiceUpdated::invalid_payload_attributes());
             }
-                }
-
-                // ===================== Handle Reorg =====================
-                let canonical_head = self.provider.storage.get_canonical_head().number;
-                if canonical_head + 1 != head.number {
-                    // fcu is pointing fork chain
-                    warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
-                    self.provider
-                        .storage
-                        .on_fcu_reorg_update(head, state.finalized_block_hash)
-                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-                } else {
-                    // fcu is on canonical chain
-                    self.provider
-                        .storage
-                        .on_fcu_update(head, state.finalized_block_hash)
-                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-                }
-
-                self.forkchoice_state = Some(state);
-
-                Ok(OnForkChoiceUpdated::valid(
-                    PayloadStatus::from_status(PayloadStatusEnum::Valid)
-                        .with_latest_valid_hash(state.head_block_hash),
-                ))
-            }
-            None => Ok(OnForkChoiceUpdated::syncing()),
         }
+
+        // ===================== Handle Reorg =====================
+        let canonical_head = self.provider.storage.get_canonical_head().number;
+        if canonical_head + 1 != head.number {
+            // fcu is pointing fork chain
+            warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
+            self.provider
+                .storage
+                .on_fcu_reorg_update(head, state.finalized_block_hash)
+                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
+        } else {
+            // fcu is on canonical chain
+            self.provider
+                .storage
+                .on_fcu_update(head, state.finalized_block_hash)
+                .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
+        }
+
+        self.forkchoice_state = Some(state);
+
+        Ok(OnForkChoiceUpdated::valid(
+            PayloadStatus::from_status(PayloadStatusEnum::Valid)
+                .with_latest_valid_hash(state.head_block_hash),
+        ))
     }
 
     /// Ensures that the given forkchoice state is consistent, assuming the head block has been
@@ -254,7 +251,6 @@ impl ConsensusEngine {
         let database = WitnessDatabase::new(self.provider.storage.clone(), &trie);
 
         // ===================== Execution =====================
-
         let start_time = std::time::Instant::now();
         let mut block_executor = BlockExecutor::new(self.provider.storage.chain_spec(), database);
         let senders = block.senders().expect("no senders");

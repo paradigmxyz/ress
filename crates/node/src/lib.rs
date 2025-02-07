@@ -23,6 +23,10 @@ pub mod root;
 /// Engine error types.
 pub mod errors;
 
+/// Invalid headers cache.
+/// Temporary port until <https://github.com/paradigmxyz/reth/pull/14297> is merged.
+pub mod invalid_headers;
+
 /// Ress node components.
 #[derive(Debug)]
 pub struct Node {

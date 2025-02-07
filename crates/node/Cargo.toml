@@ -31,6 +31,7 @@ reth-trie-sparse.workspace = true
 reth-errors.workspace = true
 reth-network-peers.workspace = true
 reth-trie.workspace = true
+reth-metrics.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
@@ -44,3 +45,5 @@ tracing.workspace = true
 thiserror.workspace = true
 rayon.workspace = true
 itertools.workspace = true
+schnellru.workspace = true
+metrics.workspace = true
