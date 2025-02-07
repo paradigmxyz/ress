@@ -46,7 +46,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::*;
 
-#[allow(dead_code)]
+#[allow(unused_imports)]
 use crate::errors::EngineError;
 use crate::root::calculate_state_root;
 
@@ -279,9 +279,6 @@ impl ConsensusEngine {
         if self.provider.storage.header_by_hash(block.hash()).is_some() {
             return Ok(InsertPayloadOk::AlreadySeen(BlockStatus::Valid));
         }
-
-        // TODO:
-        // let _start = Instant::now();
 
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
         self.validate_block(&block)?;
