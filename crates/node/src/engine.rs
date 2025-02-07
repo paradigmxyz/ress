@@ -1,7 +1,5 @@
 use alloy_primitives::map::B256HashSet;
 use alloy_primitives::U256;
-use alloy_rpc_types_engine::ExecutionPayload;
-use alloy_rpc_types_engine::ExecutionPayloadSidecar;
 use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -21,6 +19,7 @@ use reth_errors::RethError;
 use reth_errors::RethResult;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::EngineValidator;
+use reth_node_api::ExecutionData;
 use reth_node_api::OnForkChoiceUpdated;
 use reth_node_api::PayloadTypes;
 use reth_node_api::PayloadValidator;
@@ -82,12 +81,8 @@ impl ConsensusEngine {
 
     async fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
         match message {
-            BeaconEngineMessage::NewPayload {
-                payload,
-                sidecar,
-                tx,
-            } => {
-                let outcome = match self.on_new_payload(payload, sidecar).await {
+            BeaconEngineMessage::NewPayload { payload, tx } => {
+                let outcome = match self.on_new_payload(payload).await {
                     Ok(status) => status,
                     Err(error) => {
                         error!(target: "ress::engine", ?error, "Error on new payload");
@@ -216,18 +211,14 @@ impl ConsensusEngine {
         Ok(())
     }
 
-    async fn on_new_payload(
-        &self,
-        payload: ExecutionPayload,
-        sidecar: ExecutionPayloadSidecar,
-    ) -> Result<PayloadStatus, EngineError> {
-        let block_number = payload.block_number();
-        let block_hash = payload.block_hash();
-        info!(target: "ress::engine", %block_hash, block_number, "👋 new payload");
+    async fn on_new_payload(&self, payload: ExecutionData) -> Result<PayloadStatus, EngineError> {
+        let block_number = payload.payload.block_number();
+        let block_hash = payload.payload.block_hash();
+        let parent_hash = payload.payload.parent_hash();
+        info!(target: "ress::engine", %block_hash, block_number, %parent_hash, "👋 new payload");
 
         // ===================== Validation =====================
         // todo: invalid_ancestors check
-        let parent_hash = payload.parent_hash();
         let parent =
             self.provider
                 .storage
@@ -237,9 +228,7 @@ impl ConsensusEngine {
                 ))?;
         let parent_header: SealedHeader = SealedHeader::new(parent, parent_hash);
         let state_root_of_parent = parent_header.state_root;
-        let block = self
-            .engine_validator
-            .ensure_well_formed_payload(payload, sidecar)?;
+        let block = self.engine_validator.ensure_well_formed_payload(payload)?;
         self.validate_block(&block, parent_header)?;
 
         // ===================== Witness =====================

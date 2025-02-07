@@ -1,10 +1,10 @@
 use alloy_primitives::{map::B256HashMap, Bytes, B256};
-use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_provider::Provider;
+use alloy_provider::RootProvider;
+use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{BlockNumberOrTag, BlockTransactionsKind};
-use alloy_transport_http::Http;
 use parking_lot::RwLock;
-use reqwest::Client;
 use ress_protocol::RessProtocolProvider;
 use reth_primitives::Header;
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
@@ -13,16 +13,16 @@ use std::{collections::HashMap, sync::Arc};
 /// RPC adapter that implements [`RessProtocolProvider`].
 #[derive(Clone, Debug)]
 pub struct RpcAdapterProvider {
-    provider: RootProvider<Http<reqwest::Client>>,
+    provider: RootProvider,
     bytecodes: Arc<RwLock<HashMap<B256, Bytes>>>,
 }
 
 impl RpcAdapterProvider {
     /// Create new RPC adapter.
     pub fn new(url: &str) -> eyre::Result<Self> {
-        let provider = ProviderBuilder::new().on_http(url.parse()?);
+        let client = ClientBuilder::default().http(url.parse()?);
         Ok(Self {
-            provider,
+            provider: RootProvider::new(client),
             bytecodes: Arc::new(RwLock::default()),
         })
     }
@@ -62,10 +62,7 @@ impl RessProtocolProvider for RpcAdapterProvider {
     }
 }
 
-async fn get_header_by_hash(
-    provider: RootProvider<Http<Client>>,
-    block_hash: B256,
-) -> eyre::Result<Header> {
+async fn get_header_by_hash(provider: RootProvider, block_hash: B256) -> eyre::Result<Header> {
     let block = provider
         .get_block_by_hash(block_hash, BlockTransactionsKind::Hashes)
         .await?
@@ -74,7 +71,7 @@ async fn get_header_by_hash(
 }
 
 async fn get_witness_by_hash(
-    provider: RootProvider<Http<Client>>,
+    provider: RootProvider,
     block_hash: B256,
 ) -> eyre::Result<ExecutionWitness> {
     let block = provider
