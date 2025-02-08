@@ -25,7 +25,6 @@ use reth_engine_tree::tree::BlockStatus;
 use reth_engine_tree::tree::InsertPayloadOk;
 use reth_engine_tree::tree::InvalidHeaderCache;
 use reth_errors::ProviderError;
-use reth_errors::RethError;
 use reth_errors::RethResult;
 use reth_ethereum_engine_primitives::EthPayloadBuilderAttributes;
 use reth_node_api::BeaconEngineMessage;
