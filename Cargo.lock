@@ -5542,6 +5542,7 @@ dependencies = [
  "reth-consensus",
  "reth-engine-tree",
  "reth-errors",
+ "reth-ethereum-engine-primitives",
  "reth-network-peers",
  "reth-node-api",
  "reth-node-ethereum",

@@ -90,9 +90,9 @@ ress-testing = { path = "crates/testing" }
 reth = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 
 ## primitives/types
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }
 reth-errors = { git = "https://github.com/paradigmxyz/reth", rev = "5a714cd" }

@@ -2,11 +2,11 @@ use alloy_primitives::map::B256HashSet;
 use alloy_primitives::B256;
 use alloy_primitives::U256;
 use alloy_rpc_types_engine::ForkchoiceState;
+use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_engine::PayloadStatus;
 use alloy_rpc_types_engine::PayloadStatusEnum;
 use alloy_rpc_types_engine::PayloadValidationError;
 use rayon::iter::IntoParallelRefIterator;
-use ress_provider::errors::StorageError;
 use ress_provider::provider::RessProvider;
 use ress_vm::db::WitnessDatabase;
 use ress_vm::errors::EvmError;
@@ -27,12 +27,14 @@ use reth_engine_tree::tree::InvalidHeaderCache;
 use reth_errors::ProviderError;
 use reth_errors::RethError;
 use reth_errors::RethResult;
+use reth_ethereum_engine_primitives::EthPayloadBuilderAttributes;
 use reth_node_api::BeaconEngineMessage;
 use reth_node_api::BeaconOnNewPayloadError;
+use reth_node_api::EngineApiMessageVersion;
 use reth_node_api::EngineValidator;
 use reth_node_api::ExecutionData;
 use reth_node_api::OnForkChoiceUpdated;
-use reth_node_api::PayloadTypes;
+use reth_node_api::PayloadBuilderAttributes;
 use reth_node_api::PayloadValidator;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_node_ethereum::node::EthereumEngineValidator;
@@ -40,6 +42,7 @@ use reth_node_ethereum::EthEngineTypes;
 use reth_primitives::Block;
 use reth_primitives::EthPrimitives;
 use reth_primitives::GotExpected;
+use reth_primitives::Header;
 use reth_primitives::SealedBlock;
 use reth_primitives_traits::SealedHeader;
 use reth_trie::HashedPostState;
@@ -111,9 +114,14 @@ impl ConsensusEngine {
                 state,
                 payload_attrs,
                 tx,
-                version: _,
+                version,
             } => {
-                let outcome = self.on_forkchoice_update(state, payload_attrs);
+                let outcome = self.on_forkchoice_update(state, payload_attrs, version);
+                if let Ok(updated) = &outcome {
+                    if updated.forkchoice_status().is_valid() {
+                        self.forkchoice_state = Some(state);
+                    }
+                }
                 if let Err(error) = tx.send(outcome) {
                     error!(target: "ress::engine", ?error, "Failed to send forkchoice outcome");
                 }
@@ -128,7 +136,8 @@ impl ConsensusEngine {
     fn on_forkchoice_update(
         &mut self,
         state: ForkchoiceState,
-        payload_attrs: Option<<EthEngineTypes as PayloadTypes>::PayloadAttributes>,
+        payload_attrs: Option<PayloadAttributes>,
+        version: EngineApiMessageVersion,
     ) -> RethResult<OnForkChoiceUpdated> {
         info!(
             target: "ress::engine",
@@ -139,61 +148,129 @@ impl ConsensusEngine {
         );
 
         // ===================== Validation =====================
-        if state.head_block_hash.is_zero() {
-            return Ok(OnForkChoiceUpdated::invalid_state());
+        if let Some(on_updated) = self.pre_validate_forkchoice_update(state) {
+            return Ok(on_updated);
         }
-        // todo: invalid_ancestors check
 
-        // Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not belong to the chain defined by forkchoiceState.headBlockHash.
+        // Process the forkchoice update by trying to make the head block canonical
         //
-        // if forkchoiceState.headBlockHash references an unknown payload or a payload that can't be validated because requisite data for the validation is missing
-        match self.provider.storage.header_by_hash(state.head_block_hash) {
-            Some(head) => {
-                // check that the finalized and safe block hashes are canonical
-                if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
-                    return Ok(outcome);
-                }
+        // We can only process this forkchoice update if:
+        // - we have the `head` block
+        // - the head block is part of a chain that is connected to the canonical chain. This
+        //   includes reorgs.
+        //
+        // Performing a FCU involves:
+        // - marking the FCU's head block as canonical
+        // - updating in memory state to reflect the new canonical chain
+        // - updating canonical state trackers
+        // - emitting a canonicalization event for the new chain (including reorg)
+        // - if we have payload attributes, delegate them to the payload service
 
-                // payload attributes, version validation
-                if let Some(attrs) = payload_attrs {
-                    if let Err(error) =
-                        EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
-                            &self.engine_validator,
-                            &attrs,
-                            &head,
-                        )
-                    {
-                        warn!(target: "ress::engine", %error, ?head, "Invalid payload attributes");
-                        return Ok(OnForkChoiceUpdated::invalid_payload_attributes());
-                    }
-                }
+        // 1. ensure we have a new head block
+        if self.provider.storage.get_canonical_head().hash == state.head_block_hash {
+            trace!(target: "ress::engine", "fcu head hash is already canonical");
 
-                // ===================== Handle Reorg =====================
-                let canonical_head = self.provider.storage.get_canonical_head().number;
-                if canonical_head + 1 != head.number {
-                    // fcu is pointing fork chain
-                    warn!(target: "ress::engine", block_number = head.number, ?canonical_head, "Reorg or hash inconsistency detected");
-                    self.provider
-                        .storage
-                        .on_fcu_reorg_update(head, state.finalized_block_hash)
-                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-                } else {
-                    // fcu is on canonical chain
-                    self.provider
-                        .storage
-                        .on_fcu_update(head, state.finalized_block_hash)
-                        .map_err(|e: StorageError| RethError::Other(Box::new(e)))?;
-                }
-
-                self.forkchoice_state = Some(state);
-
-                Ok(OnForkChoiceUpdated::valid(
-                    PayloadStatus::from_status(PayloadStatusEnum::Valid)
-                        .with_latest_valid_hash(state.head_block_hash),
-                ))
+            // update the safe and finalized blocks and ensure their values are valid
+            if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
+                // safe or finalized hashes are invalid
+                return Ok(outcome);
             }
-            None => Ok(OnForkChoiceUpdated::syncing()),
+
+            // we still need to process payload attributes if the head is already canonical
+            if let Some(attr) = payload_attrs {
+                let head = self.provider.storage.get_canonical_head();
+                let tip = self.provider.storage.header(head.hash).ok_or_else(|| {
+                    // If we can't find the canonical block, then something is wrong and we need
+                    // to return an error
+                    ProviderError::HeaderNotFound(state.head_block_hash.into())
+                })?;
+                if let Some(status) = self.validate_payload_attributes(attr, &tip, state, version) {
+                    return Ok(status); // payload attributes are invalid
+                }
+            }
+
+            // the head block is already canonical
+            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::new(
+                PayloadStatusEnum::Valid,
+                Some(state.head_block_hash),
+            )));
         }
+
+        // 2. ensure we can apply a new chain update for the head block
+        if let Some(chain_update) = self.on_new_head(state.head_block_hash) {
+            let tip = chain_update.tip().clone();
+            self.on_canonical_chain_update(chain_update);
+
+            // update the safe and finalized blocks and ensure their values are valid
+            if let Err(outcome) = self.ensure_consistent_forkchoice_state(state) {
+                // safe or finalized hashes are invalid
+                return Ok(outcome);
+            }
+
+            // TODO: figure out why this causes 2 additional hive failures
+            // self.provider
+            //     .storage
+            //     .on_new_finalized_hash(state.finalized_block_hash)
+            //     .map_err(RethError::other)?;
+
+            if let Some(attr) = payload_attrs {
+                if let Some(status) = self.validate_payload_attributes(attr, &tip, state, version) {
+                    return Ok(status); // payload attributes are invalid
+                }
+            }
+
+            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::new(
+                PayloadStatusEnum::Valid,
+                Some(state.head_block_hash),
+            )));
+        }
+
+        // 3. check if the head is already part of the canonical chain
+        if let Some(header) = self.provider.storage.header(state.head_block_hash) {
+            debug!(target: "ress::engine", head = header.number, "fcu head block is already canonical");
+
+            // 2. Client software MAY skip an update of the forkchoice state and MUST NOT begin a
+            //    payload build process if `forkchoiceState.headBlockHash` references a `VALID`
+            //    ancestor of the head of canonical chain, i.e. the ancestor passed payload
+            //    validation process and deemed `VALID`. In the case of such an event, client
+            //    software MUST return `{payloadStatus: {status: VALID, latestValidHash:
+            //    forkchoiceState.headBlockHash, validationError: null}, payloadId: null}`
+
+            // the head block is already canonical, so we're not triggering a payload job and can
+            // return right away
+            return Ok(OnForkChoiceUpdated::valid(PayloadStatus::new(
+                PayloadStatusEnum::Valid,
+                Some(state.head_block_hash),
+            )));
+        }
+
+        // TODO: download missing block(s)
+        // ref: <https://github.com/paradigmxyz/reth/blob/d147a2093ec6d0a463610292e30a91fced6c44d7/crates/engine/tree/src/tree/mod.rs#L1227-L1245>
+
+        Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+            PayloadStatusEnum::Syncing,
+        )))
+    }
+
+    /// Pre-validate forkchoice update and check whether it can be processed.
+    ///
+    /// This method returns the update outcome if validation fails or
+    /// the node is syncing and the update cannot be processed at the moment.
+    fn pre_validate_forkchoice_update(
+        &mut self,
+        state: ForkchoiceState,
+    ) -> Option<OnForkChoiceUpdated> {
+        if state.head_block_hash.is_zero() {
+            return Some(OnForkChoiceUpdated::invalid_state());
+        }
+
+        // check if the new head hash is connected to any ancestor that we previously marked as invalid
+        let lowest_buffered_ancestor_fcu = self.lowest_buffered_ancestor_or(state.head_block_hash);
+        if let Some(status) = self.check_invalid_ancestor(lowest_buffered_ancestor_fcu) {
+            return Some(OnForkChoiceUpdated::with_invalid(status));
+        }
+
+        None
     }
 
     /// Ensures that the given forkchoice state is consistent, assuming the head block has been
@@ -220,6 +297,144 @@ impl ConsensusEngine {
         }
 
         Ok(())
+    }
+
+    /// Returns the new chain for the given head.
+    ///
+    /// This also handles reorgs.
+    ///
+    /// Note: This does not update the tracked state and instead returns the new chain based on the
+    /// given head.
+    fn on_new_head(&self, new_head: B256) -> Option<NewCanonicalChain> {
+        let new_head_block = self.provider.storage.sealed_header(new_head)?;
+
+        let mut current_canonical_number = self.provider.storage.get_canonical_head().number;
+        let (mut current_number, mut current_hash) =
+            new_head_block.parent_num_hash().into_components();
+        let mut new_chain = vec![new_head_block];
+
+        // Walk back the new chain until we reach a block we know about
+        //
+        // This is only done for in-memory blocks, because we should not have persisted any blocks
+        // that are _above_ the current canonical head.
+        while current_number > current_canonical_number {
+            if let Some(header) = self.provider.storage.sealed_header(current_hash) {
+                current_hash = header.parent_hash;
+                current_number -= 1;
+                new_chain.push(header);
+            } else {
+                // This should never happen as we're walking back a chain that should connect to the canonical chain.
+                warn!(target: "ress::engine", %current_hash, "Sidechain block not found in TreeState");
+                return None;
+            }
+        }
+
+        // If we have reached the current canonical head by walking back from the target, then we
+        // know this represents an extension of the canonical chain.
+        if current_hash == self.provider.storage.get_canonical_head().hash {
+            new_chain.reverse();
+            return Some(NewCanonicalChain::Commit { new: new_chain });
+        }
+
+        // We have a reorg. Walk back both chains to find the fork point.
+        let mut old_chain = Vec::new();
+        let mut old_hash = self.provider.storage.get_canonical_head().hash;
+
+        // If the canonical chain is ahead of the new chain,
+        // gather all blocks until new head number.
+        while current_canonical_number > current_number {
+            if let Some(header) = self.provider.storage.sealed_header(old_hash) {
+                old_hash = header.parent_hash;
+                current_canonical_number -= 1;
+                old_chain.push(header);
+            } else {
+                // This shouldn't happen as we're walking back the canonical chain
+                warn!(target: "engine::tree", current_hash=?old_hash, "Canonical block not found in TreeState");
+                return None;
+            }
+        }
+
+        // Both new and old chain pointers are now at the same height.
+        debug_assert_eq!(current_number, current_canonical_number);
+
+        // Walk both chains from specified hashes at same height until
+        // a common ancestor (fork block) is reached.
+        while old_hash != current_hash {
+            if let Some(header) = self.provider.storage.sealed_header(old_hash) {
+                old_hash = header.parent_hash;
+                old_chain.push(header);
+            } else {
+                // This shouldn't happen as we're walking back the canonical chain
+                warn!(target: "engine::tree", current_hash=?old_hash, "Canonical block not found in TreeState");
+                return None;
+            }
+
+            if let Some(header) = self.provider.storage.sealed_header(current_hash) {
+                current_hash = header.parent_hash;
+                new_chain.push(header);
+            } else {
+                // This shouldn't happen as we've already walked this path
+                warn!(target: "engine::tree", invalid_hash=?current_hash, "New chain block not found in TreeState");
+                return None;
+            }
+        }
+        new_chain.reverse();
+        old_chain.reverse();
+
+        Some(NewCanonicalChain::Reorg {
+            new: new_chain,
+            old: old_chain,
+        })
+    }
+
+    /// Validates the payload attributes with respect to the header and fork choice state.
+    ///
+    /// Note: At this point, the fork choice update is considered to be VALID, however, we can still
+    /// return an error if the payload attributes are invalid.
+    fn validate_payload_attributes(
+        &self,
+        attrs: PayloadAttributes,
+        head: &Header,
+        state: ForkchoiceState,
+        version: EngineApiMessageVersion,
+    ) -> Option<OnForkChoiceUpdated> {
+        if let Err(err) =
+            EngineValidator::<EthEngineTypes>::validate_payload_attributes_against_header(
+                &self.engine_validator,
+                &attrs,
+                head,
+            )
+        {
+            warn!(target: "engine::tree", %err, ?head, "Invalid payload attributes");
+            return Some(OnForkChoiceUpdated::invalid_payload_attributes());
+        }
+
+        // 8. Client software MUST begin a payload build process building on top of
+        //    forkchoiceState.headBlockHash and identified via buildProcessId value if
+        //    payloadAttributes is not null and the forkchoice state has been updated successfully.
+        //    The build process is specified in the Payload building section.
+        if EthPayloadBuilderAttributes::try_new(state.head_block_hash, attrs, version as u8)
+            .is_err()
+        {
+            return Some(OnForkChoiceUpdated::invalid_payload_attributes());
+        }
+
+        None
+    }
+
+    /// Invoked when we the canonical chain has been updated.
+    ///
+    /// This is invoked on a valid forkchoice update, or if we can make the target block canonical.
+    fn on_canonical_chain_update(&mut self, update: NewCanonicalChain) {
+        trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
+        self.provider
+            .storage
+            .set_canonical_head(update.tip().num_hash());
+        let (new, old) = match update {
+            NewCanonicalChain::Commit { new } => (new, Vec::new()),
+            NewCanonicalChain::Reorg { new, old } => (new, old),
+        };
+        self.provider.storage.on_chain_update(new, old);
     }
 
     async fn on_new_payload(
@@ -300,14 +515,14 @@ impl ConsensusEngine {
             .try_recover()
             .map_err(|_| InsertBlockErrorKind::SenderRecovery)?;
 
-        if self.provider.storage.header_by_hash(block.hash()).is_some() {
+        if self.provider.storage.header(block.hash()).is_some() {
             return Ok(InsertPayloadOk::AlreadySeen(BlockStatus::Valid));
         }
 
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
         self.validate_block(&block)?;
 
-        let Some(parent) = self.provider.storage.header_by_hash(block.parent_hash) else {
+        let Some(parent) = self.provider.storage.header(block.parent_hash) else {
             // we don't have the state required to execute this block, buffering it and find the
             // missing parent block
             let missing_ancestor = self
@@ -417,13 +632,22 @@ impl ConsensusEngine {
         Some(status)
     }
 
+    /// Checks if the given `head` points to an invalid header, which requires a specific response
+    /// to a forkchoice update.
+    fn check_invalid_ancestor(&mut self, head: B256) -> Option<PayloadStatus> {
+        // check if the head was previously marked as invalid
+        let header = self.invalid_headers.get(&head)?;
+        // populate the latest valid hash field
+        Some(self.prepare_invalid_response(header.parent))
+    }
+
     /// Prepares the invalid payload response for the given hash, checking the
     /// database for the parent hash and populating the payload status with the latest valid hash
     /// according to the engine api spec.
     fn prepare_invalid_response(&mut self, mut parent_hash: B256) -> PayloadStatus {
         // Edge case: the `latestValid` field is the zero hash if the parent block is the terminal
         // PoW block, which we need to identify by looking at the parent's block difficulty
-        if let Some(parent) = self.provider.storage.header_by_hash(parent_hash) {
+        if let Some(parent) = self.provider.storage.header(parent_hash) {
             if !parent.difficulty.is_zero() {
                 parent_hash = B256::ZERO;
             }
@@ -493,7 +717,7 @@ impl ConsensusEngine {
     ///     the above conditions.
     fn latest_valid_hash_for_invalid_payload(&mut self, parent_hash: B256) -> Option<B256> {
         // Check if parent exists in side chain or in canonical chain.
-        if self.provider.storage.header_by_hash(parent_hash).is_some() {
+        if self.provider.storage.header(parent_hash).is_some() {
             return Some(parent_hash);
         }
 
@@ -507,9 +731,7 @@ impl ConsensusEngine {
 
             // If current_header is None, then the current_hash does not have an invalid
             // ancestor in the cache, check its presence in blockchain tree
-            if current_block.is_none()
-                && self.provider.storage.header_by_hash(current_hash).is_some()
-            {
+            if current_block.is_none() && self.provider.storage.header(current_hash).is_some() {
                 return Some(current_hash);
             }
         }
@@ -545,5 +767,50 @@ impl ConsensusEngine {
             },
             latest_valid_hash,
         ))
+    }
+}
+
+/// Non-empty chain of blocks.
+#[derive(Debug)]
+pub enum NewCanonicalChain {
+    /// A simple append to the current canonical head.
+    Commit {
+        /// All blocks that lead back to the canonical head
+        new: Vec<SealedHeader>,
+    },
+    /// A reorged chain consists of two chains that trace back to a shared ancestor block at which.
+    /// point they diverge.
+    Reorg {
+        /// All blocks of the _new_ chain.
+        new: Vec<SealedHeader>,
+        /// All blocks of the _old_ chain.
+        old: Vec<SealedHeader>,
+    },
+}
+
+impl NewCanonicalChain {
+    /// Returns the new tip of the chain.
+    ///
+    /// Returns the new tip for [`Self::Reorg`] and [`Self::Commit`] variants which commit at least
+    /// 1 new block.
+    pub fn tip(&self) -> &SealedHeader {
+        match self {
+            Self::Commit { new } | Self::Reorg { new, .. } => new.last().expect("non empty blocks"),
+        }
+    }
+
+    /// Returns the length of the new chain.
+    pub fn new_block_count(&self) -> usize {
+        match self {
+            Self::Commit { new } | Self::Reorg { new, .. } => new.len(),
+        }
+    }
+
+    /// Returns the length of the reorged chain.
+    pub fn reorged_block_count(&self) -> usize {
+        match self {
+            Self::Commit { .. } => 0,
+            Self::Reorg { old, .. } => old.len(),
+        }
     }
 }

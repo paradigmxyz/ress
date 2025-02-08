@@ -3,7 +3,11 @@ use alloy_primitives::{BlockHash, BlockNumber, B256};
 use parking_lot::RwLock;
 use reth_primitives::Header;
 use std::{
-    collections::{btree_map, hash_map, BTreeMap, HashMap, HashSet},
+    collections::{
+        btree_map,
+        hash_map::{self, Entry},
+        BTreeMap, HashMap, HashSet,
+    },
     sync::Arc,
 };
 use tracing::debug;
@@ -92,16 +96,17 @@ impl MemoryStorageInner {
 
         // First, let's walk back the canonical chain and remove canonical blocks lower than the
         // upper bound
-        let mut current_block = self.current_canonical_head.hash;
-        while let Some(executed) = self.headers_by_hash.get(&current_block) {
-            current_block = executed.parent_hash;
-            // we don't want to remove upperbound
-            if executed.number < upper_bound {
-                debug!(target: "engine::tree", number=?executed.number, "Attempting to remove block walking back from the head");
-                if let Some((removed, _)) = self.remove_by_hash(executed.hash_slow()) {
-                    debug!(target: "engine::tree", number=?removed.number, "Removed block walking back from the head");
+        let mut current_hash = self.current_canonical_head.hash;
+        while let Some(header) = self.headers_by_hash.get(&current_hash) {
+            let next_hash = header.parent_hash;
+            // we don't want to remove upper bound
+            if header.number < upper_bound {
+                debug!(target: "engine::tree", number=header.number, "Attempting to remove block walking back from the head");
+                if let Some((removed, _)) = self.remove_by_hash(current_hash) {
+                    debug!(target: "engine::tree", number=removed.number, "Removed block walking back from the head");
                 }
             }
+            current_hash = next_hash;
         }
         debug!(target: "engine::tree", ?upper_bound, ?last_persisted_hash, "Removed canonical blocks from the tree");
     }
@@ -112,10 +117,10 @@ impl MemoryStorageInner {
     ///
     /// The removed block and the block hashes of its children.
     fn remove_by_hash(&mut self, hash: B256) -> Option<(Header, HashSet<B256>)> {
-        let executed = self.headers_by_hash.remove(&hash)?;
+        let header = self.headers_by_hash.remove(&hash)?;
 
         // Remove this block from collection of children of its parent block.
-        let parent_entry = self.parent_to_child.entry(executed.parent_hash);
+        let parent_entry = self.parent_to_child.entry(header.parent_hash);
         if let hash_map::Entry::Occupied(mut entry) = parent_entry {
             entry.get_mut().remove(&hash);
 
@@ -128,7 +133,7 @@ impl MemoryStorageInner {
         let children = self.parent_to_child.remove(&hash).unwrap_or_default();
 
         // Remove this block from `headers_by_number`.
-        let block_number_entry = self.headers_by_number.entry(executed.number);
+        let block_number_entry = self.headers_by_number.entry(header.number);
         if let btree_map::Entry::Occupied(mut entry) = block_number_entry {
             // We have to find the index of the block since it exists in a vec
             if let Some(index) = entry.get().iter().position(|b| b.hash_slow() == hash) {
@@ -141,7 +146,7 @@ impl MemoryStorageInner {
             }
         }
 
-        Some((executed, children))
+        Some((header, children))
     }
 
     /// Insert header into the state.
@@ -248,21 +253,27 @@ impl MemoryStorage {
         inner.insert_header(header);
     }
 
+    /// Inserts canonical hash for block number.
+    pub(crate) fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+        self.inner.write().canonical_hashes.insert(number, hash);
+    }
+
+    /// Remove canonical hash for block number if it matches.
+    pub(crate) fn remove_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+        let mut inner = self.inner.write();
+        if let Entry::Occupied(entry) = inner.canonical_hashes.entry(number) {
+            if entry.get() == &hash {
+                entry.remove();
+            }
+        }
+    }
+
     /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
         let inner = self.inner.read();
         inner.is_canonical_lookup(hash)
-    }
-
-    pub(crate) fn remove_oldest_canonical_hash(&self) {
-        let mut inner = self.inner.write();
-        // todo: we might want to track more hashes
-        if inner.canonical_hashes.len() > 256 {
-            let oldest_block_number = *inner.canonical_hashes.keys().min().unwrap();
-            let _ = inner.canonical_hashes.remove(&oldest_block_number);
-        }
     }
 
     pub(crate) fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
@@ -316,32 +327,5 @@ impl MemoryStorage {
     pub(crate) fn set_canonical_head(&self, new_head: BlockNumHash) {
         let mut inner = self.inner.write();
         inner.set_canonical_head(new_head);
-    }
-
-    pub(crate) fn rebuild_canonical_hashes(
-        &self,
-        new_head: BlockNumHash,
-    ) -> Result<(), MemoryStorageError> {
-        let mut inner = self.inner.write();
-        inner.set_canonical_head(new_head);
-        inner.canonical_hashes.clear();
-        let mut current_hash = new_head.hash;
-        let current_num = new_head.number;
-        let range = (current_num.saturating_sub(255))..=current_num;
-
-        // Traverse up to 256 blocks or genesis
-        for block_number in range {
-            inner.canonical_hashes.insert(block_number, current_hash);
-            if block_number != 0 && current_hash != B256::ZERO {
-                let header = inner.headers_by_hash.get(&current_hash).cloned();
-                if let Some(header) = header {
-                    current_hash = header.parent_hash;
-                } else {
-                    break; // Exit the loop if the block is not found, as it's before finalized block
-                }
-            }
-        }
-
-        Ok(())
     }
 }

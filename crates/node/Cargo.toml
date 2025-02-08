@@ -32,6 +32,7 @@ reth-errors.workspace = true
 reth-network-peers.workspace = true
 reth-trie.workspace = true
 reth-engine-tree.workspace = true
+reth-ethereum-engine-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
