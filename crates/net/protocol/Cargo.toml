@@ -39,5 +39,4 @@ proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 
 [features]
-default = ["arbitrary"]
 arbitrary = ["dep:arbitrary", "reth-eth-wire/arbitrary"]
