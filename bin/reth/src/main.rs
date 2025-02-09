@@ -1,22 +1,29 @@
 //! Reth node that supports ress subprotocol.
 
+use alloy_consensus::BlockHeader as _;
 use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use futures::StreamExt;
+use parking_lot::RwLock;
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
     providers::{
         providers::{BlockchainProvider, ProviderNodeTypes},
-        BlockReader, BlockSource, ProviderError, ProviderResult, StateProviderFactory,
-        TransactionVariant,
+        BlockReader, BlockSource, ProviderError, ProviderResult, StateProvider,
+        StateProviderFactory,
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
+use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
-use reth_node_builder::{Block, NodeHandle, NodeTypesWithDB};
+use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
-use reth_primitives::{EthPrimitives, Header};
+use reth_primitives::{Block, Bytecode};
+use reth_primitives::{EthPrimitives, Header, RecoveredBlock};
+use reth_tokio_util::EventStream;
+use reth_trie::TrieInput;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
-use tracing::debug;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -26,11 +33,20 @@ fn main() -> eyre::Result<()> {
             node_exit_future,
         } = builder.node(EthereumNode::default()).launch().await?;
 
+        let pending_state = PendingState::default();
+
+        // Spawn maintenance task for
+        let events = node.event_sender.new_listener();
+        let pending_ = pending_state.clone();
+        node.task_executor
+            .spawn(maintain_pending_state(events, pending_));
+
         // add the custom network subprotocol to the launched node
-        let (tx, mut _from_peer0) = mpsc::unbounded_channel();
+        let (tx, mut _rx) = mpsc::unbounded_channel();
         let provider = RethBlockchainProvider {
             provider: node.provider,
             block_executor: node.block_executor,
+            pending_state,
         };
         let protocol_handler = RessProtocolHandler {
             provider,
@@ -49,6 +65,33 @@ fn main() -> eyre::Result<()> {
 struct RethBlockchainProvider<N: NodeTypesWithDB, E> {
     provider: BlockchainProvider<N>,
     block_executor: E,
+    pending_state: PendingState,
+}
+
+impl<N, E> RethBlockchainProvider<N, E>
+where
+    N: ProviderNodeTypes<Primitives = EthPrimitives>,
+    E: BlockExecutorProvider<Primitives = N::Primitives>,
+{
+    fn block_by_hash(
+        &self,
+        block_hash: B256,
+    ) -> ProviderResult<Option<Arc<RecoveredBlock<Block>>>> {
+        // NOTE: we keep track of the pending state locally because reth does not provider a way
+        // to access non-canonical blocks via the provider.
+        let maybe_block = if let Some(block) = self.pending_state.recovered_block(&block_hash) {
+            Some(block)
+        } else if let Some(block) = self
+            .provider
+            .find_block_by_hash(block_hash, BlockSource::Any)?
+        {
+            let signers = block.recover_signers()?;
+            Some(Arc::new(block.into_recovered_with_signers(signers)))
+        } else {
+            None
+        };
+        Ok(maybe_block)
+    }
 }
 
 impl<N, E> RessProtocolProvider for RethBlockchainProvider<N, E>
@@ -57,45 +100,48 @@ where
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
-        let block = self
-            .provider
-            .block_with_senders(block_hash.into(), TransactionVariant::default())?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(block.header().clone()))
+        Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        Ok(self
-            .provider
-            .latest()?
-            .bytecode_by_hash(&code_hash)?
-            .map(|bytecode| bytecode.original_bytes()))
+        let maybe_bytecode = 'bytecode: {
+            if let Some(bytecode) = self.pending_state.find_bytecode(code_hash) {
+                break 'bytecode Some(bytecode);
+            }
+
+            self.provider.latest()?.bytecode_by_hash(&code_hash)?
+        };
+
+        Ok(maybe_bytecode.map(|bytecode| bytecode.original_bytes()))
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        // TODO: this is a workaround because reth's `find_block_by_hash` does not work as expected
-        let block = if let Some(pending) = self
-            .provider
-            .pending_block_with_senders()?
-            .filter(|b| b.hash() == block_hash)
-        {
-            pending
-        } else if let Some(block) = self
-            .provider
-            .block_with_senders(block_hash.into(), TransactionVariant::default())?
-        {
-            block
-        } else {
-            let block = self
-                .provider
-                .find_block_by_hash(block_hash, BlockSource::Any)?
-                .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-            let signers = block.recover_signers()?;
-            block.into_recovered_with_signers(signers)
+        let block = self
+            .block_by_hash(block_hash)?
+            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+
+        let mut executed_ancestors = Vec::new();
+        let mut ancestor_hash = block.parent_hash();
+        let historical = 'sp: loop {
+            match self.provider.state_by_block_hash(ancestor_hash) {
+                Ok(state_provider) => break 'sp state_provider,
+                Err(_) => {
+                    let executed = self
+                        .pending_state
+                        .executed_block(&ancestor_hash)
+                        .ok_or(ProviderError::StateForHashNotFound(ancestor_hash))?;
+                    ancestor_hash = executed.sealed_block().parent_hash();
+                    executed_ancestors.push(ExecutedBlockWithTrieUpdates {
+                        block: executed,
+                        trie: Arc::new(Default::default()),
+                    });
+                }
+            };
         };
-        debug!(?block_hash, "fetched block: {:?}", block);
-        let state_provider = self.provider.state_by_block_hash(block.parent_hash)?;
-        let db = StateProviderDatabase::new(&state_provider);
+        let db = StateProviderDatabase::new(MemoryOverlayStateProvider::new(
+            historical,
+            executed_ancestors.clone(),
+        ));
         let mut record = ExecutionWitnessRecord::default();
         let _ = self
             .block_executor
@@ -104,8 +150,69 @@ where
                 record.record_executed_state(state);
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
-        Ok(Some(
-            state_provider.witness(Default::default(), record.hashed_state)?,
-        ))
+
+        // NOTE: there might be a race condition where target ancestor hash gets evicted from the database.
+        let witness_state_provider = self.provider.state_by_block_hash(ancestor_hash)?;
+        let mut trie_input = TrieInput::default();
+        for block in executed_ancestors.into_iter().rev() {
+            trie_input.append_ref(&block.hashed_state);
+        }
+        let witness = witness_state_provider.witness(trie_input, record.hashed_state)?;
+        Ok(Some(witness))
+    }
+}
+
+#[derive(Default, Debug)]
+struct PendingStateInner {
+    blocks_by_hash: HashMap<B256, ExecutedBlock>,
+    // TODO: block_hashes_by_number: BTreeMap<BlockNumber, HashSet<B256>>,
+}
+
+#[derive(Clone, Default, Debug)]
+struct PendingState(Arc<RwLock<PendingStateInner>>);
+
+impl PendingState {
+    fn insert_block(&self, block: ExecutedBlock) {
+        let block_hash = block.recovered_block.hash();
+        self.0.write().blocks_by_hash.insert(block_hash, block);
+    }
+
+    fn executed_block(&self, hash: &B256) -> Option<ExecutedBlock> {
+        self.0.read().blocks_by_hash.get(hash).cloned()
+    }
+
+    fn recovered_block(&self, hash: &B256) -> Option<Arc<RecoveredBlock<Block>>> {
+        self.executed_block(hash).map(|b| b.recovered_block.clone())
+    }
+
+    fn find_bytecode(&self, code_hash: B256) -> Option<Bytecode> {
+        for block in self.0.read().blocks_by_hash.values() {
+            if let Some(contract) = block.execution_output.bytecode(&code_hash) {
+                return Some(contract);
+            }
+        }
+        None
+    }
+}
+
+async fn maintain_pending_state(
+    mut events: EventStream<BeaconConsensusEngineEvent>,
+    state: PendingState,
+) {
+    while let Some(event) = events.next().await {
+        match event {
+            BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _)
+            | BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
+                state.insert_block(block);
+            }
+            BeaconConsensusEngineEvent::ForkchoiceUpdated(_state, status) => {
+                if status.is_valid() {
+                    // TODO: clean up all blocks before finalized
+                }
+            }
+            // ignore
+            BeaconConsensusEngineEvent::CanonicalChainCommitted(_, _)
+            | BeaconConsensusEngineEvent::LiveSyncProgress(_) => (),
+        }
     }
 }
