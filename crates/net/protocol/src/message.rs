@@ -34,20 +34,14 @@ impl RessProtocolMessage {
 
     /// Create node type message.
     pub fn node_type(node_type: NodeType) -> Self {
-        Self {
-            message_type: RessMessageID::NodeType,
-            message: RessMessage::NodeType(node_type),
-        }
+        Self { message_type: RessMessageID::NodeType, message: RessMessage::NodeType(node_type) }
     }
 
     /// Header request.
     pub fn get_header(request_id: u64, block_hash: BlockHash) -> Self {
         Self {
             message_type: RessMessageID::GetHeader,
-            message: RessMessage::GetHeader(RequestPair {
-                request_id,
-                message: block_hash,
-            }),
+            message: RessMessage::GetHeader(RequestPair { request_id, message: block_hash }),
         }
     }
 
@@ -55,10 +49,7 @@ impl RessProtocolMessage {
     pub fn header(request_id: u64, header: Header) -> Self {
         Self {
             message_type: RessMessageID::Header,
-            message: RessMessage::Header(RequestPair {
-                request_id,
-                message: header,
-            }),
+            message: RessMessage::Header(RequestPair { request_id, message: header }),
         }
     }
 
@@ -66,10 +57,7 @@ impl RessProtocolMessage {
     pub fn get_bytecode(request_id: u64, code_hash: B256) -> Self {
         Self {
             message_type: RessMessageID::GetBytecode,
-            message: RessMessage::GetBytecode(RequestPair {
-                request_id,
-                message: code_hash,
-            }),
+            message: RessMessage::GetBytecode(RequestPair { request_id, message: code_hash }),
         }
     }
 
@@ -77,10 +65,7 @@ impl RessProtocolMessage {
     pub fn bytecode(request_id: u64, bytecode: Bytes) -> Self {
         Self {
             message_type: RessMessageID::Bytecode,
-            message: RessMessage::Bytecode(RequestPair {
-                request_id,
-                message: bytecode,
-            }),
+            message: RessMessage::Bytecode(RequestPair { request_id, message: bytecode }),
         }
     }
 
@@ -88,10 +73,7 @@ impl RessProtocolMessage {
     pub fn get_witness(request_id: u64, block_hash: BlockHash) -> Self {
         Self {
             message_type: RessMessageID::GetWitness,
-            message: RessMessage::GetWitness(RequestPair {
-                request_id,
-                message: block_hash,
-            }),
+            message: RessMessage::GetWitness(RequestPair { request_id, message: block_hash }),
         }
     }
 
@@ -99,10 +81,7 @@ impl RessProtocolMessage {
     pub fn witness(request_id: u64, witness: StateWitnessNet) -> Self {
         Self {
             message_type: RessMessageID::Witness,
-            message: RessMessage::Witness(RequestPair {
-                request_id,
-                message: witness,
-            }),
+            message: RessMessage::Witness(RequestPair { request_id, message: witness }),
         }
     }
 
@@ -125,10 +104,7 @@ impl RessProtocolMessage {
             RessMessageID::GetWitness => RessMessage::GetWitness(RequestPair::decode(buf)?),
             RessMessageID::Witness => RessMessage::Witness(RequestPair::decode(buf)?),
         };
-        Ok(Self {
-            message_type,
-            message,
-        })
+        Ok(Self { message_type, message })
     }
 }
 

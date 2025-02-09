@@ -48,9 +48,7 @@ impl Node {
         let storage = Storage::new(chain_spec.clone(), current_head);
 
         let network_handle = if let Some(rpc_adapter) = rpc_adapter {
-            RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
-                .launch(id, remote_peer)
-                .await
+            RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter).launch(id, remote_peer).await
         } else {
             RessNetworkLauncher::new(chain_spec.clone(), storage.clone())
                 .launch(id, remote_peer)

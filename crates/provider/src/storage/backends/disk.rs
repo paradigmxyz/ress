@@ -41,12 +41,9 @@ impl DiskStorage {
 
     pub(crate) fn code_hash_exists_in_db(&self, code_hash: &B256) -> bool {
         let conn = self.conn.lock();
-        let mut stmt = conn
-            .prepare("SELECT COUNT(*) FROM account_code WHERE codehash = ?1")
-            .unwrap();
-        let count: i64 = stmt
-            .query_row([code_hash.to_string()], |row| row.get(0))
-            .unwrap_or(0);
+        let mut stmt =
+            conn.prepare("SELECT COUNT(*) FROM account_code WHERE codehash = ?1").unwrap();
+        let count: i64 = stmt.query_row([code_hash.to_string()], |row| row.get(0)).unwrap_or(0);
         count > 0
     }
 
@@ -111,10 +108,7 @@ mod tests {
         assert!(result.is_ok(), "Failed to update account code");
 
         let retrieved_bytecode = storage.get_bytecode(code_hash).unwrap();
-        assert!(
-            retrieved_bytecode.is_some(),
-            "Expected bytecode to be found"
-        );
+        assert!(retrieved_bytecode.is_some(), "Expected bytecode to be found");
 
         assert_eq!(
             retrieved_bytecode.unwrap(),

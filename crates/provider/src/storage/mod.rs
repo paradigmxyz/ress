@@ -24,11 +24,7 @@ impl Storage {
     pub fn new(chain_spec: Arc<ChainSpec>, current_head: BlockNumHash) -> Self {
         let memory = MemoryStorage::new(current_head);
         let disk = DiskStorage::new("test.db");
-        Self {
-            chain_spec,
-            memory,
-            disk,
-        }
+        Self { chain_spec, memory, disk }
     }
 
     /// Get chain spec.
@@ -39,12 +35,10 @@ impl Storage {
     /// Update canonical state.
     pub fn on_chain_update(&self, new: Vec<SealedHeader>, old: Vec<SealedHeader>) {
         for header in old {
-            self.memory
-                .remove_canonical_hash(header.number, header.hash());
+            self.memory.remove_canonical_hash(header.number, header.hash());
         }
         for header in new {
-            self.memory
-                .insert_canonical_hash(header.number, header.hash());
+            self.memory.insert_canonical_hash(header.number, header.hash());
         }
     }
 
@@ -52,8 +46,7 @@ impl Storage {
     pub fn on_new_finalized_hash(&self, finalized_hash: B256) -> Result<(), StorageError> {
         if !finalized_hash.is_zero() {
             let upper_bound = self.memory.get_block_number(finalized_hash)?;
-            self.memory
-                .remove_canonical_until(upper_bound, finalized_hash);
+            self.memory.remove_canonical_until(upper_bound, finalized_hash);
         }
         Ok(())
     }
@@ -133,9 +126,7 @@ impl Storage {
 
     /// Get block hash from memory of target block number
     pub fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash, StorageError> {
-        self.memory
-            .get_block_hash(block_number)
-            .map_err(StorageError::Memory)
+        self.memory.get_block_hash(block_number).map_err(StorageError::Memory)
     }
 }
 

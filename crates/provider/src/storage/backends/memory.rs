@@ -53,7 +53,8 @@ pub struct MemoryStorageInner {
 impl MemoryStorageInner {
     /// Return whether or not the hash is part of the canonical chain.
     ///
-    /// This method takes O(n) of complexity by walk through all the executed headers to check canonical chain.
+    /// This method takes O(n) of complexity by walk through all the executed headers to check
+    /// canonical chain.
     pub(crate) fn is_canonical_by_walk_through(&self, hash: B256) -> bool {
         let mut current_block = self.current_canonical_head.hash;
         if current_block == hash {
@@ -74,9 +75,7 @@ impl MemoryStorageInner {
     ///
     /// This method is simply look up the canonical hashmap
     pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
-        self.canonical_hashes
-            .values()
-            .any(|&canonical_hash| canonical_hash == hash)
+        self.canonical_hashes.values().any(|&canonical_hash| canonical_hash == hash)
     }
 
     /// Removes canonical blocks below the upper bound, only if the last persisted hash is
@@ -162,22 +161,13 @@ impl MemoryStorageInner {
         }
 
         self.headers_by_hash.insert(hash, executed.clone());
-        self.headers_by_number
-            .entry(block_number)
-            .or_default()
-            .push(executed);
+        self.headers_by_number.entry(block_number).or_default().push(executed);
 
-        self.parent_to_child
-            .entry(parent_hash)
-            .or_default()
-            .insert(hash);
+        self.parent_to_child.entry(parent_hash).or_default().insert(hash);
 
         if let Some(existing_blocks) = self.headers_by_number.get(&block_number) {
             if existing_blocks.len() > 1 {
-                self.parent_to_child
-                    .entry(parent_hash)
-                    .or_default()
-                    .insert(hash);
+                self.parent_to_child.entry(parent_hash).or_default().insert(hash);
             }
         }
 
@@ -203,10 +193,7 @@ pub struct ChainInfo {
 
 impl From<ChainInfo> for BlockNumHash {
     fn from(value: ChainInfo) -> Self {
-        Self {
-            number: value.best_number,
-            hash: value.best_hash,
-        }
+        Self { number: value.best_number, hash: value.best_hash }
     }
 }
 
@@ -226,9 +213,7 @@ impl MemoryStorageInner {
 impl MemoryStorage {
     /// Create new in-memory storage.
     pub fn new(current_canonical_head: BlockNumHash) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))),
-        }
+        Self { inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))) }
     }
 
     /// Removes canonical blocks below the upper bound, only if the last persisted hash is

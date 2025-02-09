@@ -20,10 +20,8 @@ impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(chain_spec: Arc<ChainSpec>, db: WitnessDatabase<'a>) -> Self {
         let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
-        let state = StateBuilder::new_with_database(db)
-            .with_bundle_update()
-            .without_state_clear()
-            .build();
+        let state =
+            StateBuilder::new_with_database(db).with_bundle_update().without_state_clear().build();
         let strategy = EthExecutionStrategy::new(state, chain_spec, eth_evm_config);
         Self { strategy }
     }
@@ -35,15 +33,8 @@ impl<'a> BlockExecutor<'a> {
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
         self.strategy.apply_pre_execution_changes(block)?;
         let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
-        let requests = self
-            .strategy
-            .apply_post_execution_changes(block, &receipts)?;
+        let requests = self.strategy.apply_post_execution_changes(block, &receipts)?;
         let state = self.strategy.finish();
-        Ok(BlockExecutionOutput {
-            state,
-            receipts,
-            requests,
-            gas_used,
-        })
+        Ok(BlockExecutionOutput { state, receipts, requests, gas_used })
     }
 }

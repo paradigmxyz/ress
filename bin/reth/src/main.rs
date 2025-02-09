@@ -18,8 +18,7 @@ use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverla
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
-use reth_primitives::{Block, Bytecode};
-use reth_primitives::{EthPrimitives, Header, RecoveredBlock};
+use reth_primitives::{Block, Bytecode, EthPrimitives, Header, RecoveredBlock};
 use reth_tokio_util::EventStream;
 use reth_trie::TrieInput;
 use std::{collections::HashMap, sync::Arc};
@@ -28,18 +27,15 @@ use tokio::sync::mpsc;
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
         // launch the stateful node
-        let NodeHandle {
-            node,
-            node_exit_future,
-        } = builder.node(EthereumNode::default()).launch().await?;
+        let NodeHandle { node, node_exit_future } =
+            builder.node(EthereumNode::default()).launch().await?;
 
         let pending_state = PendingState::default();
 
         // Spawn maintenance task for
         let events = node.event_sender.new_listener();
         let pending_ = pending_state.clone();
-        node.task_executor
-            .spawn(maintain_pending_state(events, pending_));
+        node.task_executor.spawn(maintain_pending_state(events, pending_));
 
         // add the custom network subprotocol to the launched node
         let (tx, mut _rx) = mpsc::unbounded_channel();
@@ -53,8 +49,7 @@ fn main() -> eyre::Result<()> {
             state: ProtocolState { events: tx },
             node_type: NodeType::Stateful,
         };
-        node.network
-            .add_rlpx_sub_protocol(protocol_handler.into_rlpx_sub_protocol());
+        node.network.add_rlpx_sub_protocol(protocol_handler.into_rlpx_sub_protocol());
 
         node_exit_future.await
     })
@@ -81,9 +76,8 @@ where
         // to access non-canonical blocks via the provider.
         let maybe_block = if let Some(block) = self.pending_state.recovered_block(&block_hash) {
             Some(block)
-        } else if let Some(block) = self
-            .provider
-            .find_block_by_hash(block_hash, BlockSource::Any)?
+        } else if let Some(block) =
+            self.provider.find_block_by_hash(block_hash, BlockSource::Any)?
         {
             let signers = block.recover_signers()?;
             Some(Arc::new(block.into_recovered_with_signers(signers)))
@@ -116,9 +110,8 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        let block = self
-            .block_by_hash(block_hash)?
-            .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+        let block =
+            self.block_by_hash(block_hash)?.ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
         let mut executed_ancestors = Vec::new();
         let mut ancestor_hash = block.parent_hash();
@@ -151,7 +144,8 @@ where
             })
             .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
 
-        // NOTE: there might be a race condition where target ancestor hash gets evicted from the database.
+        // NOTE: there might be a race condition where target ancestor hash gets evicted from the
+        // database.
         let witness_state_provider = self.provider.state_by_block_hash(ancestor_hash)?;
         let mut trie_input = TrieInput::default();
         for block in executed_ancestors.into_iter().rev() {
@@ -201,8 +195,8 @@ async fn maintain_pending_state(
 ) {
     while let Some(event) = events.next().await {
         match event {
-            BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _)
-            | BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
+            BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _) |
+            BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
                 state.insert_block(block);
             }
             BeaconConsensusEngineEvent::ForkchoiceUpdated(_state, status) => {
@@ -211,8 +205,8 @@ async fn maintain_pending_state(
                 }
             }
             // ignore
-            BeaconConsensusEngineEvent::CanonicalChainCommitted(_, _)
-            | BeaconConsensusEngineEvent::LiveSyncProgress(_) => (),
+            BeaconConsensusEngineEvent::CanonicalChainCommitted(_, _) |
+            BeaconConsensusEngineEvent::LiveSyncProgress(_) => (),
         }
     }
 }

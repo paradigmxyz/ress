@@ -123,11 +123,7 @@ where
 
         self.state
             .events
-            .send(ProtocolEvent::Established {
-                direction,
-                peer_id,
-                to_connection: tx,
-            })
+            .send(ProtocolEvent::Established { direction, peer_id, to_connection: tx })
             .ok();
 
         RessProtocolConnection::new(

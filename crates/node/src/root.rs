@@ -30,10 +30,8 @@ pub fn calculate_state_root(
             if storage.wiped {
                 storage_trie.wipe()?;
             }
-            for (hashed_slot, value) in storage
-                .storage
-                .into_iter()
-                .sorted_unstable_by_key(|(hashed_slot, _)| *hashed_slot)
+            for (hashed_slot, value) in
+                storage.storage.into_iter().sorted_unstable_by_key(|(hashed_slot, _)| *hashed_slot)
             {
                 let nibbles = Nibbles::unpack(hashed_slot);
                 if value.is_zero() {
@@ -61,10 +59,8 @@ pub fn calculate_state_root(
     // Update accounts with new values
     // TODO: upstream changes into reth so that `SparseStateTrie::update_account` handles this
     let mut account_rlp_buf = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
-    for (hashed_address, account) in state
-        .accounts
-        .into_iter()
-        .sorted_unstable_by_key(|(hashed_address, _)| *hashed_address)
+    for (hashed_address, account) in
+        state.accounts.into_iter().sorted_unstable_by_key(|(hashed_address, _)| *hashed_address)
     {
         let nibbles = Nibbles::unpack(hashed_address);
         let account = account.unwrap_or_default();
@@ -80,9 +76,7 @@ pub fn calculate_state_root(
             trie.remove_account_leaf(&nibbles)?;
         } else {
             account_rlp_buf.clear();
-            account
-                .into_trie_account(storage_root)
-                .encode(&mut account_rlp_buf);
+            account.into_trie_account(storage_root).encode(&mut account_rlp_buf);
             trie.update_account_leaf(nibbles, account_rlp_buf.clone())?;
         }
     }

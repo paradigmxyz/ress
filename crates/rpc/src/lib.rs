@@ -36,23 +36,15 @@ impl RpcHandle {
             Self::launch_auth_server(id.get_jwt_secret(), id.get_authserver_addr(), chain_spec)
                 .await;
 
-        Self {
-            authserver_handle,
-            from_beacon_engine,
-        }
+        Self { authserver_handle, from_beacon_engine }
     }
 
     async fn launch_auth_server(
         jwt_key: JwtSecret,
         socket: SocketAddr,
         chain_spec: Arc<ChainSpec>,
-    ) -> (
-        AuthServerHandle,
-        UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
-    ) {
-        let config = AuthServerConfig::builder(jwt_key)
-            .socket_addr(socket)
-            .build();
+    ) -> (AuthServerHandle, UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>) {
+        let config = AuthServerConfig::builder(jwt_key).socket_addr(socket).build();
         let (tx, rx) = unbounded_channel();
         let beacon_engine_handle = BeaconConsensusEngineHandle::<EthEngineTypes>::new(tx);
         let client = ClientVersionV1 {

@@ -1,6 +1,5 @@
 use alloy_primitives::{map::B256HashMap, Bytes, B256};
-use alloy_provider::Provider;
-use alloy_provider::RootProvider;
+use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{BlockNumberOrTag, BlockTransactionsKind};
@@ -21,10 +20,7 @@ impl RpcAdapterProvider {
     /// Create new RPC adapter.
     pub fn new(url: &str) -> eyre::Result<Self> {
         let client = ClientBuilder::default().http(url.parse()?);
-        Ok(Self {
-            provider: RootProvider::new(client),
-            bytecodes: Arc::new(RwLock::default()),
-        })
+        Ok(Self { provider: RootProvider::new(client), bytecodes: Arc::new(RwLock::default()) })
     }
 }
 
@@ -80,10 +76,8 @@ async fn get_witness_by_hash(
         .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
     let tag: BlockNumberOrTag = block.header.number.into();
-    let witness: ExecutionWitness = provider
-        .client()
-        .request("debug_executionWitness", [tag])
-        .await?;
+    let witness: ExecutionWitness =
+        provider.client().request("debug_executionWitness", [tag]).await?;
 
     Ok(witness)
 }

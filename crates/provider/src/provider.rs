@@ -48,9 +48,7 @@ impl RessProvider {
             .fetch_bytecode(code_hash)
             .await?
             .ok_or(StorageError::NoCodeForCodeHash(code_hash))?;
-        self.storage
-            .disk
-            .update_bytecode(code_hash, Bytecode::new_raw(bytecode))?;
+        self.storage.disk.update_bytecode(code_hash, Bytecode::new_raw(bytecode))?;
         Ok(())
     }
 }

@@ -1,54 +1,32 @@
-use alloy_primitives::map::B256HashSet;
-use alloy_primitives::B256;
-use alloy_primitives::U256;
-use alloy_rpc_types_engine::ForkchoiceState;
-use alloy_rpc_types_engine::PayloadAttributes;
-use alloy_rpc_types_engine::PayloadStatus;
-use alloy_rpc_types_engine::PayloadStatusEnum;
-use alloy_rpc_types_engine::PayloadValidationError;
+use alloy_primitives::{map::B256HashSet, B256, U256};
+use alloy_rpc_types_engine::{
+    ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
+};
 use rayon::iter::IntoParallelRefIterator;
 use ress_provider::provider::RessProvider;
-use ress_vm::db::WitnessDatabase;
-use ress_vm::errors::EvmError;
-use ress_vm::executor::BlockExecutor;
+use ress_vm::{db::WitnessDatabase, errors::EvmError, executor::BlockExecutor};
 use reth_chainspec::ChainSpec;
-use reth_consensus::Consensus;
-use reth_consensus::ConsensusError;
-use reth_consensus::FullConsensus;
-use reth_consensus::HeaderValidator;
-use reth_consensus::PostExecutionInput;
-use reth_engine_tree::tree::error::InsertBlockError;
-use reth_engine_tree::tree::error::InsertBlockErrorKind;
-use reth_engine_tree::tree::error::InsertBlockFatalError;
-use reth_engine_tree::tree::BlockBuffer;
-use reth_engine_tree::tree::BlockStatus;
-use reth_engine_tree::tree::InsertPayloadOk;
-use reth_engine_tree::tree::InvalidHeaderCache;
-use reth_errors::ProviderError;
-use reth_errors::RethResult;
+use reth_consensus::{
+    Consensus, ConsensusError, FullConsensus, HeaderValidator, PostExecutionInput,
+};
+use reth_engine_tree::tree::{
+    error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError},
+    BlockBuffer, BlockStatus, InsertPayloadOk, InvalidHeaderCache,
+};
+use reth_errors::{ProviderError, RethResult};
 use reth_ethereum_engine_primitives::EthPayloadBuilderAttributes;
-use reth_node_api::BeaconEngineMessage;
-use reth_node_api::BeaconOnNewPayloadError;
-use reth_node_api::EngineApiMessageVersion;
-use reth_node_api::EngineValidator;
-use reth_node_api::ExecutionData;
-use reth_node_api::OnForkChoiceUpdated;
-use reth_node_api::PayloadBuilderAttributes;
-use reth_node_api::PayloadValidator;
-use reth_node_ethereum::consensus::EthBeaconConsensus;
-use reth_node_ethereum::node::EthereumEngineValidator;
-use reth_node_ethereum::EthEngineTypes;
-use reth_primitives::Block;
-use reth_primitives::EthPrimitives;
-use reth_primitives::GotExpected;
-use reth_primitives::Header;
-use reth_primitives::SealedBlock;
+use reth_node_api::{
+    BeaconEngineMessage, BeaconOnNewPayloadError, EngineApiMessageVersion, EngineValidator,
+    ExecutionData, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
+};
+use reth_node_ethereum::{
+    consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
+};
+use reth_primitives::{Block, EthPrimitives, GotExpected, Header, SealedBlock};
 use reth_primitives_traits::SealedHeader;
-use reth_trie::HashedPostState;
-use reth_trie::KeccakKeyHasher;
+use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::SparseStateTrie;
-use std::result::Result::Ok;
-use std::sync::Arc;
+use std::{result::Result::Ok, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::*;
 
@@ -75,7 +53,8 @@ impl ConsensusEngine {
         provider: RessProvider,
         from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
     ) -> Self {
-        // we have it in auth server for now to leverage the methods in here, we also init new validator
+        // we have it in auth server for now to leverage the methods in here, we also init new
+        // validator
         let chain_spec = provider.storage.chain_spec();
         let engine_validator = EthereumEngineValidator::new(chain_spec.clone());
         let consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>> =
@@ -101,20 +80,13 @@ impl ConsensusEngine {
     async fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
         match message {
             BeaconEngineMessage::NewPayload { payload, tx } => {
-                let outcome = self
-                    .on_new_payload(payload)
-                    .await
-                    .map_err(BeaconOnNewPayloadError::internal);
+                let outcome =
+                    self.on_new_payload(payload).await.map_err(BeaconOnNewPayloadError::internal);
                 if let Err(error) = tx.send(outcome) {
                     error!(target: "ress::engine", ?error, "Failed to send payload status");
                 }
             }
-            BeaconEngineMessage::ForkchoiceUpdated {
-                state,
-                payload_attrs,
-                tx,
-                version,
-            } => {
+            BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
                 let outcome = self.on_forkchoice_update(state, payload_attrs, version);
                 if let Ok(updated) = &outcome {
                     if updated.forkchoice_status().is_valid() {
@@ -246,9 +218,7 @@ impl ConsensusEngine {
         // TODO: download missing block(s)
         // ref: <https://github.com/paradigmxyz/reth/blob/d147a2093ec6d0a463610292e30a91fced6c44d7/crates/engine/tree/src/tree/mod.rs#L1227-L1245>
 
-        Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
-            PayloadStatusEnum::Syncing,
-        )))
+        Ok(OnForkChoiceUpdated::valid(PayloadStatus::from_status(PayloadStatusEnum::Syncing)))
     }
 
     /// Pre-validate forkchoice update and check whether it can be processed.
@@ -263,7 +233,8 @@ impl ConsensusEngine {
             return Some(OnForkChoiceUpdated::invalid_state());
         }
 
-        // check if the new head hash is connected to any ancestor that we previously marked as invalid
+        // check if the new head hash is connected to any ancestor that we previously marked as
+        // invalid
         let lowest_buffered_ancestor_fcu = self.lowest_buffered_ancestor_or(state.head_block_hash);
         if let Some(status) = self.check_invalid_ancestor(lowest_buffered_ancestor_fcu) {
             return Some(OnForkChoiceUpdated::with_invalid(status));
@@ -281,16 +252,13 @@ impl ConsensusEngine {
         &self,
         state: ForkchoiceState,
     ) -> Result<(), OnForkChoiceUpdated> {
-        if !state.finalized_block_hash.is_zero()
-            && !self
-                .provider
-                .storage
-                .is_canonical(state.finalized_block_hash)
+        if !state.finalized_block_hash.is_zero() &&
+            !self.provider.storage.is_canonical(state.finalized_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
-        if !state.safe_block_hash.is_zero()
-            && !self.provider.storage.is_canonical(state.safe_block_hash)
+        if !state.safe_block_hash.is_zero() &&
+            !self.provider.storage.is_canonical(state.safe_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
@@ -322,7 +290,8 @@ impl ConsensusEngine {
                 current_number -= 1;
                 new_chain.push(header);
             } else {
-                // This should never happen as we're walking back a chain that should connect to the canonical chain.
+                // This should never happen as we're walking back a chain that should connect to the
+                // canonical chain.
                 warn!(target: "ress::engine", %current_hash, "Sidechain block not found in TreeState");
                 return None;
             }
@@ -380,10 +349,7 @@ impl ConsensusEngine {
         new_chain.reverse();
         old_chain.reverse();
 
-        Some(NewCanonicalChain::Reorg {
-            new: new_chain,
-            old: old_chain,
-        })
+        Some(NewCanonicalChain::Reorg { new: new_chain, old: old_chain })
     }
 
     /// Validates the payload attributes with respect to the header and fork choice state.
@@ -426,9 +392,7 @@ impl ConsensusEngine {
     /// This is invoked on a valid forkchoice update, or if we can make the target block canonical.
     fn on_canonical_chain_update(&mut self, update: NewCanonicalChain) {
         trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
-        self.provider
-            .storage
-            .set_canonical_head(update.tip().num_hash());
+        self.provider.storage.set_canonical_head(update.tip().num_hash());
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
@@ -490,8 +454,8 @@ impl ConsensusEngine {
                         latest_valid_hash = Some(block_hash);
                         PayloadStatusEnum::Valid
                     }
-                    InsertPayloadOk::Inserted(BlockStatus::Disconnected { .. })
-                    | InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected { .. }) => {
+                    InsertPayloadOk::Inserted(BlockStatus::Disconnected { .. }) |
+                    InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected { .. }) => {
                         // not known to be invalid, but we don't know anything else
                         PayloadStatusEnum::Syncing
                     }
@@ -510,9 +474,7 @@ impl ConsensusEngine {
         let block_num_hash = block.num_hash();
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
 
-        let block = block
-            .try_recover()
-            .map_err(|_| InsertBlockErrorKind::SenderRecovery)?;
+        let block = block.try_recover().map_err(|_| InsertBlockErrorKind::SenderRecovery)?;
 
         if self.provider.storage.header(block.hash()).is_some() {
             return Ok(InsertPayloadOk::AlreadySeen(BlockStatus::Valid));
@@ -537,9 +499,8 @@ impl ConsensusEngine {
         };
 
         let parent = SealedHeader::new(parent, block.parent_hash);
-        if let Err(error) = self
-            .consensus
-            .validate_header_against_parent(block.sealed_header(), &parent)
+        if let Err(error) =
+            self.consensus.validate_header_against_parent(block.sealed_header(), &parent)
         {
             error!(target: "ress::engine", %error, "Failed to validate header against parent");
             return Err(error.into());
@@ -547,35 +508,29 @@ impl ConsensusEngine {
 
         // ===================== Witness =====================
         let execution_witness =
-            self.provider
-                .fetch_witness(block.hash())
-                .await
-                .map_err(|error| {
-                    InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(
-                        error.to_string(),
-                    ))
-                })?;
+            self.provider.fetch_witness(block.hash()).await.map_err(|error| {
+                InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
+            })?;
         let start_time = std::time::Instant::now();
         let bytecode_hashes = execution_witness.get_bytecode_hashes();
         let bytecode_hashes_len = bytecode_hashes.len();
         self.prefetch_bytecodes(bytecode_hashes).await;
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), len = bytecode_hashes_len, "✨ ensured all bytecodes are present");
         let mut trie = SparseStateTrie::default();
-        trie.reveal_witness(parent.state_root, &execution_witness.state_witness)
-            .map_err(|error| {
+        trie.reveal_witness(parent.state_root, &execution_witness.state_witness).map_err(
+            |error| {
                 InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-            })?;
+            },
+        )?;
         let database = WitnessDatabase::new(self.provider.storage.clone(), &trie);
 
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
         let mut block_executor = BlockExecutor::new(self.provider.storage.chain_spec(), database);
-        let output = block_executor
-            .execute(&block)
-            .map_err(|error| match error {
-                EvmError::BlockExecution(error) => InsertBlockErrorKind::Execution(error),
-                EvmError::DB(error) => InsertBlockErrorKind::Other(Box::new(error)),
-            })?;
+        let output = block_executor.execute(&block).map_err(|error| match error {
+            EvmError::BlockExecution(error) => InsertBlockErrorKind::Execution(error),
+            EvmError::DB(error) => InsertBlockErrorKind::Other(Box::new(error)),
+        })?;
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
         // ===================== Post Execution Validation =====================
@@ -592,11 +547,7 @@ impl ConsensusEngine {
         })?;
         if state_root != block.state_root {
             return Err(ConsensusError::BodyStateRootDiff(
-                GotExpected {
-                    got: state_root,
-                    expected: block.state_root,
-                }
-                .into(),
+                GotExpected { got: state_root, expected: block.state_root }.into(),
             )
             .into());
         }
@@ -625,8 +576,7 @@ impl ConsensusEngine {
         let status = self.prepare_invalid_response(header.parent);
 
         // insert the head block into the invalid header cache
-        self.invalid_headers
-            .insert_with_invalid_ancestor(head, header);
+        self.invalid_headers.insert_with_invalid_ancestor(head, header);
 
         Some(status)
     }
@@ -666,17 +616,13 @@ impl ConsensusEngine {
             error!(target: "ress::engine", %error, "Failed to validate header against total difficulty");
         })?;
 
-        self.consensus
-            .validate_header(block.sealed_header())
-            .inspect_err(|error| {
-                error!(target: "ress::engine", %error, "Failed to validate header");
-            })?;
+        self.consensus.validate_header(block.sealed_header()).inspect_err(|error| {
+            error!(target: "ress::engine", %error, "Failed to validate header");
+        })?;
 
-        self.consensus
-            .validate_block_pre_execution(block)
-            .inspect_err(|error| {
-                error!(target: "ress::engine", %error, "Failed to validate block");
-            })?;
+        self.consensus.validate_block_pre_execution(block).inspect_err(|error| {
+            error!(target: "ress::engine", %error, "Failed to validate block");
+        })?;
 
         Ok(())
     }
@@ -753,17 +699,15 @@ impl ConsensusEngine {
         // error.
         let validation_err = error.ensure_validation_error()?;
 
-        // If the error was due to an invalid payload, the payload is added to the invalid headers cache
-        // and `Ok` with [PayloadStatusEnum::Invalid] is returned.
+        // If the error was due to an invalid payload, the payload is added to the invalid headers
+        // cache and `Ok` with [PayloadStatusEnum::Invalid] is returned.
         warn!(target: "ress::engine", invalid_hash = %block.hash(), invalid_number = block.number, %validation_err, "Invalid block error on new payload");
         let latest_valid_hash = self.latest_valid_hash_for_invalid_payload(block.parent_hash);
 
         // keep track of the invalid header
         self.invalid_headers.insert(block.block_with_parent());
         Ok(PayloadStatus::new(
-            PayloadStatusEnum::Invalid {
-                validation_error: validation_err.to_string(),
-            },
+            PayloadStatusEnum::Invalid { validation_error: validation_err.to_string() },
             latest_valid_hash,
         ))
     }

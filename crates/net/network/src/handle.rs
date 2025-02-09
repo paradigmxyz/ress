@@ -19,8 +19,7 @@ impl RessNetworkHandle {
     pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, NetworkStorageError> {
         trace!(target: "ress::net", %block_hash, "requesting header");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn
-            .send(RessPeerRequest::GetHeader { block_hash, tx })?;
+        self.network_peer_conn.send(RessPeerRequest::GetHeader { block_hash, tx })?;
         let response = rx.await?;
         trace!(target: "ress::net", "header received");
         Ok(response)
@@ -33,8 +32,7 @@ impl RessNetworkHandle {
     ) -> Result<Option<Bytes>, NetworkStorageError> {
         trace!(target: "ress::net", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn
-            .send(RessPeerRequest::GetBytecode { code_hash, tx })?;
+        self.network_peer_conn.send(RessPeerRequest::GetBytecode { code_hash, tx })?;
         let response = rx.await?;
         trace!(target: "ress::net", "bytecode received");
         Ok(Some(response))
@@ -47,8 +45,7 @@ impl RessNetworkHandle {
     ) -> Result<StateWitnessNet, NetworkStorageError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn
-            .send(RessPeerRequest::GetWitness { block_hash, tx })?;
+        self.network_peer_conn.send(RessPeerRequest::GetWitness { block_hash, tx })?;
         let response = rx.await?;
         trace!(target: "ress::net", "witness received");
         Ok(response)

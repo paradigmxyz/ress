@@ -159,9 +159,7 @@ async fn main() -> eyre::Result<()> {
         tree_state.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
         tree_state.insert_header(header);
     }
-    node.provider
-        .storage
-        .overwrite_block_hashes(canonical_block_hashes);
+    node.provider.storage.overwrite_block_hashes(canonical_block_hashes);
     info!(
         elapsed = ?start_time.elapsed(), "✨ prefetched block from {} to {}..",
         latest_block_number.saturating_sub(255),
@@ -179,9 +177,7 @@ async fn main() -> eyre::Result<()> {
             DebugConsensusClient::new(node.authserver_handle, Arc::new(ws_block_provider));
         tokio::spawn(async move {
             info!("💨 running debug consensus client");
-            rpc_consensus_client
-                .run::<reth_node_ethereum::EthEngineTypes>()
-                .await;
+            rpc_consensus_client.run::<reth_node_ethereum::EthEngineTypes>().await;
         });
     }
 

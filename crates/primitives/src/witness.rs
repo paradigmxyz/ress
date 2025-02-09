@@ -15,7 +15,8 @@ pub type StateWitness = B256HashMap<Bytes>;
 
 /// Execution witness contains all data necessary to execute the block (except for bytecodes).
 /// That includes:
-///     - state witness - collection of all touched trie nodes which is used for state retrieval and state root computation.
+///     - state witness - collection of all touched trie nodes which is used for state retrieval and
+///       state root computation.
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExecutionWitness {

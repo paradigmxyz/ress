@@ -28,10 +28,7 @@ where
 {
     /// Instantiate the launcher.
     pub fn new(chain_spec: Arc<ChainSpec>, provider: P) -> Self {
-        Self {
-            chain_spec,
-            provider,
-        }
+        Self { chain_spec, provider }
     }
 
     /// Start network manager.
@@ -40,26 +37,17 @@ where
         id: TestPeers,
         remote_peer: Option<TrustedPeer>,
     ) -> RessNetworkHandle {
-        let (subnetwork_handle, from_peer) = self
-            .launch_subprotocol_network(id.get_key(), id.get_network_addr())
-            .await;
+        let (subnetwork_handle, from_peer) =
+            self.launch_subprotocol_network(id.get_key(), id.get_network_addr()).await;
 
         let (remote_id, remote_addr) = if let Some(remote_peer) = remote_peer {
-            (
-                remote_peer.id,
-                remote_peer.resolve_blocking().expect("peer").tcp_addr(),
-            )
+            (remote_peer.id, remote_peer.resolve_blocking().expect("peer").tcp_addr())
         } else {
-            (
-                id.get_peer().get_peer_id(),
-                id.get_peer().get_network_addr(),
-            )
+            (id.get_peer().get_peer_id(), id.get_peer().get_network_addr())
         };
 
         // connect peer to own network
-        subnetwork_handle
-            .peers_handle()
-            .add_peer(remote_id, remote_addr);
+        subnetwork_handle.peers_handle().add_peer(remote_id, remote_addr);
 
         // get a handle to the network to interact with it
         let network_handle = subnetwork_handle.handle().clone();
@@ -68,10 +56,7 @@ where
 
         let network_peer_conn = Self::setup_subprotocol_network(from_peer, remote_id).await;
 
-        RessNetworkHandle {
-            network_handle,
-            network_peer_conn,
-        }
+        RessNetworkHandle { network_handle, network_peer_conn }
     }
 
     async fn launch_subprotocol_network(
@@ -94,17 +79,12 @@ where
             .build_with_noop_provider(self.chain_spec.clone());
 
         // create the network instance
-        let subnetwork = NetworkManager::<EthNetworkPrimitives>::new(config)
-            .await
-            .unwrap();
+        let subnetwork = NetworkManager::<EthNetworkPrimitives>::new(config).await.unwrap();
 
         let subnetwork_peer_id = *subnetwork.peer_id();
         let subnetwork_peer_addr = subnetwork.local_addr();
 
-        info!(
-            "subnetwork | peer_id: {}, peer_addr: {} ",
-            subnetwork_peer_id, subnetwork_peer_addr
-        );
+        info!("subnetwork | peer_id: {}, peer_addr: {} ", subnetwork_peer_id, subnetwork_peer_addr);
 
         (subnetwork, from_peer)
     }

@@ -13,17 +13,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  fmt:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          cache-on-failure: true
-      - name: test
-        run: cargo test --workspace ${{ matrix.flags }}
+          components: rustfmt
+      - run: cargo fmt --all --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -38,6 +36,18 @@ jobs:
         env:
           RUSTFLAGS: -Dwarnings
 
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: test
+        run: cargo test --workspace ${{ matrix.flags }}
+
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -51,16 +61,6 @@ jobs:
         run: cargo doc --workspace --all-features --no-deps --document-private-items
         env:
           RUSTDOCFLAGS: --cfg docsrs -D warnings # -Zunstable-options --show-type-layout --generate-link-to-definition
-
-  fmt:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
 
   deny:
     uses: ithacaxyz/ci/.github/workflows/deny.yml@main
