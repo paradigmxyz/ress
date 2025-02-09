@@ -135,6 +135,11 @@ impl RessProtocolProvider for Storage {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.header(block_hash))
     }
+
+    fn block_body(&self, _block_hash: B256) -> ProviderResult<Option<reth_primitives::BlockBody>> {
+        Ok(None)
+    }
+
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
         let bytes = self
             .get_contract_bytecode(code_hash)

@@ -2,7 +2,7 @@ use crate::{NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, St
 use alloy_primitives::{bytes::BytesMut, keccak256, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth_eth_wire::multiplex::ProtocolConnection;
-use reth_primitives::Header;
+use reth_primitives::{BlockBody, Header};
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -15,12 +15,19 @@ use tracing::*;
 /// Ress peer request.
 #[derive(Debug)]
 pub enum RessPeerRequest {
-    /// Get header for specific block hash
+    /// Get header for specific block hash.
     GetHeader {
-        /// target block hash that we want to get header from
+        /// Target block hash that we want to get header for.
         block_hash: BlockHash,
         /// The sender for the response.
         tx: oneshot::Sender<Header>,
+    },
+    /// Get block body for specific block hash.
+    GetBlockBody {
+        /// Target block hash that we want to get block body for
+        block_hash: BlockHash,
+        /// The sender for the response.
+        tx: oneshot::Sender<BlockBody>,
     },
     /// Get bytecode for specific code hash
     GetBytecode {
@@ -29,9 +36,9 @@ pub enum RessPeerRequest {
         /// The sender for the response.
         tx: oneshot::Sender<Bytes>,
     },
-    /// Get witness for specific block
+    /// Get witness for specific block.
     GetWitness {
-        /// target block hash that we want to get witness from
+        /// Target block hash that we want to get witness for.
         block_hash: BlockHash,
         /// The sender for the response.
         tx: oneshot::Sender<StateWitnessNet>,
@@ -86,6 +93,9 @@ impl<P> RessProtocolConnection<P> {
             RessPeerRequest::GetHeader { block_hash, .. } => {
                 RessProtocolMessage::get_header(next_id, *block_hash)
             }
+            RessPeerRequest::GetBlockBody { block_hash, .. } => {
+                RessProtocolMessage::get_block_body(next_id, *block_hash)
+            }
             RessPeerRequest::GetWitness { block_hash, .. } => {
                 RessProtocolMessage::get_witness(next_id, *block_hash)
             }
@@ -104,11 +114,25 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
             Ok(Some(header)) => header,
             Ok(None) => {
                 trace!(target: "ress::net::connection", %block_hash, "header not found");
-                Header::default()
+                Default::default()
             }
             Err(error) => {
                 trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
-                Header::default()
+                Default::default()
+            }
+        }
+    }
+
+    fn on_block_body_request(&self, block_hash: B256) -> BlockBody {
+        match self.provider.block_body(block_hash) {
+            Ok(Some(body)) => body,
+            Ok(None) => {
+                trace!(target: "ress::net::connection", %block_hash, "block body not found");
+                Default::default()
+            }
+            Err(error) => {
+                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving block body");
+                Default::default()
             }
         }
     }
@@ -118,11 +142,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
             Ok(Some(bytecode)) => bytecode,
             Ok(None) => {
                 trace!(target: "ress::net::connection", %code_hash, "bytecode not found");
-                Bytes::default()
+                Default::default()
             }
             Err(error) => {
                 trace!(target: "ress::net::connection", %code_hash, %error, "error retrieving bytecode");
-                Bytes::default()
+                Default::default()
             }
         }
     }
@@ -135,11 +159,11 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
             }
             Ok(None) => {
                 trace!(target: "ress::net::connection", %block_hash, "witness not found");
-                StateWitnessNet::default()
+                Default::default()
             }
             Err(error) => {
                 trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
-                StateWitnessNet::default()
+                Default::default()
             }
         }
     }
@@ -182,6 +206,34 @@ where
                             return Poll::Ready(None);
                         }
                     }
+                    RessMessage::GetHeader(req) => {
+                        let block_hash = req.message;
+                        trace!(target: "ress::net::connection", %block_hash, "serving header");
+                        let header = this.on_header_request(block_hash);
+                        let response = RessProtocolMessage::header(req.request_id, header);
+                        return Poll::Ready(Some(response.encoded()));
+                    }
+                    RessMessage::GetBlockBody(req) => {
+                        let block_hash = req.message;
+                        trace!(target: "ress::net::connection", %block_hash, "serving block body");
+                        let block_body = this.on_block_body_request(block_hash);
+                        let response = RessProtocolMessage::block_body(req.request_id, block_body);
+                        return Poll::Ready(Some(response.encoded()));
+                    }
+                    RessMessage::GetBytecode(req) => {
+                        let code_hash = req.message;
+                        trace!(target: "ress::net::connection", %code_hash, "serving bytecode");
+                        let bytecode = this.on_bytecode_request(code_hash);
+                        let response = RessProtocolMessage::bytecode(req.request_id, bytecode);
+                        return Poll::Ready(Some(response.encoded()));
+                    }
+                    RessMessage::GetWitness(req) => {
+                        let block_hash = req.message;
+                        trace!(target: "ress::net::connection", %block_hash, "serving witness");
+                        let witness = this.on_witness_request(block_hash);
+                        let response = RessProtocolMessage::witness(req.request_id, witness);
+                        return Poll::Ready(Some(response.encoded()));
+                    }
                     RessMessage::Header(res) => {
                         if let Some(RessPeerRequest::GetHeader { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
@@ -190,6 +242,15 @@ where
                                 warn!(target: "ress::net::connection", "header is default");
                             }
                             // TODO: validate the header.
+                            let _ = tx.send(res.message);
+                        } else {
+                            // TODO: report bad message
+                        }
+                    }
+                    RessMessage::BlockBody(res) => {
+                        if let Some(RessPeerRequest::GetBlockBody { tx, .. }) =
+                            this.inflight_requests.remove(&res.request_id)
+                        {
                             let _ = tx.send(res.message);
                         } else {
                             // TODO: report bad message
@@ -222,27 +283,6 @@ where
                         } else {
                             // TODO: report bad message
                         }
-                    }
-                    RessMessage::GetHeader(req) => {
-                        let block_hash = req.message;
-                        debug!(target: "ress::net::connection", %block_hash, "serving header");
-                        let header = this.on_header_request(block_hash);
-                        let response = RessProtocolMessage::header(req.request_id, header);
-                        return Poll::Ready(Some(response.encoded()));
-                    }
-                    RessMessage::GetBytecode(req) => {
-                        let code_hash = req.message;
-                        debug!(target: "ress::net::connection", %code_hash, "serving bytecode");
-                        let bytecode = this.on_bytecode_request(code_hash);
-                        let response = RessProtocolMessage::bytecode(req.request_id, bytecode);
-                        return Poll::Ready(Some(response.encoded()));
-                    }
-                    RessMessage::GetWitness(req) => {
-                        let block_hash = req.message;
-                        debug!(target: "ress::net::connection", %block_hash, "serving witness");
-                        let witness = this.on_witness_request(block_hash);
-                        let response = RessProtocolMessage::witness(req.request_id, witness);
-                        return Poll::Ready(Some(response.encoded()));
                     }
                 };
 

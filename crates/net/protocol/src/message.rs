@@ -10,7 +10,7 @@ use alloy_primitives::{
 };
 use alloy_rlp::{BytesMut, Decodable, Encodable};
 use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
-use reth_primitives::Header;
+use reth_primitives::{BlockBody, Header};
 
 /// An Ress protocol message, containing a message ID and payload.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,7 +37,7 @@ impl RessProtocolMessage {
 
     /// Returns the protocol for the `ress` protocol.
     pub fn protocol() -> Protocol {
-        Protocol::new(Self::capability(), 7)
+        Protocol::new(Self::capability(), 9)
     }
 
     /// Create node type message.
@@ -58,6 +58,22 @@ impl RessProtocolMessage {
         Self {
             message_type: RessMessageID::Header,
             message: RessMessage::Header(RequestPair { request_id, message: header }),
+        }
+    }
+
+    /// Block body request.
+    pub fn get_block_body(request_id: u64, block_hash: B256) -> Self {
+        Self {
+            message_type: RessMessageID::GetBlockBody,
+            message: RessMessage::GetBlockBody(RequestPair { request_id, message: block_hash }),
+        }
+    }
+
+    /// Block body request.
+    pub fn block_body(request_id: u64, block_body: BlockBody) -> Self {
+        Self {
+            message_type: RessMessageID::GetBlockBody,
+            message: RessMessage::BlockBody(RequestPair { request_id, message: block_body }),
         }
     }
 
@@ -107,6 +123,8 @@ impl RessProtocolMessage {
             RessMessageID::NodeType => RessMessage::NodeType(NodeType::decode(buf)?),
             RessMessageID::GetHeader => RessMessage::GetHeader(RequestPair::decode(buf)?),
             RessMessageID::Header => RessMessage::Header(RequestPair::decode(buf)?),
+            RessMessageID::GetBlockBody => RessMessage::GetBlockBody(RequestPair::decode(buf)?),
+            RessMessageID::BlockBody => RessMessage::BlockBody(RequestPair::decode(buf)?),
             RessMessageID::GetBytecode => RessMessage::GetBytecode(RequestPair::decode(buf)?),
             RessMessageID::Bytecode => RessMessage::Bytecode(RequestPair::decode(buf)?),
             RessMessageID::GetWitness => RessMessage::GetWitness(RequestPair::decode(buf)?),
@@ -141,15 +159,20 @@ pub enum RessMessageID {
     /// Header response message.
     Header = 0x02,
 
+    /// Block body request message.
+    GetBlockBody = 0x03,
+    /// Block body response message.
+    BlockBody = 0x04,
+
     /// Bytecode request message.
-    GetBytecode = 0x03,
+    GetBytecode = 0x05,
     /// Bytecode response message.
-    Bytecode = 0x04,
+    Bytecode = 0x06,
 
     /// Witness request message.
-    GetWitness = 0x05,
+    GetWitness = 0x07,
     /// Witness response message.
-    Witness = 0x06,
+    Witness = 0x08,
 }
 
 impl Encodable for RessMessageID {
@@ -168,10 +191,12 @@ impl Decodable for RessMessageID {
             0x00 => Self::NodeType,
             0x01 => Self::GetHeader,
             0x02 => Self::Header,
-            0x03 => Self::GetBytecode,
-            0x04 => Self::Bytecode,
-            0x05 => Self::GetWitness,
-            0x06 => Self::Witness,
+            0x03 => Self::GetBlockBody,
+            0x04 => Self::BlockBody,
+            0x05 => Self::GetBytecode,
+            0x06 => Self::Bytecode,
+            0x07 => Self::GetWitness,
+            0x08 => Self::Witness,
             _ => return Err(alloy_rlp::Error::Custom("Invalid message type")),
         };
         buf.advance(1);
@@ -191,6 +216,11 @@ pub enum RessMessage {
     /// Represents a header response message.
     Header(RequestPair<Header>),
 
+    /// Represents a block body request message.
+    GetBlockBody(RequestPair<B256>),
+    /// Represents a block body response message.
+    BlockBody(RequestPair<BlockBody>),
+
     /// Represents a bytecode request message.
     GetBytecode(RequestPair<B256>),
     /// Represents a bytecode response message.
@@ -209,6 +239,8 @@ impl RessMessage {
             Self::NodeType(_) => RessMessageID::NodeType,
             Self::GetHeader(_) => RessMessageID::GetHeader,
             Self::Header(_) => RessMessageID::Header,
+            Self::GetBlockBody(_) => RessMessageID::GetBlockBody,
+            Self::BlockBody(_) => RessMessageID::BlockBody,
             Self::GetBytecode(_) => RessMessageID::GetBytecode,
             Self::Bytecode(_) => RessMessageID::Bytecode,
             Self::GetWitness(_) => RessMessageID::GetWitness,
@@ -223,6 +255,8 @@ impl Encodable for RessMessage {
             Self::NodeType(node_type) => node_type.encode(out),
             Self::GetHeader(request) => request.encode(out),
             Self::Header(header) => header.encode(out),
+            Self::GetBlockBody(request) => request.encode(out),
+            Self::BlockBody(body) => body.encode(out),
             Self::GetBytecode(request) => request.encode(out),
             Self::Bytecode(bytecode) => bytecode.encode(out),
             Self::GetWitness(request) => request.encode(out),
@@ -235,6 +269,8 @@ impl Encodable for RessMessage {
             Self::NodeType(node_type) => node_type.length(),
             Self::GetHeader(request) => request.length(),
             Self::Header(header) => header.length(),
+            Self::GetBlockBody(request) => request.length(),
+            Self::BlockBody(body) => body.length(),
             Self::GetBytecode(request) => request.length(),
             Self::Bytecode(bytecode) => bytecode.length(),
             Self::GetWitness(request) => request.length(),

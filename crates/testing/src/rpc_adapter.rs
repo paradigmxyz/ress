@@ -5,7 +5,7 @@ use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{BlockNumberOrTag, BlockTransactionsKind};
 use parking_lot::RwLock;
 use ress_protocol::RessProtocolProvider;
-use reth_primitives::Header;
+use reth_primitives::{BlockBody, Header};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use std::{collections::HashMap, sync::Arc};
 
@@ -33,6 +33,10 @@ impl RessProtocolProvider for RpcAdapterProvider {
         })
         .map_err(|_error| ProviderError::BlockHashNotFound(block_hash))?;
         Ok(Some(result))
+    }
+
+    fn block_body(&self, _block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        todo!() // TODO:
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {

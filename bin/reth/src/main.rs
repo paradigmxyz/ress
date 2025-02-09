@@ -18,7 +18,7 @@ use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverla
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
-use reth_primitives::{Block, Bytecode, EthPrimitives, Header, RecoveredBlock};
+use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, RecoveredBlock};
 use reth_tokio_util::EventStream;
 use reth_trie::TrieInput;
 use std::{collections::HashMap, sync::Arc};
@@ -95,6 +95,10 @@ where
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
+    }
+
+    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        Ok(self.block_by_hash(block_hash)?.map(|b| b.body().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
