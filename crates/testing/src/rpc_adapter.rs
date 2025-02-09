@@ -5,7 +5,7 @@ use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{BlockNumberOrTag, BlockTransactionsKind};
 use parking_lot::RwLock;
 use ress_protocol::RessProtocolProvider;
-use reth_primitives::{BlockBody, Header};
+use reth_primitives::{BlockBody, Header, TransactionSigned};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use std::{collections::HashMap, sync::Arc};
 
@@ -35,8 +35,14 @@ impl RessProtocolProvider for RpcAdapterProvider {
         Ok(Some(result))
     }
 
-    fn block_body(&self, _block_hash: B256) -> ProviderResult<Option<BlockBody>> {
-        todo!() // TODO:
+    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        let provider = self.provider.clone();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async { get_block_body_by_hash(provider, block_hash).await })
+        })
+        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash))?;
+        Ok(Some(result))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
@@ -68,6 +74,22 @@ async fn get_header_by_hash(provider: RootProvider, block_hash: B256) -> eyre::R
         .await?
         .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
     Ok(block.header.into_consensus())
+}
+
+async fn get_block_body_by_hash(
+    provider: RootProvider,
+    block_hash: B256,
+) -> eyre::Result<BlockBody> {
+    let block = provider
+        .get_block_by_hash(block_hash, BlockTransactionsKind::Full)
+        .await?
+        .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
+    let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
+    Ok(BlockBody {
+        transactions: block.transactions.into_transactions().collect(),
+        withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
+        ommers: Default::default(),
+    })
 }
 
 async fn get_witness_by_hash(
