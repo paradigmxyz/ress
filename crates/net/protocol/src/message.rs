@@ -21,6 +21,14 @@ pub struct RessProtocolMessage {
     pub message: RessMessage,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for RessProtocolMessage {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let message: RessMessage = u.arbitrary()?;
+        Ok(RessProtocolMessage { message_type: message.message_id(), message })
+    }
+}
+
 impl RessProtocolMessage {
     /// Returns the capability for the `ress` protocol.
     pub fn capability() -> Capability {
@@ -118,6 +126,7 @@ impl Encodable for RessProtocolMessage {
         self.message_type.length() + self.message.length()
     }
 }
+
 /// Represents message IDs for `ress` protocol messages.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,6 +180,7 @@ impl Decodable for RessMessageID {
 
 /// Represents a message in the ress protocol.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum RessMessage {
     /// Represents a node type message required for handshake.
     NodeType(NodeType),
@@ -189,6 +199,21 @@ pub enum RessMessage {
     GetWitness(RequestPair<BlockHash>),
     /// Represents a witness response message.
     Witness(RequestPair<StateWitnessNet>),
+}
+
+impl RessMessage {
+    /// Return [`RessMessageID`] that corresponds to the given message.
+    pub fn message_id(&self) -> RessMessageID {
+        match self {
+            Self::NodeType(_) => RessMessageID::NodeType,
+            Self::GetHeader(_) => RessMessageID::GetHeader,
+            Self::Header(_) => RessMessageID::Header,
+            Self::GetBytecode(_) => RessMessageID::GetBytecode,
+            Self::Bytecode(_) => RessMessageID::Bytecode,
+            Self::GetWitness(_) => RessMessageID::GetWitness,
+            Self::Witness(_) => RessMessageID::Witness,
+        }
+    }
 }
 
 impl Encodable for RessMessage {
@@ -237,6 +262,13 @@ mod tests {
         #[test]
         fn message_type_roundtrip(message_type in arb::<RessMessageID>()) {
             rlp_roundtrip(message_type);
+        }
+
+        #[test]
+        fn message_roundtrip(message in arb::<RessProtocolMessage>()) {
+            let encoded = alloy_rlp::encode(&message);
+            let decoded = RessProtocolMessage::decode_message(&mut &encoded[..]);
+            assert_eq!(Ok(message), decoded);
         }
     }
 }

@@ -2,4 +2,4 @@
 .env
 *.db
 /fixtures/*
-*/proptest-regressions
+proptest-regressions/

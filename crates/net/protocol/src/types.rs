@@ -7,8 +7,9 @@ use alloy_rlp::{
 };
 
 /// Node type variant.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(u8)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum NodeType {
     /// Stateless ress node.
     Stateless = 0x00,
@@ -59,6 +60,7 @@ impl NodeType {
 
 /// State witness entry in the format used for networking.
 #[derive(PartialEq, Eq, Clone, Debug, RlpEncodable, RlpDecodable)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct StateWitnessEntry {
     /// Trie node hash.
     pub hash: B256,
@@ -68,6 +70,7 @@ pub struct StateWitnessEntry {
 
 /// State witness in the format used for networking.
 #[derive(PartialEq, Eq, Clone, Default, Debug, RlpEncodableWrapper, RlpDecodableWrapper)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct StateWitnessNet(
     /// State witness entries.
     pub Vec<StateWitnessEntry>,
