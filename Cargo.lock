@@ -5472,8 +5472,11 @@ dependencies = [
  "parking_lot",
  "rand",
  "ress-common",
- "ress-node",
+ "ress-engine",
+ "ress-network",
  "ress-protocol",
+ "ress-provider",
+ "ress-rpc",
  "ress-testing",
  "reth-chainspec",
  "reth-cli",
@@ -5484,6 +5487,7 @@ dependencies = [
  "reth-network-peers",
  "reth-node-ethereum",
  "reth-rpc-api",
+ "reth-rpc-builder",
  "reth-rpc-engine-api",
  "reth-tokio-util",
  "serde_json",
@@ -5506,6 +5510,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "ress-engine"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-engine",
+ "itertools 0.13.0",
+ "rayon",
+ "ress-network",
+ "ress-primitives",
+ "ress-provider",
+ "ress-vm",
+ "reth-chainspec",
+ "reth-consensus",
+ "reth-engine-tree",
+ "reth-errors",
+ "reth-ethereum-engine-primitives",
+ "reth-node-api",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-primitives-traits",
+ "reth-trie",
+ "reth-trie-sparse",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ress-network"
 version = "0.1.0"
 dependencies = [
@@ -5517,40 +5549,6 @@ dependencies = [
  "reth-network-api",
  "reth-network-peers",
  "reth-primitives",
- "thiserror 2.0.11",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "ress-node"
-version = "0.1.0"
-dependencies = [
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-rpc-types-engine",
- "itertools 0.13.0",
- "rayon",
- "ress-common",
- "ress-network",
- "ress-provider",
- "ress-rpc",
- "ress-testing",
- "ress-vm",
- "reth-chainspec",
- "reth-consensus",
- "reth-engine-tree",
- "reth-errors",
- "reth-ethereum-engine-primitives",
- "reth-network-peers",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-primitives-traits",
- "reth-rpc-builder",
- "reth-trie",
- "reth-trie-sparse",
  "thiserror 2.0.11",
  "tokio",
  "tracing",

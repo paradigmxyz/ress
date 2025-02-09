@@ -5,8 +5,8 @@ use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
 use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
+use ress::launch_test_node;
 use ress_common::test_utils::TestPeers;
-use ress_node::Node;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
@@ -43,8 +43,8 @@ struct Args {
     #[arg(long)]
     pub remote_peer: Option<TrustedPeer>,
 
-    #[arg(long = "enable-debug-consensus")]
     /// If passed, the debug consensus client will be started
+    #[arg(long = "enable-debug-consensus")]
     pub enable_debug_consensus: bool,
 
     #[arg(long = "enable-rpc-adapter")]
@@ -93,7 +93,7 @@ async fn main() -> eyre::Result<()> {
         None
     };
 
-    let node = Node::launch_test_node(
+    let node = launch_test_node(
         local_node,
         args.chain,
         args.remote_peer,

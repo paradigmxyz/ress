@@ -1,8 +1,9 @@
-use alloy_primitives::{map::B256HashSet, B256, U256};
+use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
 use rayon::iter::IntoParallelRefIterator;
+use ress_primitives::witness::ExecutionWitness;
 use ress_provider::provider::RessProvider;
 use ress_vm::{db::WitnessDatabase, errors::EvmError, executor::BlockExecutor};
 use reth_chainspec::ChainSpec;
@@ -14,97 +15,54 @@ use reth_engine_tree::tree::{
     BlockBuffer, BlockStatus, InsertPayloadOk, InvalidHeaderCache,
 };
 use reth_errors::{ProviderError, RethResult};
-use reth_ethereum_engine_primitives::EthPayloadBuilderAttributes;
+use reth_ethereum_engine_primitives::{
+    EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
+};
 use reth_node_api::{
-    BeaconEngineMessage, BeaconOnNewPayloadError, EngineApiMessageVersion, EngineValidator,
-    ExecutionData, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
+    EngineApiMessageVersion, EngineValidator, ExecutionData, OnForkChoiceUpdated,
+    PayloadBuilderAttributes, PayloadValidator,
 };
-use reth_node_ethereum::{
-    consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
-};
+use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, EthPrimitives, GotExpected, Header, SealedBlock};
 use reth_primitives_traits::SealedHeader;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::SparseStateTrie;
-use std::{result::Result::Ok, sync::Arc};
-use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::*;
 
-#[allow(unused_imports)]
-use crate::errors::EngineError;
-use crate::root::calculate_state_root;
+/// State root computation.
+pub mod root;
+use root::calculate_state_root;
 
-/// Ress consensus engine.
-#[allow(missing_debug_implementations)]
-pub struct ConsensusEngine {
-    provider: RessProvider,
-    consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>>,
+/// Consensus engine tree for storing and validating blocks as well as advancing the chain.
+#[derive(Debug)]
+pub struct EngineTree {
+    /// Ress provider.
+    pub provider: RessProvider,
+    consensus: EthBeaconConsensus<ChainSpec>,
     engine_validator: EthereumEngineValidator,
-    from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
 
-    forkchoice_state: Option<ForkchoiceState>,
     block_buffer: BlockBuffer<Block>,
     invalid_headers: InvalidHeaderCache,
 }
 
-impl ConsensusEngine {
-    /// Initialize consensus engine.
+impl EngineTree {
+    /// Create new engine tree.
     pub fn new(
         provider: RessProvider,
-        from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        consensus: EthBeaconConsensus<ChainSpec>,
+        engine_validator: EthereumEngineValidator,
     ) -> Self {
-        // we have it in auth server for now to leverage the methods in here, we also init new
-        // validator
-        let chain_spec = provider.storage.chain_spec();
-        let engine_validator = EthereumEngineValidator::new(chain_spec.clone());
-        let consensus: Arc<dyn FullConsensus<EthPrimitives, Error = ConsensusError>> =
-            Arc::new(EthBeaconConsensus::<ChainSpec>::new(chain_spec));
         Self {
+            provider,
             consensus,
             engine_validator,
-            provider,
-            from_beacon_engine,
-            forkchoice_state: None,
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
         }
     }
 
-    /// run engine to handle receiving consensus message.
-    pub async fn run(mut self) {
-        while let Some(beacon_msg) = self.from_beacon_engine.recv().await {
-            self.on_engine_message(beacon_msg).await;
-        }
-    }
-
-    async fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
-        match message {
-            BeaconEngineMessage::NewPayload { payload, tx } => {
-                let outcome =
-                    self.on_new_payload(payload).await.map_err(BeaconOnNewPayloadError::internal);
-                if let Err(error) = tx.send(outcome) {
-                    error!(target: "ress::engine", ?error, "Failed to send payload status");
-                }
-            }
-            BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
-                let outcome = self.on_forkchoice_update(state, payload_attrs, version);
-                if let Ok(updated) = &outcome {
-                    if updated.forkchoice_status().is_valid() {
-                        self.forkchoice_state = Some(state);
-                    }
-                }
-                if let Err(error) = tx.send(outcome) {
-                    error!(target: "ress::engine", ?error, "Failed to send forkchoice outcome");
-                }
-            }
-            BeaconEngineMessage::TransitionConfigurationExchanged => {
-                // Implement transition configuration handling
-                todo!()
-            }
-        }
-    }
-
-    fn on_forkchoice_update(
+    /// Handle forkchoice update.
+    pub fn on_forkchoice_updated(
         &mut self,
         state: ForkchoiceState,
         payload_attrs: Option<PayloadAttributes>,
@@ -400,9 +358,11 @@ impl ConsensusEngine {
         self.provider.storage.on_chain_update(new, old);
     }
 
-    async fn on_new_payload(
+    /// Handler for new payload message.
+    pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
+        witness: ExecutionWitness,
     ) -> Result<PayloadStatus, InsertBlockFatalError> {
         let block_number = payload.payload.block_number();
         let block_hash = payload.payload.block_hash();
@@ -442,7 +402,7 @@ impl ConsensusEngine {
         }
 
         let mut latest_valid_hash = None;
-        match self.insert_block(block.clone()).await {
+        match self.insert_block(block.clone(), witness) {
             Ok(status) => {
                 let status = match status {
                     InsertPayloadOk::Inserted(BlockStatus::Valid) => {
@@ -467,9 +427,10 @@ impl ConsensusEngine {
         }
     }
 
-    async fn insert_block(
+    fn insert_block(
         &mut self,
         block: SealedBlock,
+        execution_witness: ExecutionWitness,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let block_num_hash = block.num_hash();
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
@@ -507,15 +468,6 @@ impl ConsensusEngine {
         }
 
         // ===================== Witness =====================
-        let execution_witness =
-            self.provider.fetch_witness(block.hash()).await.map_err(|error| {
-                InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-            })?;
-        let start_time = std::time::Instant::now();
-        let bytecode_hashes = execution_witness.get_bytecode_hashes();
-        let bytecode_hashes_len = bytecode_hashes.len();
-        self.prefetch_bytecodes(bytecode_hashes).await;
-        info!(target: "ress::engine", elapsed = ?start_time.elapsed(), len = bytecode_hashes_len, "✨ ensured all bytecodes are present");
         let mut trie = SparseStateTrie::default();
         trie.reveal_witness(parent.state_root, &execution_witness.state_witness).map_err(
             |error| {
@@ -534,7 +486,8 @@ impl ConsensusEngine {
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
         // ===================== Post Execution Validation =====================
-        self.consensus.validate_block_post_execution(
+        <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
+            &self.consensus,
             &block,
             PostExecutionInput::new(&output.receipts, &output.requests),
         )?;
@@ -625,16 +578,6 @@ impl ConsensusEngine {
         })?;
 
         Ok(())
-    }
-
-    /// Prefetch all bytecodes found in the witness.
-    async fn prefetch_bytecodes(&self, bytecode_hashes: B256HashSet) {
-        for code_hash in bytecode_hashes {
-            if let Err(error) = self.provider.ensure_bytecode_exists(code_hash).await {
-                // TODO: handle this error
-                error!(target: "ress::engine", %error, "Failed to prefetch");
-            }
-        }
     }
 
     /// Return the parent hash of the lowest buffered ancestor for the requested block, if there

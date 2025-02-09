@@ -14,9 +14,9 @@ members = [
     "bin/reth",
 
     "crates/common",
+    "crates/engine",
     "crates/net/network",
     "crates/net/protocol",
-    "crates/node",
     "crates/primitives",
     "crates/provider",
     "crates/rpc",
@@ -76,7 +76,7 @@ codegen-units = 1
 
 [workspace.dependencies]
 # ress
-ress-node = { path = "crates/node" }
+ress-engine = { path = "crates/engine" }
 ress-network = { path = "crates/net/network" }
 ress-protocol = { path = "crates/net/protocol" }
 ress-provider = { path = "crates/provider" }
