@@ -21,7 +21,7 @@ pub struct RessProtocolMessage {
     pub message: RessMessage,
 }
 
-#[cfg(feature = "arbitrary")]
+#[cfg(any(test, feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for RessProtocolMessage {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let message: RessMessage = u.arbitrary()?;
