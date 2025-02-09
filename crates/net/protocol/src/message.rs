@@ -131,6 +131,7 @@ impl Encodable for RessProtocolMessage {
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(test, derive(strum_macros::EnumCount))]
 pub enum RessMessageID {
     /// Node type message.
     NodeType = 0x00,
@@ -248,6 +249,7 @@ mod tests {
     use proptest::prelude::*;
     use proptest_arbitrary_interop::arb;
     use std::fmt;
+    use strum::EnumCount;
 
     fn rlp_roundtrip<V>(value: V)
     where
@@ -256,6 +258,12 @@ mod tests {
         let encoded = alloy_rlp::encode(&value);
         let decoded = V::decode(&mut &encoded[..]);
         assert_eq!(Ok(value), decoded);
+    }
+
+    #[test]
+    fn protocol_message_count() {
+        let protocol = RessProtocolMessage::protocol();
+        assert_eq!(protocol.messages(), RessMessageID::COUNT as u8);
     }
 
     proptest! {

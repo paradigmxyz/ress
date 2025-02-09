@@ -121,7 +121,7 @@ dependencies = [
  "num_enum",
  "proptest",
  "serde",
- "strum",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -549,7 +549,7 @@ dependencies = [
  "jsonwebtoken",
  "rand",
  "serde",
- "strum",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -1811,8 +1811,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24f165e7b643266ea80cb858aed492ad9280e3e05ce24d4a99d7d7b889b6a4d9"
 dependencies = [
  "crossterm",
- "strum",
- "strum_macros",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "unicode-width 0.2.0",
 ]
 
@@ -5284,8 +5284,8 @@ dependencies = [
  "itertools 0.13.0",
  "lru 0.12.5",
  "paste",
- "strum",
- "strum_macros",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "unicode-segmentation",
  "unicode-truncate",
  "unicode-width 0.1.14",
@@ -5579,6 +5579,8 @@ dependencies = [
  "reth-network-api",
  "reth-primitives",
  "reth-storage-errors",
+ "strum 0.27.0",
+ "strum_macros 0.27.0",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -6059,7 +6061,7 @@ dependencies = [
  "reth-trie-common",
  "rustc-hash 2.1.0",
  "serde",
- "strum",
+ "strum 0.26.3",
  "sysinfo",
  "tempfile",
  "thiserror 2.0.11",
@@ -7135,7 +7137,7 @@ dependencies = [
  "secp256k1",
  "serde",
  "shellexpand",
- "strum",
+ "strum 0.26.3",
  "thiserror 2.0.11",
  "toml",
  "tracing",
@@ -7400,7 +7402,7 @@ dependencies = [
  "reth-trie",
  "reth-trie-db",
  "revm",
- "strum",
+ "strum 0.26.3",
  "tokio",
  "tracing",
 ]
@@ -7740,7 +7742,7 @@ dependencies = [
  "reth-errors",
  "reth-network-api",
  "serde",
- "strum",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -7870,7 +7872,7 @@ dependencies = [
  "clap",
  "derive_more",
  "serde",
- "strum",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -9053,14 +9055,33 @@ version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.26.4",
 ]
+
+[[package]]
+name = "strum"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce1475c515a4f03a8a7129bb5228b81a781a86cb0b3fbbc19e1c556d491a401f"
 
 [[package]]
 name = "strum_macros"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9688894b43459159c82bfa5a5fa0435c19cbe3c9b427fa1dd7b1ce0c279b18a7"
 dependencies = [
  "heck",
  "proc-macro2",
