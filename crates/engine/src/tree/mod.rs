@@ -463,7 +463,8 @@ impl EngineTree {
         };
         let Some(witness) = self.block_buffer.remove_witness(block.hash_ref()) else {
             self.block_buffer.insert_block(recovered);
-            return Ok(TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)))
+            return Ok(TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
+                .with_event(TreeEvent::Download(DownloadRequest::Witness { block_hash })))
         };
 
         let mut missing_ancestor_hash = None;
