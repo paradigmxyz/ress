@@ -23,6 +23,7 @@ use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
+use tracing::*;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -95,14 +96,17 @@ where
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving header");
         Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
     }
 
     fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving block body");
         Ok(self.block_by_hash(block_hash)?.map(|b| b.body().clone()))
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        trace!(target: "reth::ress_provider", %code_hash, "Serving bytecode");
         let maybe_bytecode = 'bytecode: {
             if let Some(bytecode) = self.pending_state.find_bytecode(code_hash) {
                 break 'bytecode Some(bytecode);
@@ -115,6 +119,7 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
         let block =
             self.block_by_hash(block_hash)?.ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
@@ -138,13 +143,13 @@ where
             MemoryOverlayStateProvider::new(historical, executed_ancestors.clone()),
         ));
         let mut record = ExecutionWitnessRecord::default();
-        if let Err(_error) = self.block_executor.executor(&mut db).execute_with_state_closure(
+        if let Err(error) = self.block_executor.executor(&mut db).execute_with_state_closure(
             &block,
             |state: &State<_>| {
                 record.record_executed_state(state);
             },
         ) {
-            // TODO: log but not exit
+            debug!(target: "reth::ress_provider", %block_hash, %error, "Error executing the block");
         }
 
         // NOTE: there might be a race condition where target ancestor hash gets evicted from the
@@ -230,10 +235,17 @@ async fn maintain_pending_state(
         match event {
             BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _) |
             BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
+                trace!(
+                    target: "reth::ress_provider",
+                    block_number = block.recovered_block.number,
+                    block_hash = %block.recovered_block.hash(),
+                    "Insert block into pending state"
+                );
                 state.insert_block(block);
             }
             BeaconConsensusEngineEvent::InvalidBlock(block) => {
                 if let Ok(block) = block.try_recover() {
+                    trace!(target: "reth::ress_provider", block_number = block.number, block_hash = %block.hash(), "Insert invalid block into pending state");
                     state.insert_invalid_block(Arc::new(block));
                 }
             }
