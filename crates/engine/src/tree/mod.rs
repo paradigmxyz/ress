@@ -527,53 +527,65 @@ impl EngineTree {
         &mut self,
         block: RecoveredBlock<Block>,
         witness: ExecutionWitness,
-    ) -> Result<Option<TreeEvent>, InsertBlockFatalError> {
+    ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
-        if self
-            .check_invalid_ancestor_with_head(lowest_buffered_ancestor, block_num_hash.hash)
-            .is_some()
+        if let Some(status) =
+            self.check_invalid_ancestor_with_head(lowest_buffered_ancestor, block_num_hash.hash)
         {
-            return Ok(None)
+            return Ok(TreeOutcome::new(status))
         }
 
         // try to append the block
-        match self.insert_block(block.clone(), witness) {
+        let block_hash = block.hash();
+        let outcome = match self.insert_block(block.clone(), witness) {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Valid)) => {
+                let mut outcome = TreeOutcome::new(PayloadStatus::new(
+                    PayloadStatusEnum::Valid,
+                    Some(block_hash),
+                ));
                 if self.is_sync_target_head(block_num_hash.hash) {
                     trace!(target: "ress::engine", "appended downloaded sync target block");
                     // we just inserted the current sync target block, we can try to make it
                     // canonical
-                    return Ok(Some(TreeEvent::TreeAction(TreeAction::MakeCanonical {
-                        sync_target_head: block_num_hash.hash,
-                    })))
+                    outcome =
+                        outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
+                            sync_target_head: block_num_hash.hash,
+                        }));
                 }
                 trace!(target: "ress::engine", "appended downloaded block");
                 // TODO: self.try_connect_buffered_blocks(block_num_hash)?;
+                outcome
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 missing_ancestor, ..
             })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                return Ok(Some(TreeEvent::Download(DownloadRequest::Block {
-                    block_hash: missing_ancestor.hash,
-                })))
+                TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)).with_event(
+                    TreeEvent::Download(DownloadRequest::Block {
+                        block_hash: missing_ancestor.hash,
+                    }),
+                )
             }
-            Ok(InsertPayloadOk::AlreadySeen(_)) => {
+            Ok(InsertPayloadOk::AlreadySeen(block_status)) => {
                 trace!(target: "ress::engine", "downloaded block already executed");
+                let status = if matches!(block_status, BlockStatus::Valid) {
+                    PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
+                } else {
+                    PayloadStatus::new(PayloadStatusEnum::Syncing, None)
+                };
+                TreeOutcome::new(status)
             }
             Err(kind) => {
                 debug!(target: "ress::engine", error = %kind, "failed to insert downloaded block");
-                if let Err(fatal) = self
-                    .on_insert_block_error(InsertBlockError::new(block.into_sealed_block(), kind))
-                {
-                    warn!(target: "ress::engine", %fatal, "fatal error occurred while inserting downloaded block");
-                    return Err(fatal)
-                }
+                TreeOutcome::new(self.on_insert_block_error(InsertBlockError::new(
+                    block.into_sealed_block(),
+                    kind,
+                ))?)
             }
-        }
-        Ok(None)
+        };
+        Ok(outcome)
     }
 
     /// Insert block into the tree.

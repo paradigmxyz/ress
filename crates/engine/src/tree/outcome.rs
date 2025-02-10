@@ -23,28 +23,16 @@ impl<T> TreeOutcome<T> {
 }
 
 /// Events that are triggered by Tree Chain
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TreeEvent {
     /// Tree action is needed.
     TreeAction(TreeAction),
     /// Data needs to be downloaded.
     Download(DownloadRequest),
-    // TODO:
-    //   /// Backfill action is needed.
-    //    BackfillAction(BackfillAction),
-    //    /// Block download is needed.
-    //   Download(DownloadRequest),
-}
-
-impl TreeEvent {
-    /// Returns true if event is witness download request.
-    pub fn is_witness_download_request(&self) -> bool {
-        matches!(self, Self::Download(DownloadRequest::Witness { .. }))
-    }
 }
 
 /// The actions that can be performed on the tree.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TreeAction {
     /// Make target canonical.
     MakeCanonical {
@@ -54,7 +42,7 @@ pub enum TreeAction {
 }
 
 /// The download request.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum DownloadRequest {
     /// Download block.
     Block {
