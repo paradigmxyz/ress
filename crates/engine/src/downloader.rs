@@ -21,10 +21,10 @@ pub struct EngineDownloader {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
 
-    inflight_full_block_requests: Vec<FetchFullBlockFuture>,
-    inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
-    inflight_witness_requests: Vec<FetchWitnessFuture>,
-    outcomes: VecDeque<DownloadOutcome>,
+    pub(crate) inflight_full_block_requests: Vec<FetchFullBlockFuture>,
+    pub(crate) inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
+    pub(crate) inflight_witness_requests: Vec<FetchWitnessFuture>,
+    pub(crate) outcomes: VecDeque<DownloadOutcome>,
 }
 
 impl EngineDownloader {

@@ -124,11 +124,15 @@ impl ConsensusEngine {
             buffered_witnesses_len = self.tree.block_buffer.witnesses.len(),
             buffered_witness_hashes = ?self.tree.block_buffer.witnesses.keys().collect::<Vec<_>>(),
             missing_bytecodes = ?self.tree.block_buffer.missing_bytecodes,
+            inflight_blocks_len = self.downloader.inflight_full_block_requests.len(),
+            inflight_block_hashes = ?self.downloader.inflight_full_block_requests.iter().map(|r| r.block_hash).collect::<Vec<_>>(),
+            outcomes_len = self.downloader.outcomes.len(),
             "Download processed",
         );
         for (block, witness) in blocks {
+            let block_number = block.number;
             let block_hash = block.hash();
-            trace!(target: "ress::engine", %block_hash, "Inserting block after download");
+            trace!(target: "ress::engine", block_number, %block_hash, "Inserting block after download");
             let mut result = self
                 .tree
                 .on_downloaded_block(block, witness)
@@ -138,14 +142,14 @@ impl ConsensusEngine {
                     self.on_maybe_tree_event(outcome.event.take());
                 }
                 Err(error) => {
-                    error!(target: "ress::engine", %error, "Error inserting downloaded block");
+                    error!(target: "ress::engine", block_number, %block_hash, %error, "Error inserting downloaded block");
                 }
             };
             if self.parked_payload.as_ref().is_some_and(|parked| parked.block_hash == block_hash) {
                 let parked = self.parked_payload.take().unwrap();
-                trace!(target: "ress::engine", %block_hash, elapsed = ?parked.parked_at.elapsed(), "Sending response for parked payload");
+                trace!(target: "ress::engine", block_number, %block_hash, elapsed = ?parked.parked_at.elapsed(), "Sending response for parked payload");
                 if let Err(error) = parked.tx.send(result.map(|o| o.outcome)) {
-                    error!(target: "ress::engine", ?error, "Failed to send payload status");
+                    error!(target: "ress::engine", block_number, %block_hash, ?error, "Failed to send payload status");
                 }
             }
         }
