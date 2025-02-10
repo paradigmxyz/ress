@@ -564,11 +564,15 @@ impl EngineTree {
             })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)).with_event(
-                    TreeEvent::Download(DownloadRequest::Block {
-                        block_hash: missing_ancestor.hash,
-                    }),
-                )
+                // TODO: fix this
+                // we use `missing_ancestor == block_hash` for witness download
+                let request = if missing_ancestor.hash == block_hash {
+                    DownloadRequest::Witness { block_hash }
+                } else {
+                    DownloadRequest::Block { block_hash: missing_ancestor.hash }
+                };
+                TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
+                    .with_event(TreeEvent::Download(request))
             }
             Ok(InsertPayloadOk::AlreadySeen(block_status)) => {
                 trace!(target: "ress::engine", "downloaded block already executed");
