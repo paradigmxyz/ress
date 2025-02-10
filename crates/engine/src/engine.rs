@@ -3,7 +3,7 @@ use crate::{
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
 use alloy_primitives::B256;
-use alloy_rpc_types_engine::PayloadStatus;
+use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use ress_network::RessNetworkHandle;
 use ress_provider::provider::RessProvider;
@@ -152,11 +152,17 @@ impl ConsensusEngine {
                 if let Ok(outcome) = &mut result {
                     if let Some(event) = outcome.event.take() {
                         self.on_tree_event(event.clone());
-                        if let TreeEvent::Download(DownloadRequest::Witness { block_hash }) = event
-                        {
-                            self.parked_payload =
-                                Some(ParkedPayload::new(block_hash, tx, Duration::from_secs(1)));
-                            return
+                        if outcome.outcome.is_syncing() {
+                            if let TreeEvent::Download(DownloadRequest::Witness { block_hash }) =
+                                event
+                            {
+                                self.parked_payload = Some(ParkedPayload::new(
+                                    block_hash,
+                                    tx,
+                                    Duration::from_secs(1),
+                                ));
+                                return
+                            }
                         }
                     }
                     self.on_maybe_tree_event(outcome.event.take());
@@ -200,6 +206,9 @@ impl Future for ConsensusEngine {
             if let Some(parked) = &mut this.parked_payload {
                 if parked.timeout.poll_unpin(cx).is_ready() {
                     warn!(target: "ress::engine", block_hash = %parked.block_hash, "Could not download missing payload data in time");
+                    let Err(error) = parked.tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing))) {
+                        error!(target: "ress::engine", ?error, "Failed to send parked payload status");
+                    }
                     this.parked_payload.take();
                 } else {
                     return Poll::Pending
