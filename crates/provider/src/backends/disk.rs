@@ -56,13 +56,7 @@ impl DiskStorage {
             })
             .optional()?;
 
-        if let Some(bytes) = bytecode {
-            Ok(Some(Bytecode::new_raw(Bytes::from(bytes))))
-            // let bytecode: Bytecode = Bytecode::LegacyRaw(Bytes::copy_from_slice(&bytes));
-            // Ok(Some(bytecode))
-        } else {
-            Ok(None)
-        }
+        Ok(bytecode.map(|bytes| Bytecode::new_raw(Bytes::from(bytes))))
     }
 
     /// Insert bytecode into the database.
