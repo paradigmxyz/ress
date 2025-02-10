@@ -205,11 +205,12 @@ impl Future for ConsensusEngine {
 
             if let Some(parked) = &mut this.parked_payload {
                 if parked.timeout.poll_unpin(cx).is_ready() {
+                    let parked = this.parked_payload.take().unwrap();
                     warn!(target: "ress::engine", block_hash = %parked.block_hash, "Could not download missing payload data in time");
-                    let Err(error) = parked.tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing))) {
+                    let status = PayloadStatus::from_status(PayloadStatusEnum::Syncing);
+                    if let Err(error) = parked.tx.send(Ok(status)) {
                         error!(target: "ress::engine", ?error, "Failed to send parked payload status");
                     }
-                    this.parked_payload.take();
                 } else {
                     return Poll::Pending
                 }
