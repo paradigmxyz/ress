@@ -24,7 +24,7 @@ pub(crate) struct BlockBufferMetrics {
 /// * [`BlockBuffer::insert_block`] for inserting blocks inside the buffer.
 /// * [`BlockBuffer::remove_block_with_children`] for connecting blocks if the parent gets received
 ///   and inserted.
-/// * [`BlockBuffer::remove_old_blocks`] to remove old blocks that precede the finalized number.
+/// * [`BlockBuffer::evict_old_blocks`] to evict old blocks that precede the finalized number.
 ///
 /// Note: Buffer is limited by number of blocks that it can contain and eviction of the block
 /// is done by last recently used block.
