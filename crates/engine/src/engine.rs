@@ -125,7 +125,7 @@ impl ConsensusEngine {
             buffered_witness_hashes = ?self.tree.block_buffer.witnesses.keys().collect::<Vec<_>>(),
             missing_bytecodes = ?self.tree.block_buffer.missing_bytecodes,
             inflight_blocks_len = self.downloader.inflight_full_block_requests.len(),
-            inflight_block_hashes = ?self.downloader.inflight_full_block_requests.iter().map(|r| r.block_hash).collect::<Vec<_>>(),
+            inflight_block_hashes = ?self.downloader.inflight_full_block_requests.iter().map(|r| r.block_hash()).collect::<Vec<_>>(),
             outcomes_len = self.downloader.outcomes.len(),
             "Download processed",
         );
