@@ -1,7 +1,7 @@
 use alloy_primitives::{Bytes, B256};
 use ress_protocol::{RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
-use reth_primitives::Header;
+use reth_primitives::{BlockBody, Header};
 use tokio::sync::{mpsc, mpsc::UnboundedSender, oneshot};
 use tracing::trace;
 
@@ -15,27 +15,37 @@ pub struct RessNetworkHandle {
 }
 
 impl RessNetworkHandle {
-    /// Get header from block hash
+    /// Get header by block hash.
     pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, NetworkStorageError> {
         trace!(target: "ress::net", %block_hash, "requesting header");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn.send(RessPeerRequest::GetHeader { block_hash, tx })?;
         let response = rx.await?;
-        trace!(target: "ress::net", "header received");
+        trace!(target: "ress::net", %block_hash, "header received");
+        Ok(response)
+    }
+
+    /// Get block body by block hash.
+    pub async fn fetch_block_body(
+        &self,
+        block_hash: B256,
+    ) -> Result<BlockBody, NetworkStorageError> {
+        trace!(target: "ress::net", %block_hash, "requesting block body");
+        let (tx, rx) = oneshot::channel();
+        self.network_peer_conn.send(RessPeerRequest::GetBlockBody { block_hash, tx })?;
+        let response = rx.await?;
+        trace!(target: "ress::net", %block_hash, "header block body");
         Ok(response)
     }
 
     /// Get contract bytecode by code hash.
-    pub async fn fetch_bytecode(
-        &self,
-        code_hash: B256,
-    ) -> Result<Option<Bytes>, NetworkStorageError> {
+    pub async fn fetch_bytecode(&self, code_hash: B256) -> Result<Bytes, NetworkStorageError> {
         trace!(target: "ress::net", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn.send(RessPeerRequest::GetBytecode { code_hash, tx })?;
         let response = rx.await?;
-        trace!(target: "ress::net", "bytecode received");
-        Ok(Some(response))
+        trace!(target: "ress::net", %code_hash, "bytecode received");
+        Ok(response)
     }
 
     /// Get StateWitness from block hash
@@ -47,7 +57,7 @@ impl RessNetworkHandle {
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn.send(RessPeerRequest::GetWitness { block_hash, tx })?;
         let response = rx.await?;
-        trace!(target: "ress::net", "witness received");
+        trace!(target: "ress::net", %block_hash, "witness received");
         Ok(response)
     }
 }

@@ -55,7 +55,7 @@ pub async fn launch_test_node(
         network_handle.clone(),
         rpc_handle.from_beacon_engine,
     );
-    let consensus_engine_handle = tokio::spawn(async move { consensus_engine.run().await });
+    let consensus_engine_handle = tokio::spawn(consensus_engine);
 
     Node {
         network_handle,

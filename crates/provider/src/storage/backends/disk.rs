@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
+use crate::errors::DiskStorageError;
 use alloy_primitives::{Bytes, B256};
 use parking_lot::Mutex;
 use reth_revm::primitives::Bytecode;
 use rusqlite::{Connection, OptionalExtension, Result};
-
-use crate::errors::DiskStorageError;
+use std::sync::Arc;
 
 // todo: for now for simplicity using sqlite, mb later move kv storage like libmbdx
 /// On disk storage.
@@ -33,13 +31,10 @@ impl DiskStorage {
 
     // TODO: remove
     pub(crate) fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
-        code_hashes
-            .into_iter()
-            .filter(|code_hash| !self.code_hash_exists_in_db(code_hash))
-            .collect()
+        code_hashes.into_iter().filter(|code_hash| !self.bytecode_exists(code_hash)).collect()
     }
 
-    pub(crate) fn code_hash_exists_in_db(&self, code_hash: &B256) -> bool {
+    pub(crate) fn bytecode_exists(&self, code_hash: &B256) -> bool {
         let conn = self.conn.lock();
         let mut stmt =
             conn.prepare("SELECT COUNT(*) FROM account_code WHERE codehash = ?1").unwrap();
@@ -62,15 +57,16 @@ impl DiskStorage {
             .optional()?;
 
         if let Some(bytes) = bytecode {
-            let bytecode: Bytecode = Bytecode::LegacyRaw(Bytes::copy_from_slice(&bytes));
-            Ok(Some(bytecode))
+            Ok(Some(Bytecode::new_raw(Bytes::from(bytes))))
+            // let bytecode: Bytecode = Bytecode::LegacyRaw(Bytes::copy_from_slice(&bytes));
+            // Ok(Some(bytecode))
         } else {
             Ok(None)
         }
     }
 
-    /// Update bytecode in the database
-    pub(crate) fn update_bytecode(
+    /// Insert bytecode into the database.
+    pub(crate) fn insert_bytecode(
         &self,
         code_hash: B256,
         bytecode: Bytecode,
@@ -79,7 +75,7 @@ impl DiskStorage {
         let result = conn.execute(
             "INSERT INTO account_code (codehash, bytecode) VALUES (?1, ?2)
             ON CONFLICT(codehash) DO UPDATE SET bytecode = excluded.bytecode",
-            rusqlite::params![code_hash.to_string(), bytecode.bytes_slice()],
+            rusqlite::params![code_hash.to_string(), bytecode.original_byte_slice()],
         );
 
         match result {
@@ -104,7 +100,7 @@ mod tests {
         let code_hash = B256::random();
         let bytecode = Bytecode::LegacyRaw(Bytes::from_str("0xabcdef").unwrap());
 
-        let result = storage.update_bytecode(code_hash, bytecode.clone());
+        let result = storage.insert_bytecode(code_hash, bytecode.clone());
         assert!(result.is_ok(), "Failed to update account code");
 
         let retrieved_bytecode = storage.get_bytecode(code_hash).unwrap();

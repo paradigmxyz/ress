@@ -15,28 +15,40 @@ workspace = true
 ress-primitives.workspace = true
 ress-provider.workspace = true
 ress-vm.workspace = true
+ress-protocol.workspace = true
 ress-network.workspace = true
 
 # reth
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
-reth-errors.workspace = true
 reth-chainspec.workspace = true
+reth-errors.workspace = true
 reth-consensus.workspace = true
-reth-node-api.workspace = true
-reth-node-ethereum.workspace = true
+reth-revm.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 reth-engine-tree.workspace = true
 reth-ethereum-engine-primitives.workspace = true
+reth-node-api.workspace = true
+reth-node-ethereum.workspace = true
+reth-metrics.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-rpc-types-engine.workspace = true
 alloy-rlp.workspace = true
+alloy-consensus.workspace = true
+alloy-rpc-types-engine.workspace = true
 
 # misc
+futures.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 tracing.workspace = true
 rayon.workspace = true
 itertools.workspace = true
+metrics.workspace = true
+schnellru = "0.2"
+
+[dev-dependencies]
+reth-testing-utils.workspace = true
+alloy-eips.workspace = true

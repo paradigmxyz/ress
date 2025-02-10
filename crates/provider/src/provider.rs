@@ -39,16 +39,12 @@ impl RessProvider {
 
     /// Ensure that bytecode exists on disk, download and write to disk if missing.
     pub async fn ensure_bytecode_exists(&self, code_hash: B256) -> Result<(), StorageError> {
-        if self.storage.disk.code_hash_exists_in_db(&code_hash) {
+        if self.storage.disk.bytecode_exists(&code_hash) {
             return Ok(());
         }
 
-        let bytecode = self
-            .network
-            .fetch_bytecode(code_hash)
-            .await?
-            .ok_or(StorageError::NoCodeForCodeHash(code_hash))?;
-        self.storage.disk.update_bytecode(code_hash, Bytecode::new_raw(bytecode))?;
+        let bytecode = self.network.fetch_bytecode(code_hash).await?;
+        self.storage.disk.insert_bytecode(code_hash, Bytecode::new_raw(bytecode))?;
         Ok(())
     }
 }

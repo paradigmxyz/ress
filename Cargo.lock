@@ -5513,13 +5513,18 @@ dependencies = [
 name = "ress-engine"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-engine",
+ "futures",
  "itertools 0.13.0",
+ "metrics",
  "rayon",
  "ress-network",
  "ress-primitives",
+ "ress-protocol",
  "ress-provider",
  "ress-vm",
  "reth-chainspec",
@@ -5527,13 +5532,18 @@ dependencies = [
  "reth-engine-tree",
  "reth-errors",
  "reth-ethereum-engine-primitives",
+ "reth-metrics",
  "reth-node-api",
  "reth-node-ethereum",
  "reth-primitives",
  "reth-primitives-traits",
+ "reth-revm",
+ "reth-testing-utils",
  "reth-trie",
  "reth-trie-sparse",
+ "schnellru",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -7931,6 +7941,21 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
+]
+
+[[package]]
+name = "reth-testing-utils"
+version = "1.1.5"
+source = "git+https://github.com/paradigmxyz/reth?rev=c58c557#c58c5574ba555615b05dc2925a12811ca09b5830"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-genesis",
+ "alloy-primitives",
+ "rand",
+ "reth-primitives",
+ "reth-primitives-traits",
+ "secp256k1",
 ]
 
 [[package]]

@@ -68,7 +68,7 @@ impl Database for WitnessDatabase<'_> {
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
         self.storage
-            .get_contract_bytecode(code_hash)
+            .get_bytecode(code_hash)
             .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))
     }
 

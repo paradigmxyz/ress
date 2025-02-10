@@ -148,6 +148,8 @@ reth-tracing = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
 reth-tasks = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
 reth-cli = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
 reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
+reth-metrics = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
+reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", rev = "c58c557" }
 
 # alloy
 alloy-primitives = { version = "0.8.15", default-features = false }
@@ -189,6 +191,7 @@ reqwest = { version = "0.12", features = [
 ], default-features = false }
 dotenvy = "0.15.7"
 itertools = "0.13"
+metrics = "0.24.0"
 
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }

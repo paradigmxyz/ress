@@ -81,12 +81,22 @@ impl Storage {
         self.memory.get_canonical_head()
     }
 
-    /// Get contract bytecode from given codehash from the disk
-    pub fn get_contract_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
+    /// Returns `true` if bytecode exists in the database.
+    pub fn bytecode_exists(&self, code_hash: &B256) -> bool {
+        self.disk.bytecode_exists(code_hash)
+    }
+
+    /// Get contract bytecode from given code hash from the disk
+    pub fn get_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
         if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
             return Ok(bytecode);
         }
         Err(StorageError::NoCodeForCodeHash(code_hash))
+    }
+
+    /// Insert bytecode into the database.
+    pub fn insert_bytecode(&self, code_hash: B256, bytecode: Bytecode) -> Result<(), StorageError> {
+        Ok(self.disk.insert_bytecode(code_hash, bytecode)?)
     }
 
     /// Filter code hashes only not stored in disk already
@@ -142,7 +152,7 @@ impl RessProtocolProvider for Storage {
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
         let bytes = self
-            .get_contract_bytecode(code_hash)
+            .get_bytecode(code_hash)
             .map_err(|_| ProviderError::StateForHashNotFound(code_hash))?
             .bytes();
         Ok(Some(bytes))
