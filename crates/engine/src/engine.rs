@@ -143,7 +143,6 @@ impl ConsensusEngine {
     fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
         match message {
             BeaconEngineMessage::NewPayload { payload, tx } => {
-                // TODO: consider parking payload on missing witness
                 let mut result =
                     self.tree.on_new_payload(payload).map_err(BeaconOnNewPayloadError::internal);
                 if let Ok(outcome) = &mut result {

@@ -46,6 +46,7 @@ impl EngineDownloader {
             return
         }
 
+        trace!(target: "ress::engine::downloader", %block_hash, "Downloading block");
         let mut fut = FetchFullBlockFuture {
             network: self.network.clone(),
             consensus: self.consensus.clone(),
@@ -66,6 +67,7 @@ impl EngineDownloader {
             return
         }
 
+        trace!(target: "ress::engine::downloader", %code_hash, "Downloading bytecode");
         let network = self.network.clone();
         let fut = FetchBytecodeFuture {
             network: self.network.clone(),
@@ -81,6 +83,7 @@ impl EngineDownloader {
             return
         }
 
+        trace!(target: "ress::engine::downloader", %block_hash, "Downloading witness");
         let network = self.network.clone();
         let fut = FetchWitnessFuture {
             network: self.network.clone(),
