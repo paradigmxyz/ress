@@ -614,6 +614,7 @@ impl EngineTree {
                 .lowest_ancestor(&block.parent_hash)
                 .map(|block| block.parent_num_hash())
                 .unwrap_or_else(|| block.parent_num_hash());
+            trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor, has_witness=maybe_witness.is_some(), "Block has missing ancestor");
             if let Some(witness) = maybe_witness {
                 self.block_buffer.insert_witness(block.hash(), witness, Default::default());
             }
