@@ -42,71 +42,52 @@ impl RessProtocolMessage {
 
     /// Create node type message.
     pub fn node_type(node_type: NodeType) -> Self {
-        Self { message_type: RessMessageID::NodeType, message: RessMessage::NodeType(node_type) }
+        RessMessage::NodeType(node_type).into_protocol_message()
     }
 
     /// Header request.
     pub fn get_header(request_id: u64, block_hash: BlockHash) -> Self {
-        Self {
-            message_type: RessMessageID::GetHeader,
-            message: RessMessage::GetHeader(RequestPair { request_id, message: block_hash }),
-        }
+        RessMessage::GetHeader(RequestPair { request_id, message: block_hash })
+            .into_protocol_message()
     }
 
     /// Header response.
     pub fn header(request_id: u64, header: Header) -> Self {
-        Self {
-            message_type: RessMessageID::Header,
-            message: RessMessage::Header(RequestPair { request_id, message: header }),
-        }
+        RessMessage::Header(RequestPair { request_id, message: header }).into_protocol_message()
     }
 
     /// Block body request.
     pub fn get_block_body(request_id: u64, block_hash: B256) -> Self {
-        Self {
-            message_type: RessMessageID::GetBlockBody,
-            message: RessMessage::GetBlockBody(RequestPair { request_id, message: block_hash }),
-        }
+        RessMessage::GetBlockBody(RequestPair { request_id, message: block_hash })
+            .into_protocol_message()
     }
 
     /// Block body request.
     pub fn block_body(request_id: u64, block_body: BlockBody) -> Self {
-        Self {
-            message_type: RessMessageID::GetBlockBody,
-            message: RessMessage::BlockBody(RequestPair { request_id, message: block_body }),
-        }
+        RessMessage::BlockBody(RequestPair { request_id, message: block_body })
+            .into_protocol_message()
     }
 
     /// Bytecode request.
     pub fn get_bytecode(request_id: u64, code_hash: B256) -> Self {
-        Self {
-            message_type: RessMessageID::GetBytecode,
-            message: RessMessage::GetBytecode(RequestPair { request_id, message: code_hash }),
-        }
+        RessMessage::GetBytecode(RequestPair { request_id, message: code_hash })
+            .into_protocol_message()
     }
 
     /// Bytecode response.
     pub fn bytecode(request_id: u64, bytecode: Bytes) -> Self {
-        Self {
-            message_type: RessMessageID::Bytecode,
-            message: RessMessage::Bytecode(RequestPair { request_id, message: bytecode }),
-        }
+        RessMessage::Bytecode(RequestPair { request_id, message: bytecode }).into_protocol_message()
     }
 
     /// Execution witness request.
     pub fn get_witness(request_id: u64, block_hash: BlockHash) -> Self {
-        Self {
-            message_type: RessMessageID::GetWitness,
-            message: RessMessage::GetWitness(RequestPair { request_id, message: block_hash }),
-        }
+        RessMessage::GetWitness(RequestPair { request_id, message: block_hash })
+            .into_protocol_message()
     }
 
     /// Execution witness response.
     pub fn witness(request_id: u64, witness: StateWitnessNet) -> Self {
-        Self {
-            message_type: RessMessageID::Witness,
-            message: RessMessage::Witness(RequestPair { request_id, message: witness }),
-        }
+        RessMessage::Witness(RequestPair { request_id, message: witness }).into_protocol_message()
     }
 
     /// Return RLP encoded message.
@@ -246,6 +227,18 @@ impl RessMessage {
             Self::GetWitness(_) => RessMessageID::GetWitness,
             Self::Witness(_) => RessMessageID::Witness,
         }
+    }
+
+    /// Convert message into [`RessProtocolMessage`].
+    pub fn into_protocol_message(self) -> RessProtocolMessage {
+        let message_type = self.message_id();
+        RessProtocolMessage { message_type, message: self }
+    }
+}
+
+impl From<RessMessage> for RessProtocolMessage {
+    fn from(value: RessMessage) -> Self {
+        value.into_protocol_message()
     }
 }
 
