@@ -72,7 +72,7 @@ impl RessProtocolMessage {
     /// Block body request.
     pub fn block_body(request_id: u64, block_body: BlockBody) -> Self {
         Self {
-            message_type: RessMessageID::GetBlockBody,
+            message_type: RessMessageID::BlockBody,
             message: RessMessage::BlockBody(RequestPair { request_id, message: block_body }),
         }
     }
