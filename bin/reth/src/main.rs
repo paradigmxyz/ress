@@ -14,7 +14,7 @@ use reth::{
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
 };
-use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
+use reth_chain_state::{ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
@@ -32,8 +32,8 @@ fn main() -> eyre::Result<()> {
 
         let pending_state = PendingState::default();
 
-        // Spawn maintenance task for
-        let events = node.event_sender.new_listener();
+        // Spawn maintenance task for pending state.
+        let events = node.add_ons_handle.engine_events.new_listener();
         let pending_ = pending_state.clone();
         node.task_executor.spawn(maintain_pending_state(events, pending_));
 
@@ -73,7 +73,7 @@ where
         block_hash: B256,
     ) -> ProviderResult<Option<Arc<RecoveredBlock<Block>>>> {
         // NOTE: we keep track of the pending state locally because reth does not provider a way
-        // to access non-canonical blocks via the provider.
+        // to access non-canonical or invalid blocks via the provider.
         let maybe_block = if let Some(block) = self.pending_state.recovered_block(&block_hash) {
             Some(block)
         } else if let Some(block) =
@@ -82,7 +82,8 @@ where
             let signers = block.recover_signers()?;
             Some(Arc::new(block.into_recovered_with_signers(signers)))
         } else {
-            None
+            // we attempt to look up invalid block last
+            self.pending_state.invalid_recovered_block(&block_hash)
         };
         Ok(maybe_block)
     }
@@ -128,10 +129,7 @@ where
                         .executed_block(&ancestor_hash)
                         .ok_or(ProviderError::StateForHashNotFound(ancestor_hash))?;
                     ancestor_hash = executed.sealed_block().parent_hash();
-                    executed_ancestors.push(ExecutedBlockWithTrieUpdates {
-                        block: executed,
-                        trie: Arc::new(Default::default()),
-                    });
+                    executed_ancestors.push(executed);
                 }
             };
         };
@@ -152,6 +150,7 @@ where
         // database.
         let witness_state_provider = self.provider.state_by_block_hash(ancestor_hash)?;
         let mut trie_input = TrieInput::default();
+        // TODO: use prepend_cached
         for block in executed_ancestors.into_iter().rev() {
             trie_input.append_ref(&block.hashed_state);
         }
@@ -162,7 +161,8 @@ where
 
 #[derive(Default, Debug)]
 struct PendingStateInner {
-    blocks_by_hash: HashMap<B256, ExecutedBlock>,
+    blocks_by_hash: HashMap<B256, ExecutedBlockWithTrieUpdates>,
+    invalid_blocks_by_hash: HashMap<B256, Arc<RecoveredBlock<Block>>>,
     // TODO: block_hashes_by_number: BTreeMap<BlockNumber, HashSet<B256>>,
 }
 
@@ -170,17 +170,29 @@ struct PendingStateInner {
 struct PendingState(Arc<RwLock<PendingStateInner>>);
 
 impl PendingState {
-    fn insert_block(&self, block: ExecutedBlock) {
+    fn insert_block(&self, block: ExecutedBlockWithTrieUpdates) {
         let block_hash = block.recovered_block.hash();
         self.0.write().blocks_by_hash.insert(block_hash, block);
     }
 
-    fn executed_block(&self, hash: &B256) -> Option<ExecutedBlock> {
+    fn insert_invalid_block(&self, block: Arc<RecoveredBlock<Block>>) {
+        let block_hash = block.hash();
+        self.0.write().invalid_blocks_by_hash.insert(block_hash, block);
+    }
+
+    /// Returns only valid executed blocks by hash.
+    fn executed_block(&self, hash: &B256) -> Option<ExecutedBlockWithTrieUpdates> {
         self.0.read().blocks_by_hash.get(hash).cloned()
     }
 
+    /// Returns valid recovered block.
     fn recovered_block(&self, hash: &B256) -> Option<Arc<RecoveredBlock<Block>>> {
         self.executed_block(hash).map(|b| b.recovered_block.clone())
+    }
+
+    /// Returns invalid recovered block.
+    fn invalid_recovered_block(&self, hash: &B256) -> Option<Arc<RecoveredBlock<Block>>> {
+        self.0.read().invalid_blocks_by_hash.get(hash).cloned()
     }
 
     fn find_bytecode(&self, code_hash: B256) -> Option<Bytecode> {
@@ -202,6 +214,11 @@ async fn maintain_pending_state(
             BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _) |
             BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
                 state.insert_block(block);
+            }
+            BeaconConsensusEngineEvent::InvalidBlock(block) => {
+                if let Ok(block) = block.try_recover() {
+                    state.insert_invalid_block(Arc::new(block));
+                }
             }
             BeaconConsensusEngineEvent::ForkchoiceUpdated(_state, status) => {
                 if status.is_valid() {
