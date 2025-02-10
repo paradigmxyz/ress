@@ -155,7 +155,7 @@ impl ConsensusEngine {
                         if let TreeEvent::Download(DownloadRequest::Witness { block_hash }) = event
                         {
                             self.parked_payload =
-                                Some(ParkedPayload::new(block_hash, tx, Duration::from_secs(5)));
+                                Some(ParkedPayload::new(block_hash, tx, Duration::from_secs(1)));
                             return
                         }
                     }

@@ -1,7 +1,7 @@
 //! Reth node that supports ress subprotocol.
 
 use alloy_consensus::BlockHeader as _;
-use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use alloy_primitives::{keccak256, map::B256HashMap, Address, Bytes, B256, U256};
 use futures::StreamExt;
 use parking_lot::RwLock;
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
@@ -12,7 +12,7 @@ use reth::{
         BlockReader, BlockSource, ProviderError, ProviderResult, StateProvider,
         StateProviderFactory,
     },
-    revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, State},
+    revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, Database, State},
 };
 use reth_chain_state::{ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
@@ -20,7 +20,7 @@ use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, Node
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, RecoveredBlock};
 use reth_tokio_util::EventStream;
-use reth_trie::TrieInput;
+use reth_trie::{HashedPostState, HashedStorage, TrieInput};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 
@@ -133,18 +133,19 @@ where
                 }
             };
         };
-        let db = StateProviderDatabase::new(MemoryOverlayStateProvider::new(
-            historical,
-            executed_ancestors.clone(),
+
+        let mut db = StateWitnessRecorderDatabase::new(StateProviderDatabase::new(
+            MemoryOverlayStateProvider::new(historical, executed_ancestors.clone()),
         ));
         let mut record = ExecutionWitnessRecord::default();
-        let _ = self
-            .block_executor
-            .executor(db)
-            .execute_with_state_closure(&block, |state: &State<_>| {
+        if let Err(_error) = self.block_executor.executor(&mut db).execute_with_state_closure(
+            &block,
+            |state: &State<_>| {
                 record.record_executed_state(state);
-            })
-            .map_err(|err| ProviderError::TrieWitnessError(err.to_string()))?;
+            },
+        ) {
+            // TODO: log but not exit
+        }
 
         // NOTE: there might be a race condition where target ancestor hash gets evicted from the
         // database.
@@ -154,7 +155,9 @@ where
         for block in executed_ancestors.into_iter().rev() {
             trie_input.append_ref(&block.hashed_state);
         }
-        let witness = witness_state_provider.witness(trie_input, record.hashed_state)?;
+        let mut hashed_state = db.state;
+        hashed_state.extend(record.hashed_state);
+        let witness = witness_state_provider.witness(trie_input, hashed_state)?;
         Ok(Some(witness))
     }
 }
@@ -229,5 +232,54 @@ async fn maintain_pending_state(
             BeaconConsensusEngineEvent::CanonicalChainCommitted(_, _) |
             BeaconConsensusEngineEvent::LiveSyncProgress(_) => (),
         }
+    }
+}
+
+struct StateWitnessRecorderDatabase<D> {
+    database: D,
+    state: HashedPostState,
+}
+
+impl<D> StateWitnessRecorderDatabase<D> {
+    fn new(database: D) -> Self {
+        Self { database, state: Default::default() }
+    }
+}
+
+impl<D: Database> Database for StateWitnessRecorderDatabase<D> {
+    type Error = D::Error;
+
+    fn basic(
+        &mut self,
+        address: Address,
+    ) -> Result<Option<reth::revm::primitives::AccountInfo>, Self::Error> {
+        let maybe_account = self.database.basic(address)?;
+        let hashed_address = keccak256(address);
+        self.state.accounts.insert(hashed_address, maybe_account.as_ref().map(|acc| acc.into()));
+        Ok(maybe_account)
+    }
+
+    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+        let value = self.database.storage(address, index)?;
+        let hashed_address = keccak256(address);
+        let hashed_slot = keccak256(B256::from(index));
+        self.state
+            .storages
+            .entry(hashed_address)
+            .or_insert_with(|| HashedStorage::new(false))
+            .storage
+            .insert(hashed_slot, value);
+        Ok(value)
+    }
+
+    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
+        self.database.block_hash(number)
+    }
+
+    fn code_by_hash(
+        &mut self,
+        code_hash: B256,
+    ) -> Result<reth::revm::primitives::Bytecode, Self::Error> {
+        self.database.code_by_hash(code_hash)
     }
 }
