@@ -20,7 +20,7 @@ use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, Node
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, RecoveredBlock};
 use reth_tokio_util::EventStream;
-use reth_trie::{HashedPostState, HashedStorage, TrieInput};
+use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 
@@ -157,7 +157,21 @@ where
         }
         let mut hashed_state = db.state;
         hashed_state.extend(record.hashed_state);
-        let witness = witness_state_provider.witness(trie_input, hashed_state)?;
+        let witness = if hashed_state.is_empty() {
+            witness_state_provider.witness(trie_input, hashed_state)?
+        } else {
+            let multiproof = witness_state_provider.multiproof(
+                trie_input,
+                MultiProofTargets::from_iter([(B256::ZERO, Default::default())]),
+            )?;
+            let mut witness = B256HashMap::default();
+            if let Some(root_node) =
+                multiproof.account_subtree.into_inner().remove(&Nibbles::default())
+            {
+                witness.insert(keccak256(&root_node), root_node.clone());
+            }
+            witness
+        };
         Ok(Some(witness))
     }
 }
