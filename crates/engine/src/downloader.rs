@@ -13,6 +13,7 @@ use std::{
     future::Future,
     pin::Pin,
     task::{ready, Context, Poll},
+    time::Duration,
 };
 use tracing::*;
 
@@ -20,6 +21,8 @@ use tracing::*;
 pub struct EngineDownloader {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
+
+    retry_delay: Duration,
 
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
@@ -33,6 +36,7 @@ impl EngineDownloader {
         Self {
             network,
             consensus,
+            retry_delay: Duration::from_millis(50),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
             inflight_bytecode_requests: Vec::new(),
@@ -51,13 +55,14 @@ impl EngineDownloader {
             network: self.network.clone(),
             consensus: self.consensus.clone(),
             block_hash,
+            retry_delay: self.retry_delay,
             pending_header_request: None,
             pending_body_request: None,
             header: None,
             body: None,
         };
-        fut.pending_header_request = Some(fut.header_request());
-        fut.pending_body_request = Some(fut.body_request());
+        fut.pending_header_request = Some(fut.header_request(Duration::default()));
+        fut.pending_body_request = Some(fut.body_request(Duration::default()));
         self.inflight_full_block_requests.push(fut);
     }
 
@@ -72,6 +77,7 @@ impl EngineDownloader {
         let fut = FetchBytecodeFuture {
             network: self.network.clone(),
             code_hash,
+            retry_delay: self.retry_delay,
             pending: Box::pin(async move { network.fetch_bytecode(code_hash).await }),
         };
         self.inflight_bytecode_requests.push(fut);
@@ -88,6 +94,7 @@ impl EngineDownloader {
         let fut = FetchWitnessFuture {
             network: self.network.clone(),
             block_hash,
+            retry_delay: self.retry_delay,
             pending: Box::pin(async move { network.fetch_witness(block_hash).await }),
         };
         self.inflight_witness_requests.push(fut);
@@ -162,6 +169,7 @@ type DownloadFut<Ok> = Pin<Box<dyn Future<Output = Result<Ok, NetworkStorageErro
 pub struct FetchFullBlockFuture {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
+    retry_delay: Duration,
     block_hash: B256,
     pending_header_request: Option<DownloadFut<Header>>,
     pending_body_request: Option<DownloadFut<BlockBody>>,
@@ -175,16 +183,22 @@ impl FetchFullBlockFuture {
         &self.block_hash
     }
 
-    fn header_request(&self) -> DownloadFut<Header> {
+    fn header_request(&self, delay: Duration) -> DownloadFut<Header> {
         let network = self.network.clone();
         let hash = self.block_hash;
-        Box::pin(async move { network.fetch_header(hash).await })
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_header(hash).await
+        })
     }
 
-    fn body_request(&self) -> DownloadFut<BlockBody> {
+    fn body_request(&self, delay: Duration) -> DownloadFut<BlockBody> {
         let network = self.network.clone();
         let hash = self.block_hash;
-        Box::pin(async move { network.fetch_block_body(hash).await })
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_block_body(hash).await
+        })
     }
 }
 
@@ -205,13 +219,15 @@ impl Future for FetchFullBlockFuture {
                                 this.header = Some(header);
                             } else {
                                 debug!(target: "ress::engine::downloader", expected = %this.block_hash, received = %header.hash(), "Received wrong header");
-                                this.pending_header_request = Some(this.header_request());
+                                this.pending_header_request =
+                                    Some(this.header_request(this.retry_delay));
                                 continue
                             }
                         }
                         Err(error) => {
                             debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Header download failed");
-                            this.pending_header_request = Some(this.header_request());
+                            this.pending_header_request =
+                                Some(this.header_request(this.retry_delay));
                             continue
                         }
                     };
@@ -227,7 +243,7 @@ impl Future for FetchFullBlockFuture {
                         }
                         Err(error) => {
                             debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Body download failed");
-                            this.pending_body_request = Some(this.body_request());
+                            this.pending_body_request = Some(this.body_request(this.retry_delay));
                             continue
                         }
                     };
@@ -242,7 +258,7 @@ impl Future for FetchFullBlockFuture {
                 if let Err(error) = <EthBeaconConsensus<ChainSpec> as Consensus<Block>>::validate_body_against_header(&this.consensus, &body, &header) {
                     debug!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
                     this.header = Some(header);
-                    this.pending_body_request = Some(this.body_request());
+                    this.pending_body_request = Some(this.body_request(this.retry_delay));
                     continue
                 }
 
@@ -259,6 +275,7 @@ impl Future for FetchFullBlockFuture {
 pub struct FetchBytecodeFuture {
     network: RessNetworkHandle,
     code_hash: B256,
+    retry_delay: Duration,
     pending: DownloadFut<Bytes>,
 }
 
@@ -266,7 +283,11 @@ impl FetchBytecodeFuture {
     fn bytecode_request(&self) -> DownloadFut<Bytes> {
         let network = self.network.clone();
         let hash = self.code_hash;
-        Box::pin(async move { network.fetch_bytecode(hash).await })
+        let delay = self.retry_delay;
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_bytecode(hash).await
+        })
     }
 }
 
@@ -301,6 +322,7 @@ impl Future for FetchBytecodeFuture {
 pub struct FetchWitnessFuture {
     network: RessNetworkHandle,
     block_hash: B256,
+    retry_delay: Duration,
     pending: DownloadFut<StateWitnessNet>,
 }
 
@@ -308,7 +330,11 @@ impl FetchWitnessFuture {
     fn witness_request(&self) -> DownloadFut<StateWitnessNet> {
         let network = self.network.clone();
         let hash = self.block_hash;
-        Box::pin(async move { network.fetch_witness(hash).await })
+        let delay = self.retry_delay;
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_witness(hash).await
+        })
     }
 }
 
