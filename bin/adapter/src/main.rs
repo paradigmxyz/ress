@@ -68,6 +68,7 @@ async fn forward_request(
         let (reth_parts, reth_body) = reth_resp.into_parts();
         let reth_body_bytes = hyper::body::to_bytes(reth_body).await?;
         let top_level: Value = serde_json::from_slice(&reth_body_bytes).unwrap();
+        info!("Received engine response from Reth, not payload: {top_level:?}");
         match top_level.get("result") {
             Some(result_value) => {
                 let is_payload_id =
