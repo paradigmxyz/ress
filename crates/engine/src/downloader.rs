@@ -162,7 +162,7 @@ type DownloadFut<Ok> = Pin<Box<dyn Future<Output = Result<Ok, NetworkStorageErro
 pub struct FetchFullBlockFuture {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
-    block_hash: B256,
+    pub(crate) block_hash: B256,
     pending_header_request: Option<DownloadFut<Header>>,
     pending_body_request: Option<DownloadFut<BlockBody>>,
     header: Option<SealedHeader>,
