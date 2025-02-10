@@ -251,6 +251,7 @@ async fn maintain_pending_state(
             }
             BeaconConsensusEngineEvent::InvalidBlock(block) => {
                 if let Ok(block) = block.try_recover() {
+                    trace!(target: "reth::ress_provider", block=?block.num_hash(), "Insert invalid block into pending state");
                     state.insert_invalid_block(Arc::new(block));
                 }
             }
