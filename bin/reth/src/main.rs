@@ -14,7 +14,7 @@ use reth::{
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, Database, State},
 };
-use reth_chain_state::{ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
+use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
@@ -23,6 +23,7 @@ use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
+use tracing::*;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -124,10 +125,25 @@ where
             match self.provider.state_by_block_hash(ancestor_hash) {
                 Ok(state_provider) => break 'sp state_provider,
                 Err(_) => {
-                    let executed = self
-                        .pending_state
-                        .executed_block(&ancestor_hash)
-                        .ok_or(ProviderError::StateForHashNotFound(ancestor_hash))?;
+                    let mut executed = self.pending_state.executed_block(&ancestor_hash);
+                    if executed.is_none() {
+                        if let Some(invalid) =
+                            self.pending_state.invalid_recovered_block(&ancestor_hash)
+                        {
+                            trace!(target: "reth::ress_provider", %block_hash, %ancestor_hash, "Using invalid ancestor block for witness construction");
+                            executed = Some(ExecutedBlockWithTrieUpdates {
+                                block: ExecutedBlock {
+                                    recovered_block: invalid,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            });
+                        }
+                    }
+
+                    let Some(executed) = executed else {
+                        return Err(ProviderError::StateForHashNotFound(ancestor_hash))
+                    };
                     ancestor_hash = executed.sealed_block().parent_hash();
                     executed_ancestors.push(executed);
                 }
