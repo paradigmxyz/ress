@@ -104,6 +104,7 @@ where
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        trace!(target: "reth::ress_provider", %code_hash, "Serving bytecode");
         let maybe_bytecode = 'bytecode: {
             if let Some(bytecode) = self.pending_state.find_bytecode(code_hash) {
                 break 'bytecode Some(bytecode);
@@ -116,6 +117,7 @@ where
     }
 
     fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
         let block =
             self.block_by_hash(block_hash)?.ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
