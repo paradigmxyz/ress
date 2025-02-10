@@ -14,7 +14,7 @@ use reth::{
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, Database, State},
 };
-use reth_chain_state::{ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
+use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
@@ -23,6 +23,7 @@ use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
+use tracing::*;
 
 fn main() -> eyre::Result<()> {
     reth::cli::Cli::parse_args().run(|builder, _args| async move {
@@ -124,10 +125,22 @@ where
             match self.provider.state_by_block_hash(ancestor_hash) {
                 Ok(state_provider) => break 'sp state_provider,
                 Err(_) => {
-                    let executed = self
-                        .pending_state
-                        .executed_block(&ancestor_hash)
-                        .ok_or(ProviderError::StateForHashNotFound(ancestor_hash))?;
+                    let executed = if let Some(executed) =
+                        self.pending_state.executed_block(&ancestor_hash)
+                    {
+                        executed
+                    } else if let Some(invalid) =
+                        self.pending_state.invalid_recovered_block(&ancestor_hash)
+                    {
+                        debug!(target: "reth::ress_provider", %block_hash, "Using invalid block for witness construction");
+                        ExecutedBlockWithTrieUpdates {
+                            block: ExecutedBlock { recovered_block: invalid, ..Default::default() },
+                            ..Default::default()
+                        }
+                    } else {
+                        return Err(ProviderError::StateForHashNotFound(ancestor_hash))
+                    };
+
                     ancestor_hash = executed.sealed_block().parent_hash();
                     executed_ancestors.push(executed);
                 }
@@ -138,13 +151,13 @@ where
             MemoryOverlayStateProvider::new(historical, executed_ancestors.clone()),
         ));
         let mut record = ExecutionWitnessRecord::default();
-        if let Err(_error) = self.block_executor.executor(&mut db).execute_with_state_closure(
+        if let Err(error) = self.block_executor.executor(&mut db).execute_with_state_closure(
             &block,
             |state: &State<_>| {
                 record.record_executed_state(state);
             },
         ) {
-            // TODO: log but not exit
+            debug!(target: "reth::ress_provider", %block_hash, %error, "Error executing the block");
         }
 
         // NOTE: there might be a race condition where target ancestor hash gets evicted from the
