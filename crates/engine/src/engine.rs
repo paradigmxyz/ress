@@ -78,7 +78,7 @@ impl ConsensusEngine {
         match outcome {
             DownloadOutcome::Block(block) => {
                 let block_num_hash = block.num_hash();
-                trace!(targe: "ress::engine", ?block_num_hash, "Downloaded block");
+                trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
                 let recovered = match block.try_recover() {
                     Ok(block) => block,
                     Err(_error) => {
@@ -94,7 +94,7 @@ impl ConsensusEngine {
                 bytecodes
                     .retain(|code_hash| !self.tree.provider.storage.bytecode_exists(code_hash));
                 self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
-                trace!(targe: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
+                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
                 if bytecodes.is_empty() {
                     blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
                 } else {
