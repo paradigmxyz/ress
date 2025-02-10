@@ -6,7 +6,7 @@ use alloy_primitives::B256;
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use ress_network::RessNetworkHandle;
-use ress_provider::provider::RessProvider;
+use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
 use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload};
@@ -93,8 +93,7 @@ impl ConsensusEngine {
             }
             DownloadOutcome::Witness(block_hash, witness) => {
                 let mut bytecodes = witness.bytecode_hashes().clone();
-                bytecodes
-                    .retain(|code_hash| !self.tree.provider.storage.bytecode_exists(code_hash));
+                bytecodes.retain(|code_hash| !self.tree.provider.bytecode_exists(code_hash));
                 self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
                 trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
                 if bytecodes.is_empty() {
@@ -107,7 +106,7 @@ impl ConsensusEngine {
             }
             DownloadOutcome::Bytecode(code_hash, bytecode) => {
                 trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
-                match self.tree.provider.storage.insert_bytecode(code_hash, bytecode) {
+                match self.tree.provider.insert_bytecode(code_hash, bytecode) {
                     Ok(()) => {
                         blocks =
                             self.tree.block_buffer.remove_blocks_with_received_bytecode(code_hash);

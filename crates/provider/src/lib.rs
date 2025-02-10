@@ -2,11 +2,12 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-/// Storage provider.
-pub mod storage;
-
-/// Provider for retrieving data.
-pub mod provider;
+/// Main provider for retrieving data.
+mod provider;
+pub use provider::RessProvider;
 
 /// Error types.
 pub mod errors;
+
+/// Data storage backends.
+pub mod backends;

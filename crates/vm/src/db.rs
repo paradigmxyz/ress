@@ -3,7 +3,7 @@
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
-use ress_provider::storage::Storage;
+use ress_provider::RessProvider;
 use reth_provider::ProviderError;
 use reth_revm::{
     primitives::{AccountInfo, Bytecode},
@@ -16,14 +16,14 @@ use tracing::debug;
 /// Block hashes and bytecodes are retrieved from ress node storage.
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
-    storage: Storage,
+    provider: RessProvider,
     trie: &'a SparseStateTrie,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub fn new(storage: Storage, trie: &'a SparseStateTrie) -> Self {
-        Self { trie, storage }
+    pub fn new(provider: RessProvider, trie: &'a SparseStateTrie) -> Self {
+        Self { trie, provider }
     }
 }
 
@@ -67,7 +67,7 @@ impl Database for WitnessDatabase<'_> {
     /// Get account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
-        self.storage
+        self.provider
             .get_bytecode(code_hash)
             .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))
     }
@@ -75,7 +75,7 @@ impl Database for WitnessDatabase<'_> {
     /// Get block hash by block number.
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
         debug!("request for blockhash: {}", number);
-        self.storage
+        self.provider
             .get_block_hash(number)
             .map_err(|_| ProviderError::StateForNumberNotFound(number))
     }

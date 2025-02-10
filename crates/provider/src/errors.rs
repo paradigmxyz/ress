@@ -1,5 +1,4 @@
 use alloy_primitives::{BlockHash, BlockNumber, B256};
-use ress_network::NetworkStorageError;
 
 /// Database error type.
 #[derive(Debug, thiserror::Error)]
@@ -15,10 +14,6 @@ pub enum StorageError {
     /// Error related to disk storage operations.
     #[error("Disk storage: {0}")]
     Disk(#[from] DiskStorageError),
-
-    /// Error related to network storage operations.
-    #[error("Network storage: {0}")]
-    Network(#[from] NetworkStorageError),
 
     /// Error related to memory storage operations.
     #[error("Memory storage: {0}")]

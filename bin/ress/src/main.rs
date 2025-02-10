@@ -128,10 +128,9 @@ async fn main() -> eyre::Result<()> {
         .buffer_unordered(25)
         .try_collect::<Vec<_>>()
         .await?;
-    let tree_state = &node.provider.storage;
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
-        tree_state.insert_header(header);
+        node.provider.insert_header(header);
     }
     let latest_block_number_updated = rpc_block_provider.get_block_number().await?;
     let range = latest_block_number..=latest_block_number_updated;
@@ -156,16 +155,16 @@ async fn main() -> eyre::Result<()> {
         .await?;
     for header in headers {
         canonical_block_hashes.insert(header.number, header.hash_slow());
-        tree_state.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
-        tree_state.insert_header(header);
+        node.provider.set_canonical_head(BlockNumHash::new(header.number, header.hash_slow()));
+        node.provider.insert_header(header);
     }
-    node.provider.storage.overwrite_block_hashes(canonical_block_hashes);
+    node.provider.overwrite_block_hashes(canonical_block_hashes);
     info!(
         elapsed = ?start_time.elapsed(), "✨ prefetched block from {} to {}..",
         latest_block_number.saturating_sub(255),
         latest_block_number_updated
     );
-    let head = node.provider.storage.get_canonical_head();
+    let head = node.provider.get_canonical_head();
     info!("head: {:#?}", head);
 
     // ================ CONSENSUS CLIENT ================

@@ -5605,8 +5605,6 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives",
  "parking_lot",
- "ress-network",
- "ress-primitives",
  "ress-protocol",
  "reth-chainspec",
  "reth-primitives",

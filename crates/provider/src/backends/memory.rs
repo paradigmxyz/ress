@@ -14,20 +14,124 @@ use tracing::debug;
 
 use crate::errors::MemoryStorageError;
 
-/// In-memory storage.
-#[derive(Clone, Debug)]
-pub struct MemoryStorage {
-    inner: Arc<RwLock<MemoryStorageInner>>,
-}
-
 /// Keeps track of the state of the tree.
 ///
 /// ## Invariants
 ///
 /// - This only stores headers that are connected to the canonical chain.
 /// - All executed headers are valid and have been executed.
+#[derive(Clone, Debug)]
+pub struct MemoryStorage {
+    inner: Arc<RwLock<MemoryStorageInner>>,
+}
+
+impl MemoryStorage {
+    /// Create new in-memory storage.
+    pub fn new(current_canonical_head: BlockNumHash) -> Self {
+        Self { inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))) }
+    }
+
+    /// Removes canonical blocks below the upper bound, only if the last persisted hash is
+    /// part of the canonical chain.
+    pub(crate) fn remove_canonical_until(
+        &self,
+        upper_bound: BlockNumber,
+        last_persisted_hash: B256,
+    ) {
+        let mut inner = self.inner.write();
+        inner.remove_canonical_until(upper_bound, last_persisted_hash);
+    }
+
+    pub(crate) fn header_by_hash(&self, hash: B256) -> Option<Header> {
+        let inner = self.inner.read();
+        inner.headers_by_hash.get(&hash).cloned()
+    }
+
+    /// Insert header into the state.
+    pub(crate) fn insert_header(&self, header: Header) {
+        let mut inner = self.inner.write();
+        inner.insert_header(header);
+    }
+
+    /// Inserts canonical hash for block number.
+    pub(crate) fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+        self.inner.write().canonical_hashes.insert(number, hash);
+    }
+
+    /// Remove canonical hash for block number if it matches.
+    pub(crate) fn remove_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+        let mut inner = self.inner.write();
+        if let Entry::Occupied(entry) = inner.canonical_hashes.entry(number) {
+            if entry.get() == &hash {
+                entry.remove();
+            }
+        }
+    }
+
+    /// Return whether or not the hash is part of the canonical chain.
+    ///
+    /// This method is simply look up the canonical hashmap
+    pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
+        let inner = self.inner.read();
+        inner.is_canonical_lookup(hash)
+    }
+
+    pub(crate) fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
+        let mut inner = self.inner.write();
+        inner.canonical_hashes = block_hashes;
+    }
+
+    pub(crate) fn get_canonical_head(&self) -> BlockNumHash {
+        let inner = self.inner.read();
+        inner.current_canonical_head
+    }
+
+    pub(crate) fn set_canonical_hash(
+        &self,
+        block_hash: B256,
+        block_number: BlockNumber,
+    ) -> Result<(), MemoryStorageError> {
+        let mut inner = self.inner.write();
+        if inner.is_canonical_by_walk_through(block_hash) {
+            inner.canonical_hashes.insert(block_number, block_hash);
+            Ok(())
+        } else {
+            Err(MemoryStorageError::NonCanonicalChain(block_hash))
+        }
+    }
+
+    pub(crate) fn get_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<BlockHash, MemoryStorageError> {
+        let inner = self.inner.read();
+        if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
+            Ok(*block_hash)
+        } else {
+            Err(MemoryStorageError::BlockNotFoundFromNumber(block_number))
+        }
+    }
+
+    pub(crate) fn get_block_number(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<BlockNumber, MemoryStorageError> {
+        let inner = self.inner.read();
+        if let Some(header) = inner.headers_by_hash.get(&block_hash).cloned() {
+            Ok(header.number)
+        } else {
+            Err(MemoryStorageError::BlockNotFoundFromHash(block_hash))
+        }
+    }
+
+    pub(crate) fn set_canonical_head(&self, new_head: BlockNumHash) {
+        let mut inner = self.inner.write();
+        inner.set_canonical_head(new_head);
+    }
+}
+
 #[derive(Debug, Default)]
-pub struct MemoryStorageInner {
+struct MemoryStorageInner {
     /// __All__ unique executed headers by block hash that are connected to the canonical chain.
     ///
     /// This includes headers of all forks.
@@ -51,6 +155,17 @@ pub struct MemoryStorageInner {
 }
 
 impl MemoryStorageInner {
+    /// Return a new, empty tree state that points to the given canonical head.
+    fn new(current_canonical_head: BlockNumHash) -> Self {
+        Self {
+            canonical_hashes: HashMap::new(),
+            headers_by_hash: HashMap::default(),
+            headers_by_number: BTreeMap::new(),
+            current_canonical_head,
+            parent_to_child: HashMap::default(),
+        }
+    }
+
     /// Return whether or not the hash is part of the canonical chain.
     ///
     /// This method takes O(n) of complexity by walk through all the executed headers to check
@@ -194,123 +309,5 @@ pub struct ChainInfo {
 impl From<ChainInfo> for BlockNumHash {
     fn from(value: ChainInfo) -> Self {
         Self { number: value.best_number, hash: value.best_hash }
-    }
-}
-
-impl MemoryStorageInner {
-    /// Return a new, empty tree state that points to the given canonical head.
-    pub fn new(current_canonical_head: BlockNumHash) -> Self {
-        Self {
-            canonical_hashes: HashMap::new(),
-            headers_by_hash: HashMap::default(),
-            headers_by_number: BTreeMap::new(),
-            current_canonical_head,
-            parent_to_child: HashMap::default(),
-        }
-    }
-}
-
-impl MemoryStorage {
-    /// Create new in-memory storage.
-    pub fn new(current_canonical_head: BlockNumHash) -> Self {
-        Self { inner: Arc::new(RwLock::new(MemoryStorageInner::new(current_canonical_head))) }
-    }
-
-    /// Removes canonical blocks below the upper bound, only if the last persisted hash is
-    /// part of the canonical chain.
-    pub(crate) fn remove_canonical_until(
-        &self,
-        upper_bound: BlockNumber,
-        last_persisted_hash: B256,
-    ) {
-        let mut inner = self.inner.write();
-        inner.remove_canonical_until(upper_bound, last_persisted_hash);
-    }
-
-    pub(crate) fn header_by_hash(&self, hash: B256) -> Option<Header> {
-        let inner = self.inner.read();
-        inner.headers_by_hash.get(&hash).cloned()
-    }
-
-    /// Insert header into the state.
-    pub(crate) fn insert_header(&self, header: Header) {
-        let mut inner = self.inner.write();
-        inner.insert_header(header);
-    }
-
-    /// Inserts canonical hash for block number.
-    pub(crate) fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
-        self.inner.write().canonical_hashes.insert(number, hash);
-    }
-
-    /// Remove canonical hash for block number if it matches.
-    pub(crate) fn remove_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
-        let mut inner = self.inner.write();
-        if let Entry::Occupied(entry) = inner.canonical_hashes.entry(number) {
-            if entry.get() == &hash {
-                entry.remove();
-            }
-        }
-    }
-
-    /// Return whether or not the hash is part of the canonical chain.
-    ///
-    /// This method is simply look up the canonical hashmap
-    pub(crate) fn is_canonical_lookup(&self, hash: B256) -> bool {
-        let inner = self.inner.read();
-        inner.is_canonical_lookup(hash)
-    }
-
-    pub(crate) fn overwrite_block_hashes(&self, block_hashes: HashMap<BlockNumber, B256>) {
-        let mut inner = self.inner.write();
-        inner.canonical_hashes = block_hashes;
-    }
-
-    pub(crate) fn get_canonical_head(&self) -> BlockNumHash {
-        let inner = self.inner.read();
-        inner.current_canonical_head
-    }
-
-    pub(crate) fn set_canonical_hash(
-        &self,
-        block_hash: B256,
-        block_number: BlockNumber,
-    ) -> Result<(), MemoryStorageError> {
-        let mut inner = self.inner.write();
-        if inner.is_canonical_by_walk_through(block_hash) {
-            inner.canonical_hashes.insert(block_number, block_hash);
-            Ok(())
-        } else {
-            Err(MemoryStorageError::NonCanonicalChain(block_hash))
-        }
-    }
-
-    pub(crate) fn get_block_hash(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<BlockHash, MemoryStorageError> {
-        let inner = self.inner.read();
-        if let Some(block_hash) = inner.canonical_hashes.get(&block_number) {
-            Ok(*block_hash)
-        } else {
-            Err(MemoryStorageError::BlockNotFoundFromNumber(block_number))
-        }
-    }
-
-    pub(crate) fn get_block_number(
-        &self,
-        block_hash: BlockHash,
-    ) -> Result<BlockNumber, MemoryStorageError> {
-        let inner = self.inner.read();
-        if let Some(header) = inner.headers_by_hash.get(&block_hash).cloned() {
-            Ok(header.number)
-        } else {
-            Err(MemoryStorageError::BlockNotFoundFromHash(block_hash))
-        }
-    }
-
-    pub(crate) fn set_canonical_head(&self, new_head: BlockNumHash) {
-        let mut inner = self.inner.write();
-        inner.set_canonical_head(new_head);
     }
 }

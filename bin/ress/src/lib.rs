@@ -4,7 +4,7 @@ use alloy_eips::BlockNumHash;
 use ress_common::test_utils::TestPeers;
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkLauncher};
-use ress_provider::{provider::RessProvider, storage::Storage};
+use ress_provider::RessProvider;
 use ress_rpc::RpcHandle;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
@@ -34,18 +34,15 @@ pub async fn launch_test_node(
     current_head: BlockNumHash,
     rpc_adapter: Option<RpcAdapterProvider>,
 ) -> Node {
-    let storage = Storage::new(chain_spec.clone(), current_head);
+    let provider = RessProvider::new(chain_spec.clone(), current_head);
 
     let network_handle = if let Some(rpc_adapter) = rpc_adapter {
         RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter).launch(id, remote_peer).await
     } else {
-        RessNetworkLauncher::new(chain_spec.clone(), storage.clone()).launch(id, remote_peer).await
+        RessNetworkLauncher::new(chain_spec.clone(), provider.clone()).launch(id, remote_peer).await
     };
     let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;
 
-    // ================ initial update ==================
-
-    let provider = RessProvider::new(storage, network_handle.clone());
     let beacon_consensus = EthBeaconConsensus::new(chain_spec.clone());
     let engine_validator = EthereumEngineValidator::new(chain_spec.clone());
     let consensus_engine = ConsensusEngine::new(

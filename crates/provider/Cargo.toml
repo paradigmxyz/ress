@@ -12,8 +12,6 @@ workspace = true
 
 [dependencies]
 # ress
-ress-primitives.workspace = true
-ress-network.workspace = true
 ress-protocol.workspace = true
 
 # alloy
