@@ -96,10 +96,12 @@ where
     E: BlockExecutorProvider<Primitives = N::Primitives>,
 {
     fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving header");
         Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
     }
 
     fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving block body");
         Ok(self.block_by_hash(block_hash)?.map(|b| b.body().clone()))
     }
 
