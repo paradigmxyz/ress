@@ -414,6 +414,7 @@ impl EngineTree {
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
+        maybe_witness: Option<ExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_number = payload.payload.block_number();
         let block_hash = payload.payload.block_hash();
@@ -461,15 +462,10 @@ impl EngineTree {
                 ))?))
             }
         };
-        let Some(witness) = self.block_buffer.remove_witness(block.hash_ref()) else {
-            self.block_buffer.insert_block(recovered);
-            return Ok(TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
-                .with_event(TreeEvent::Download(DownloadRequest::Witness { block_hash })))
-        };
 
         let mut missing_ancestor_hash = None;
         let mut latest_valid_hash = None;
-        let status = match self.insert_block(recovered, witness) {
+        let status = match self.insert_block(recovered, maybe_witness) {
             Ok(status) => {
                 let status = match status {
                     InsertPayloadOk::Inserted(BlockStatus::Valid) => {
@@ -511,9 +507,14 @@ impl EngineTree {
                 sync_target_head: block_hash,
             }));
         } else if let Some(missing_ancestor) = missing_ancestor_hash {
-            outcome = outcome.with_event(TreeEvent::Download(DownloadRequest::Block {
-                block_hash: missing_ancestor,
-            }));
+            let request = if missing_ancestor == block_hash {
+                // TODO: fix this
+                // we use `missing_ancestor == block_hash` for witness download
+                DownloadRequest::Witness { block_hash: missing_ancestor }
+            } else {
+                DownloadRequest::Block { block_hash: missing_ancestor }
+            };
+            outcome = outcome.with_event(TreeEvent::Download(request));
         }
 
         Ok(outcome)
@@ -539,7 +540,7 @@ impl EngineTree {
 
         // try to append the block
         let block_hash = block.hash();
-        let outcome = match self.insert_block(block.clone(), witness) {
+        let outcome = match self.insert_block(block.clone(), Some(witness)) {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Valid)) => {
                 let mut outcome = TreeOutcome::new(PayloadStatus::new(
                     PayloadStatusEnum::Valid,
@@ -593,7 +594,7 @@ impl EngineTree {
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        execution_witness: ExecutionWitness,
+        maybe_witness: Option<ExecutionWitness>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let block_num_hash = block.num_hash();
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
@@ -613,7 +614,9 @@ impl EngineTree {
                 .lowest_ancestor(&block.parent_hash)
                 .map(|block| block.parent_num_hash())
                 .unwrap_or_else(|| block.parent_num_hash());
-            self.block_buffer.insert_witness(block.hash(), execution_witness, Default::default());
+            if let Some(witness) = maybe_witness {
+                self.block_buffer.insert_witness(block.hash(), witness, Default::default());
+            }
             self.block_buffer.insert_block(block);
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 head: self.provider.storage.get_canonical_head(),
@@ -630,6 +633,13 @@ impl EngineTree {
         }
 
         // ===================== Witness =====================
+        let Some(execution_witness) = maybe_witness else {
+            self.block_buffer.insert_block(block);
+            return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                head: self.provider.storage.get_canonical_head(),
+                missing_ancestor: block_num_hash,
+            }))
+        };
         let mut trie = SparseStateTrie::default();
         trie.reveal_witness(parent.state_root, execution_witness.state_witness()).map_err(
             |error| {

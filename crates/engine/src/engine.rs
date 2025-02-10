@@ -9,7 +9,7 @@ use ress_network::RessNetworkHandle;
 use ress_provider::provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
-use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError};
+use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
 use std::{
     future::Future,
@@ -144,8 +144,11 @@ impl ConsensusEngine {
     fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
         match message {
             BeaconEngineMessage::NewPayload { payload, tx } => {
-                let mut result =
-                    self.tree.on_new_payload(payload).map_err(BeaconOnNewPayloadError::internal);
+                let maybe_witness = self.tree.block_buffer.remove_witness(&payload.block_hash());
+                let mut result = self
+                    .tree
+                    .on_new_payload(payload, maybe_witness)
+                    .map_err(BeaconOnNewPayloadError::internal);
                 if let Ok(outcome) = &mut result {
                     if let Some(event) = outcome.event.take() {
                         self.on_tree_event(event.clone());
