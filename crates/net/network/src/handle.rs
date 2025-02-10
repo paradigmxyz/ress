@@ -34,7 +34,7 @@ impl RessNetworkHandle {
         let (tx, rx) = oneshot::channel();
         self.network_peer_conn.send(RessPeerRequest::GetBlockBody { block_hash, tx })?;
         let response = rx.await?;
-        trace!(target: "ress::net", %block_hash, "header block body");
+        trace!(target: "ress::net", %block_hash, "block body received");
         Ok(response)
     }
 

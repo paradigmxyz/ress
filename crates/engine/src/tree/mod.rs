@@ -618,6 +618,7 @@ impl EngineTree {
                 .lowest_ancestor(&block.parent_hash)
                 .map(|block| block.parent_num_hash())
                 .unwrap_or_else(|| block.parent_num_hash());
+            trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor, has_witness=maybe_witness.is_some(), "Block has missing ancestor");
             if let Some(witness) = maybe_witness {
                 self.block_buffer.insert_witness(block.hash(), witness, Default::default());
             }
@@ -639,6 +640,7 @@ impl EngineTree {
         // ===================== Witness =====================
         let Some(execution_witness) = maybe_witness else {
             self.block_buffer.insert_block(block);
+            trace!(target: "ress::engine", block=?block_num_hash, "Block has missing witness");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 head: self.provider.storage.get_canonical_head(),
                 missing_ancestor: block_num_hash,
