@@ -78,6 +78,7 @@ impl ConsensusEngine {
         match outcome {
             DownloadOutcome::Block(block) => {
                 let block_num_hash = block.num_hash();
+                trace!(targe: "ress::engine", ?block_num_hash, "Downloaded block");
                 let recovered = match block.try_recover() {
                     Ok(block) => block,
                     Err(_error) => {
@@ -93,6 +94,7 @@ impl ConsensusEngine {
                 bytecodes
                     .retain(|code_hash| !self.tree.provider.storage.bytecode_exists(code_hash));
                 self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
+                trace!(targe: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
                 if bytecodes.is_empty() {
                     blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
                 } else {
@@ -102,6 +104,7 @@ impl ConsensusEngine {
                 }
             }
             DownloadOutcome::Bytecode(code_hash, bytecode) => {
+                trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
                 match self.tree.provider.storage.insert_bytecode(code_hash, bytecode) {
                     Ok(()) => {
                         blocks =
@@ -110,11 +113,12 @@ impl ConsensusEngine {
                     Err(error) => {
                         error!(target: "ress::engine", %error, "Failed to insert the bytecode");
                     }
-                }
+                };
             }
         };
         for (block, witness) in blocks {
             let block_hash = block.hash();
+            trace!(target: "ress::engine", %block_hash, "Inserting block after download");
             let mut result = self
                 .tree
                 .on_downloaded_block(block, witness)
@@ -194,6 +198,8 @@ impl Future for ConsensusEngine {
                 if parked.timeout.poll_unpin(cx).is_ready() {
                     warn!(target: "ress::engine", block_hash = %parked.block_hash, "Could not download missing payload data in time");
                     this.parked_payload.take();
+                } else {
+                    return Poll::Pending
                 }
             }
 
