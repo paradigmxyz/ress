@@ -116,6 +116,16 @@ impl ConsensusEngine {
                 };
             }
         };
+        // TODO: temp
+        info!(
+            target: "ress::engine",
+            buffered_blocks_len = self.tree.block_buffer.blocks.len(),
+            buffered_block_num_hashes = ?self.tree.block_buffer.blocks.values().map(|b| b.num_hash()).collect::<Vec<_>>(),
+            buffered_witnesses_len = self.tree.block_buffer.witnesses.len(),
+            buffered_witness_hashes = ?self.tree.block_buffer.witnesses.keys().collect::<Vec<_>>(),
+            missing_bytecodes = ?self.tree.block_buffer.missing_bytecodes,
+            "Download processed",
+        );
         for (block, witness) in blocks {
             let block_hash = block.hash();
             trace!(target: "ress::engine", %block_hash, "Inserting block after download");
