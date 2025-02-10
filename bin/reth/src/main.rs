@@ -158,8 +158,6 @@ where
         let mut hashed_state = db.state;
         hashed_state.extend(record.hashed_state);
         let witness = if hashed_state.is_empty() {
-            witness_state_provider.witness(trie_input, hashed_state)?
-        } else {
             let multiproof = witness_state_provider.multiproof(
                 trie_input,
                 MultiProofTargets::from_iter([(B256::ZERO, Default::default())]),
@@ -171,6 +169,8 @@ where
                 witness.insert(keccak256(&root_node), root_node.clone());
             }
             witness
+        } else {
+            witness_state_provider.witness(trie_input, hashed_state)?
         };
         Ok(Some(witness))
     }
