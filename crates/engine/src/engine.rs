@@ -15,7 +15,7 @@ use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{
     sync::{mpsc::UnboundedReceiver, oneshot},
@@ -133,6 +133,7 @@ impl ConsensusEngine {
             };
             if self.parked_payload.as_ref().is_some_and(|parked| parked.block_hash == block_hash) {
                 let parked = self.parked_payload.take().unwrap();
+                trace!(target: "ress::engine", %block_hash, elapsed = ?parked.parked_at.elapsed(), "Sending response for parked payload");
                 if let Err(error) = parked.tx.send(result.map(|o| o.outcome)) {
                     error!(target: "ress::engine", ?error, "Failed to send payload status");
                 }
@@ -215,6 +216,7 @@ impl Future for ConsensusEngine {
 struct ParkedPayload {
     block_hash: B256,
     tx: oneshot::Sender<Result<PayloadStatus, BeaconOnNewPayloadError>>,
+    parked_at: Instant,
     timeout: Pin<Box<Sleep>>,
 }
 
@@ -224,6 +226,11 @@ impl ParkedPayload {
         tx: oneshot::Sender<Result<PayloadStatus, BeaconOnNewPayloadError>>,
         timeout: Duration,
     ) -> Self {
-        Self { block_hash, tx, timeout: Box::pin(tokio::time::sleep(timeout)) }
+        Self {
+            block_hash,
+            tx,
+            parked_at: Instant::now(),
+            timeout: Box::pin(tokio::time::sleep(timeout)),
+        }
     }
 }
