@@ -144,7 +144,10 @@ impl ConsensusEngine {
     fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
         match message {
             BeaconEngineMessage::NewPayload { payload, tx } => {
+                let block_hash = payload.block_hash();
+                let block_number = payload.block_number();
                 let maybe_witness = self.tree.block_buffer.remove_witness(&payload.block_hash());
+                trace!(target: "ress::engine", block_number, %block_hash, has_witness = maybe_witness.is_some(), "Inserting new payload");
                 let mut result = self
                     .tree
                     .on_new_payload(payload, maybe_witness)
@@ -152,26 +155,30 @@ impl ConsensusEngine {
                 if let Ok(outcome) = &mut result {
                     if let Some(event) = outcome.event.take() {
                         self.on_tree_event(event.clone());
-                        if outcome.outcome.is_syncing() {
-                            if let TreeEvent::Download(DownloadRequest::Witness { block_hash }) =
-                                event
-                            {
-                                self.parked_payload = Some(ParkedPayload::new(
-                                    block_hash,
-                                    tx,
-                                    Duration::from_secs(1),
-                                ));
-                                return
-                            }
+                        if let Some(block_hash) =
+                            event.as_witness_download().filter(|_| outcome.outcome.is_syncing())
+                        {
+                            self.parked_payload =
+                                Some(ParkedPayload::new(block_hash, tx, Duration::from_secs(1)));
+                            return
                         }
                     }
                     self.on_maybe_tree_event(outcome.event.take());
                 }
-                if let Err(error) = tx.send(result.map(|o| o.outcome)) {
+                let outcome_result = result.map(|o| o.outcome);
+                trace!(target: "ress::engine", block_number, %block_hash, result = ?outcome_result, "Returning payload result");
+                if let Err(error) = tx.send(outcome_result) {
                     error!(target: "ress::engine", ?error, "Failed to send payload status");
                 }
             }
             BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
+                info!(
+                    target: "ress::engine",
+                    head = %state.head_block_hash,
+                    safe = %state.safe_block_hash,
+                    finalized = %state.finalized_block_hash,
+                    "Updating forkchoice state"
+                );
                 let mut result = self.tree.on_forkchoice_updated(state, payload_attrs, version);
                 if let Ok(outcome) = &mut result {
                     // track last received forkchoice state
@@ -180,7 +187,9 @@ impl ConsensusEngine {
                         .set_latest(state, outcome.outcome.forkchoice_status());
                     self.on_maybe_tree_event(outcome.event.take());
                 }
-                if let Err(error) = tx.send(result.map(|o| o.outcome)) {
+                let outcome_result = result.map(|o| o.outcome);
+                trace!(target: "ress::engine", ?state, result = ?outcome_result, "Returning forkchoice update result");
+                if let Err(error) = tx.send(outcome_result) {
                     error!(target: "ress::engine", ?error, "Failed to send forkchoice outcome");
                 }
             }

@@ -31,6 +31,18 @@ pub enum TreeEvent {
     Download(DownloadRequest),
 }
 
+impl TreeEvent {
+    /// Return witness download target hash if event is [`DownloadRequest::Witness`] of
+    /// [`TreeEvent::Download`] variant.
+    pub fn as_witness_download(&self) -> Option<B256> {
+        if let Self::Download(DownloadRequest::Witness { block_hash }) = self {
+            Some(*block_hash)
+        } else {
+            None
+        }
+    }
+}
+
 /// The actions that can be performed on the tree.
 #[derive(Clone, Debug)]
 pub enum TreeAction {
