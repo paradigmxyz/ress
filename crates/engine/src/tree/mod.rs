@@ -592,6 +592,10 @@ impl EngineTree {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 missing_ancestor, ..
             })) => {
+                if let Some(status) = self.check_invalid_ancestor(missing_ancestor.hash) {
+                    warn!("🍕🍕");
+                    return Ok(TreeOutcome::new(status));
+                }
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
                 // TODO: fix this
