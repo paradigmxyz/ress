@@ -5536,11 +5536,11 @@ dependencies = [
  "itertools 0.13.0",
  "metrics",
  "rayon",
+ "ress-evm",
  "ress-network",
  "ress-primitives",
  "ress-protocol",
  "ress-provider",
- "ress-vm",
  "reth-chainspec",
  "reth-consensus",
  "reth-engine-tree",
@@ -5557,6 +5557,25 @@ dependencies = [
  "schnellru",
  "tokio",
  "tokio-stream",
+ "tracing",
+]
+
+[[package]]
+name = "ress-evm"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
+ "ress-provider",
+ "reth-chainspec",
+ "reth-evm",
+ "reth-evm-ethereum",
+ "reth-primitives",
+ "reth-provider",
+ "reth-revm",
+ "reth-trie-sparse",
+ "thiserror 2.0.11",
  "tracing",
 ]
 
@@ -5666,26 +5685,6 @@ dependencies = [
  "reth-primitives",
  "reth-storage-errors",
  "tokio",
-]
-
-[[package]]
-name = "ress-vm"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
- "ress-provider",
- "reth-chainspec",
- "reth-ethereum-primitives",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-primitives",
- "reth-provider",
- "reth-revm",
- "reth-trie-sparse",
- "thiserror 2.0.11",
- "tracing",
 ]
 
 [[package]]

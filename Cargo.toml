@@ -15,12 +15,12 @@ members = [
 
     "crates/common",
     "crates/engine",
+    "crates/evm",
     "crates/net/network",
     "crates/net/protocol",
     "crates/primitives",
     "crates/provider",
     "crates/rpc",
-    "crates/vm",
 
     "crates/testing",
 ]
@@ -81,7 +81,7 @@ ress-network = { path = "crates/net/network" }
 ress-protocol = { path = "crates/net/protocol" }
 ress-provider = { path = "crates/provider" }
 ress-common = { path = "crates/common" }
-ress-vm = { path = "crates/vm" }
+ress-evm = { path = "crates/evm" }
 ress-primitives = { path = "crates/primitives" }
 ress-rpc = { path = "crates/rpc" }
 ress-testing = { path = "crates/testing" }

@@ -14,7 +14,7 @@ workspace = true
 # ress
 ress-primitives.workspace = true
 ress-provider.workspace = true
-ress-vm.workspace = true
+ress-evm.workspace = true
 ress-protocol.workspace = true
 ress-network.workspace = true
 
