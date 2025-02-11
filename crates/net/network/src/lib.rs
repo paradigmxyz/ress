@@ -7,6 +7,3 @@ pub use handle::*;
 
 mod manager;
 pub use manager::RessNetworkManager;
-
-mod launch;
-pub use launch::RessNetworkLauncher;

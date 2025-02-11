@@ -25,7 +25,7 @@ impl RessNetworkHandle {
     }
 
     /// Return reference to reth's network handle.
-    pub fn inner_handle(&self) -> &NetworkHandle {
+    pub fn inner(&self) -> &NetworkHandle {
         &self.network_handle
     }
 

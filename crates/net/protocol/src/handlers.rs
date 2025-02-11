@@ -29,7 +29,7 @@ pub enum ProtocolEvent {
 #[derive(Clone, Debug)]
 pub struct ProtocolState {
     /// Protocol event sender.
-    pub events: mpsc::UnboundedSender<ProtocolEvent>,
+    pub events_sender: mpsc::UnboundedSender<ProtocolEvent>,
 }
 
 /// The protocol handler takes care of incoming and outgoing connections.
@@ -122,7 +122,7 @@ where
         let (tx, rx) = mpsc::unbounded_channel();
 
         self.state
-            .events
+            .events_sender
             .send(ProtocolEvent::Established { direction, peer_id, to_connection: tx })
             .ok();
 

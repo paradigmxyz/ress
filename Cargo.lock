@@ -1058,12 +1058,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "155a5a185e42c6b77ac7b88a15143d930a9e9727a5b7b77eed417404ab15c247"
 
 [[package]]
-name = "assert_matches"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
-
-[[package]]
 name = "async-compression"
 version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2380,12 +2374,6 @@ name = "doctest-file"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aac81fa3e28d21450aa4d2ac065992ba96a1d7303efbce51a95f4fd175b67562"
-
-[[package]]
-name = "dotenvy"
-version = "0.15.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "dunce"
@@ -5470,57 +5458,42 @@ name = "ress"
 version = "0.1.0"
 dependencies = [
  "alloy-eips",
- "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
- "assert_matches",
  "clap",
  "dirs-next",
- "dotenvy",
  "eyre",
  "futures",
- "parking_lot",
- "rand 0.8.5",
- "ress-common",
  "ress-engine",
  "ress-network",
  "ress-protocol",
  "ress-provider",
- "ress-rpc",
  "ress-testing",
  "reth-chainspec",
  "reth-cli",
+ "reth-cli-util",
  "reth-consensus-debug-client",
+ "reth-discv4",
  "reth-engine-tree",
  "reth-ethereum-cli",
+ "reth-ethereum-primitives",
  "reth-network",
- "reth-network-api",
  "reth-network-peers",
+ "reth-node-api",
  "reth-node-core",
  "reth-node-ethereum",
- "reth-rpc-api",
+ "reth-payload-builder",
  "reth-rpc-builder",
  "reth-rpc-engine-api",
- "reth-tokio-util",
- "serde_json",
+ "reth-storage-api",
+ "reth-tasks",
+ "reth-transaction-pool",
  "shellexpand",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "ress-common"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-rpc-types-engine",
- "eyre",
- "ress-primitives",
- "reth-network",
- "reth-transaction-pool",
- "serde_json",
 ]
 
 [[package]]
@@ -5586,10 +5559,8 @@ dependencies = [
  "alloy-primitives",
  "futures",
  "ress-protocol",
- "reth-chainspec",
  "reth-network",
  "reth-network-api",
- "reth-network-peers",
  "reth-primitives",
  "thiserror 2.0.11",
  "tokio",
@@ -5649,26 +5620,6 @@ dependencies = [
  "thiserror 2.0.11",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "ress-rpc"
-version = "0.1.0"
-dependencies = [
- "alloy-rpc-types-engine",
- "ress-common",
- "reth-chainspec",
- "reth-engine-primitives",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-payload-builder",
- "reth-primitives",
- "reth-provider",
- "reth-rpc-builder",
- "reth-rpc-engine-api",
- "reth-tasks",
- "reth-transaction-pool",
- "tokio",
 ]
 
 [[package]]

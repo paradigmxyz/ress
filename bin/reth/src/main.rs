@@ -47,7 +47,7 @@ fn main() -> eyre::Result<()> {
         };
         let protocol_handler = RessProtocolHandler {
             provider,
-            state: ProtocolState { events: tx },
+            state: ProtocolState { events_sender: tx },
             node_type: NodeType::Stateful,
         };
         node.network.add_rlpx_sub_protocol(protocol_handler.into_rlpx_sub_protocol());

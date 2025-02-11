@@ -1,13 +1,26 @@
-use clap::Parser;
+use alloy_rpc_types_engine::{JwtError, JwtSecret};
+use clap::{Args, Parser};
 use reth_chainspec::{Chain, ChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
+use reth_discv4::{DEFAULT_DISCOVERY_ADDR, DEFAULT_DISCOVERY_PORT};
 use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
 use reth_network_peers::TrustedPeer;
-use reth_node_core::dirs::{ChainPath, PlatformPath, XdgPath};
-use std::{env::VarError, fmt, path::PathBuf, str::FromStr, sync::Arc};
+use reth_node_core::{
+    dirs::{ChainPath, PlatformPath, XdgPath},
+    utils::get_or_create_jwt_secret_from_path,
+};
+use reth_rpc_builder::constants::DEFAULT_AUTH_PORT;
+use std::{
+    env::VarError,
+    fmt,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+};
 
 /// Ress CLI interface.
-#[derive(Parser, Debug)]
+#[derive(Clone, Debug, Parser)]
 #[command(author, version, about = "Ress", long_about = None)]
 pub struct RessArgs {
     /// The chain this node is running.
@@ -47,9 +60,84 @@ pub struct RessArgs {
     #[arg(long = "enable-rpc-adapter")]
     pub rpc_adapter_enabled: bool,
 
-    /// Peer number (1 or 2)
-    #[arg(value_parser = clap::value_parser!(u8).range(1..=2))]
-    pub peer_number: u8,
+    /// Network args.
+    #[clap(flatten)]
+    pub network: RessNetworkArgs,
+
+    /// RPC args.
+    #[clap(flatten)]
+    pub rpc: RessRpcArgs,
+}
+
+/// Ress networking args.
+#[derive(Clone, Debug, Args)]
+pub struct RessNetworkArgs {
+    /// Network listening address
+    #[arg(long = "addr", value_name = "ADDR", default_value_t = DEFAULT_DISCOVERY_ADDR)]
+    pub addr: IpAddr,
+
+    /// Network listening port
+    #[arg(long = "port", value_name = "PORT", default_value_t = DEFAULT_DISCOVERY_PORT)]
+    pub port: u16,
+
+    /// Secret key to use for this node.
+    ///
+    /// This will also deterministically set the peer ID. If not specified, it will be set in the
+    /// data dir for the chain being used.
+    #[arg(long, value_name = "PATH")]
+    pub p2p_secret_key: Option<PathBuf>,
+}
+
+impl RessNetworkArgs {
+    /// Returns network socket address.
+    pub fn listener_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.addr, self.port)
+    }
+
+    /// Returns path to network secret.
+    pub fn network_secret_path(&self, data_dir: &ChainPath<DataDirPath>) -> PathBuf {
+        self.p2p_secret_key.clone().unwrap_or_else(|| data_dir.p2p_secret())
+    }
+}
+
+/// Ress RPC args.
+#[derive(Clone, Debug, Args)]
+pub struct RessRpcArgs {
+    /// Auth server address to listen on
+    #[arg(long = "authrpc.addr", default_value_t = IpAddr::V4(Ipv4Addr::LOCALHOST))]
+    pub auth_addr: IpAddr,
+
+    /// Auth server port to listen on
+    #[arg(long = "authrpc.port", default_value_t = DEFAULT_AUTH_PORT)]
+    pub auth_port: u16,
+
+    /// Path to a JWT secret to use for the authenticated engine-API RPC server.
+    ///
+    /// This will enforce JWT authentication for all requests coming from the consensus layer.
+    ///
+    /// If no path is provided, a secret will be generated and stored in the datadir under
+    /// `<DIR>/<CHAIN_ID>/jwt.hex`. For mainnet this would be `~/.ress/mainnet/jwt.hex` by default.
+    #[arg(long = "authrpc.jwtsecret", value_name = "PATH", global = true, required = false)]
+    pub auth_jwtsecret: Option<PathBuf>,
+}
+
+impl RessRpcArgs {
+    /// Returns auth RPC socker address.
+    pub fn auth_rpc_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.auth_addr, self.auth_port)
+    }
+
+    /// Reads and returns JWT secret at user provider path _or_
+    /// reads or creates and returns JWT secret at default path.
+    pub fn auth_jwt_secret(&self, default_jwt_path: PathBuf) -> Result<JwtSecret, JwtError> {
+        match self.auth_jwtsecret.as_ref() {
+            Some(fpath) => {
+                tracing::debug!(target: "ress::cli", user_path=?fpath, "Reading JWT auth secret file");
+                JwtSecret::from_file(fpath)
+            }
+            None => get_or_create_jwt_secret_from_path(&default_jwt_path),
+        }
+    }
 }
 
 /// Returns the path to the ress data dir.

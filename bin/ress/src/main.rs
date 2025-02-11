@@ -5,14 +5,13 @@ use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
 use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
-use ress::{cli::RessArgs, launch_test_node};
-use ress_common::test_utils::TestPeers;
-use ress_provider::{RessDatabase, RessProvider};
+use ress::{cli::RessArgs, launch::NodeLauncher};
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
 use std::{collections::HashMap, sync::Arc};
-use tracing::info;
+use tracing::{info, level_filters::LevelFilter};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -22,18 +21,14 @@ async fn main() -> eyre::Result<()> {
         std::process::exit(1);
     }));
 
-    tracing_subscriber::fmt::init();
-    dotenvy::dotenv()?;
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder().with_default_directive(LevelFilter::INFO.into()).from_env_lossy(),
+        )
+        .with_writer(std::io::stderr)
+        .init();
 
-    // =================================================================
-
-    // <for testing purpose>
     let args = RessArgs::parse();
-    let local_node = match args.peer_number {
-        1 => TestPeers::Peer1,
-        2 => TestPeers::Peer2,
-        _ => unreachable!(),
-    };
 
     // =============================== Launch Node ==================================
 
@@ -56,14 +51,10 @@ async fn main() -> eyre::Result<()> {
         None
     };
 
-    // Initialize the database.
-    let data_dir_path = args.datadir.unwrap_or_chain_default(args.chain.chain());
-    let database = RessDatabase::new(data_dir_path.db())?;
-
     let current_head = NumHash::new(latest_block_number, latest_block_hash);
-    let provider = RessProvider::new(args.chain, database, current_head);
-    let node = launch_test_node(local_node, provider, args.remote_peer, maybe_rpc_adapter).await;
-    assert!(local_node.is_ports_alive());
+    let node = NodeLauncher::new(args.clone())
+        .launch(current_head, args.remote_peer, maybe_rpc_adapter)
+        .await?;
 
     // ================ PARALLEL FETCH + STORE HEADERS ================
     let start_time = std::time::Instant::now();
@@ -135,7 +126,7 @@ async fn main() -> eyre::Result<()> {
         let ws_block_provider =
             RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
         let rpc_consensus_client =
-            DebugConsensusClient::new(node.authserver_handle, Arc::new(ws_block_provider));
+            DebugConsensusClient::new(node.auth_server_handle, Arc::new(ws_block_provider));
         tokio::spawn(async move {
             info!("💨 running debug consensus client");
             rpc_consensus_client.run::<reth_node_ethereum::EthEngineTypes>().await;
@@ -144,7 +135,7 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    let mut events = node.network_handle.inner_handle().event_listener();
+    let mut events = node.network_handle.inner().event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress", ?event, "Received network event");
     }

@@ -15,11 +15,9 @@ workspace = true
 ress-protocol.workspace = true
 
 # reth
-reth-network.workspace = true
-reth-network-peers.workspace = true
-reth-network-api.workspace = true
-reth-chainspec.workspace = true
 reth-primitives.workspace = true
+reth-network-api.workspace = true
+reth-network.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
