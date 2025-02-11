@@ -414,12 +414,40 @@ impl EngineTree {
         payload: ExecutionData,
         maybe_witness: Option<ExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
-        let block_number = payload.payload.block_number();
-        let block_hash = payload.payload.block_hash();
         let parent_hash = payload.payload.parent_hash();
-        info!(target: "ress::engine", %block_hash, block_number, %parent_hash, "👋 new payload");
+        info!(
+            target: "ress::engine",
+            block_hash = %payload.payload.block_hash(),
+            block_number = %payload.payload.block_number(),
+            parent_hash = %parent_hash,
+            "👋 new payload"
+        );
 
-        // Ensures that the given payload does not violate any consensus rules.
+        // Ensures that the given payload does not violate any consensus rules that concern the
+        // block's layout, like:
+        //    - missing or invalid base fee
+        //    - invalid extra data
+        //    - invalid transactions
+        //    - incorrect hash
+        //    - the versioned hashes passed with the payload do not exactly match transaction
+        //      versioned hashes
+        //    - the block does not contain blob transactions if it is pre-cancun
+        //
+        // This validates the following engine API rule:
+        //
+        // 3. Given the expected array of blob versioned hashes client software **MUST** run its
+        //    validation by taking the following steps:
+        //
+        //   1. Obtain the actual array by concatenating blob versioned hashes lists
+        //      (`tx.blob_versioned_hashes`) of each [blob
+        //      transaction](https://eips.ethereum.org/EIPS/eip-4844#new-transaction-type) included
+        //      in the payload, respecting the order of inclusion. If the payload has no blob
+        //      transactions the expected array **MUST** be `[]`.
+        //
+        //   2. Return `{status: INVALID, latestValidHash: null, validationError: errorMessage |
+        //      null}` if the expected and the actual arrays don't match.
+        //
+        // This validation **MUST** be instantly run in all cases even during active sync process.
         let block = match self.engine_validator.ensure_well_formed_payload(payload) {
             Ok(block) => block,
             Err(error) => {
