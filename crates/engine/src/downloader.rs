@@ -1,6 +1,6 @@
 use alloy_primitives::{keccak256, Bytes, B256};
 use futures::FutureExt;
-use ress_network::{DownloadError, NetworkStorageError, RessNetworkHandle};
+use ress_network::{NetworkStorageError, RessNetworkHandle};
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
 use ress_protocol::{StateWitnessEntry, StateWitnessNet};
 use reth_chainspec::ChainSpec;
@@ -18,19 +18,14 @@ use tracing::*;
 
 /// Struct for downloading chain data from the network.
 pub struct EngineDownloader {
-    /// Handle to the network for making requests.
     network: RessNetworkHandle,
-    /// Consensus engine for validation.
     consensus: EthBeaconConsensus<ChainSpec>,
-    /// Delay between retry attempts for failed requests.
+
     retry_delay: Duration,
-    /// List of ongoing requests for full blocks.
+
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
-    /// List of ongoing requests for bytecode.
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
-    /// List of ongoing requests for witnesses.
     inflight_witness_requests: Vec<FetchWitnessFuture>,
-    /// Queue of outcomes from completed download requests.
     outcomes: VecDeque<DownloadOutcome>,
 }
 
@@ -54,7 +49,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %block_hash, "Downloading full block");
+        trace!(target: "ress::engine::downloader", %block_hash, "Downloading block");
         let mut fut = FetchFullBlockFuture {
             network: self.network.clone(),
             consensus: self.consensus.clone(),
@@ -64,8 +59,6 @@ impl EngineDownloader {
             pending_body_request: None,
             header: None,
             body: None,
-            attempts: 0,
-            max_attempts: 5,
         };
         fut.pending_header_request = Some(fut.header_request(Duration::default()));
         fut.pending_body_request = Some(fut.body_request(Duration::default()));
@@ -102,32 +95,22 @@ impl EngineDownloader {
             block_hash,
             retry_delay: self.retry_delay,
             pending: Box::pin(async move { network.fetch_witness(block_hash).await }),
-            attempts: 0,
-            max_attempts: 5,
         };
         self.inflight_witness_requests.push(fut);
     }
 
     /// Poll downloader.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Result<DownloadOutcome, DownloadError>> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome> {
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(Ok(outcome))
+            return Poll::Ready(outcome)
         }
 
         // advance all full block requests
         for idx in (0..self.inflight_full_block_requests.len()).rev() {
             let mut request = self.inflight_full_block_requests.swap_remove(idx);
             if let Poll::Ready(block) = request.poll_unpin(cx) {
-                match block {
-                    Ok(block) => {
-                        trace!(target: "ress::engine::downloader", block=?block.num_hash(), "Received single full block");
-                        self.outcomes.push_back(DownloadOutcome::Block(block));
-                    }
-                    Err(error) => {
-                        debug!(target: "ress::engine::downloader", %error, "Block download failed, skipping");
-                        return Poll::Ready(Err(error))
-                    }
-                }
+                trace!(target: "ress::engine::downloader", block=?block.num_hash(), "Received single full block");
+                self.outcomes.push_back(DownloadOutcome::Block(block));
             } else {
                 self.inflight_full_block_requests.push(request);
             }
@@ -137,17 +120,8 @@ impl EngineDownloader {
         for idx in (0..self.inflight_witness_requests.len()).rev() {
             let mut request = self.inflight_witness_requests.swap_remove(idx);
             if let Poll::Ready(witness) = request.poll_unpin(cx) {
-                match witness {
-                    Ok(witness) => {
-                        trace!(target: "ress::engine::downloader", block_hash = %request.block_hash, "Received witness");
-                        self.outcomes
-                            .push_back(DownloadOutcome::Witness(request.block_hash, witness));
-                    }
-                    Err(error) => {
-                        debug!(target: "ress::engine::downloader", %error, "Witness download failed, skipping");
-                        return Poll::Ready(Err(error))
-                    }
-                }
+                trace!(target: "ress::engine::downloader", block_hash = %request.block_hash, "Received witness");
+                self.outcomes.push_back(DownloadOutcome::Witness(request.block_hash, witness));
             } else {
                 self.inflight_witness_requests.push(request);
             }
@@ -165,7 +139,7 @@ impl EngineDownloader {
         }
 
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(Ok(outcome))
+            return Poll::Ready(outcome)
         }
 
         Poll::Pending
@@ -200,9 +174,6 @@ pub struct FetchFullBlockFuture {
     pending_body_request: Option<DownloadFut<BlockBody>>,
     header: Option<SealedHeader>,
     body: Option<BlockBody>,
-    // Retry logic
-    attempts: usize,
-    max_attempts: usize,
 }
 
 impl FetchFullBlockFuture {
@@ -231,14 +202,7 @@ impl FetchFullBlockFuture {
 }
 
 impl Future for FetchFullBlockFuture {
-    /// Return an error if we exceed `max_attempts` retries.
-    ///
-    /// If we succeed, we produce `Ok(SealedBlock)`.
-    /// If we fail `> max_attempts` times, we return `Err(DownloadError::TooManyRetries)`.
-    ///
-    /// You could also return `Err(DownloadError::Network(e))` if you
-    /// want to propagate the network error that caused the retry.
-    type Output = Result<SealedBlock, DownloadError>;
+    type Output = SealedBlock;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -253,12 +217,6 @@ impl Future for FetchFullBlockFuture {
                             if header.hash() == this.block_hash {
                                 this.header = Some(header);
                             } else {
-                                // If we get here, the witness was invalid/empty – we want to retry
-                                this.attempts += 1;
-                                if this.attempts >= this.max_attempts {
-                                    return Poll::Ready(Err(DownloadError::TooManyRetries));
-                                }
-
                                 debug!(target: "ress::engine::downloader", expected = %this.block_hash, received = %header.hash(), "Received wrong header");
                                 this.pending_header_request =
                                     Some(this.header_request(this.retry_delay));
@@ -300,7 +258,7 @@ impl Future for FetchFullBlockFuture {
                     continue
                 }
 
-                return Poll::Ready(Ok(SealedBlock::from_sealed_parts(header, body)))
+                return Poll::Ready(SealedBlock::from_sealed_parts(header, body))
             }
 
             return Poll::Pending
@@ -362,9 +320,6 @@ pub struct FetchWitnessFuture {
     block_hash: B256,
     retry_delay: Duration,
     pending: DownloadFut<StateWitnessNet>,
-    // Retry logic
-    attempts: usize,
-    max_attempts: usize,
 }
 
 impl FetchWitnessFuture {
@@ -380,14 +335,7 @@ impl FetchWitnessFuture {
 }
 
 impl Future for FetchWitnessFuture {
-    /// Return an error if we exceed `max_attempts` retries.
-    ///
-    /// If we succeed, we produce `Ok(ExecutionWitness)`.
-    /// If we fail `> max_attempts` times, we return `Err(DownloadError::TooManyRetries)`.
-    ///
-    /// You could also return `Err(DownloadError::Network(e))` if you
-    /// want to propagate the network error that caused the retry.
-    type Output = Result<ExecutionWitness, DownloadError>;
+    type Output = ExecutionWitness;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -412,22 +360,9 @@ impl Future for FetchWitnessFuture {
                             true
                         };
                         if valid {
-                            return Poll::Ready(Ok(ExecutionWitness::new(state_witness)))
+                            return Poll::Ready(ExecutionWitness::new(state_witness))
                         }
                     }
-
-                    // If we get here, the witness was invalid/empty – we want to retry
-                    this.attempts += 1;
-                    if this.attempts >= this.max_attempts {
-                        return Poll::Ready(Err(DownloadError::TooManyRetries));
-                    }
-
-                    debug!(
-                        target: "ress::engine::downloader",
-                        block_hash = %this.block_hash,
-                        attempt = this.attempts,
-                        "Witness was invalid or empty, retrying"
-                    );
                 }
                 Err(error) => {
                     debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Witness download failed");
