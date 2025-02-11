@@ -144,7 +144,7 @@ async fn main() -> eyre::Result<()> {
 
     // =================================================================
 
-    let mut events = node.network_handle.network_handle.event_listener();
+    let mut events = node.network_handle.inner_handle().event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress", ?event, "Received network event");
     }

@@ -1,6 +1,6 @@
 use alloy_primitives::{keccak256, Bytes, B256};
 use futures::FutureExt;
-use ress_network::{NetworkStorageError, RessNetworkHandle};
+use ress_network::{NetworkError, RessNetworkHandle};
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
 use ress_protocol::{StateWitnessEntry, StateWitnessNet};
 use reth_chainspec::ChainSpec;
@@ -158,7 +158,7 @@ pub enum DownloadOutcome {
     Witness(B256, ExecutionWitness),
 }
 
-type DownloadFut<Ok> = Pin<Box<dyn Future<Output = Result<Ok, NetworkStorageError>> + Send + Sync>>;
+type DownloadFut<Ok> = Pin<Box<dyn Future<Output = Result<Ok, NetworkError>> + Send + Sync>>;
 
 /// A future that downloads a full block from the network.
 ///

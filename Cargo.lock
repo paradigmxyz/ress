@@ -5584,6 +5584,7 @@ name = "ress-network"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "futures",
  "ress-common",
  "ress-protocol",
  "reth-chainspec",
@@ -5593,6 +5594,7 @@ dependencies = [
  "reth-primitives",
  "thiserror 2.0.11",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 

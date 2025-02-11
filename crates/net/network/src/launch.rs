@@ -1,4 +1,5 @@
 use crate::RessNetworkHandle;
+use futures::StreamExt;
 use ress_common::test_utils::TestPeers;
 use ress_protocol::{
     NodeType, ProtocolEvent, ProtocolState, RessPeerRequest, RessProtocolHandler,
@@ -11,9 +12,17 @@ use reth_network::{
 };
 use reth_network_api::PeerId;
 use reth_network_peers::TrustedPeer;
-use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tracing::info;
+use std::{
+    collections::VecDeque,
+    future::Future,
+    net::SocketAddr,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::*;
 
 /// Ress network launcher.
 #[allow(missing_debug_implementations)]
@@ -54,9 +63,9 @@ where
         // spawn the network
         tokio::task::spawn(subnetwork_handle);
 
-        let network_peer_conn = Self::setup_subprotocol_network(from_peer, remote_id).await;
+        let peer_connection = Self::setup_subprotocol_network(from_peer, remote_id).await;
 
-        RessNetworkHandle { network_handle, network_peer_conn }
+        RessNetworkHandle::new(network_handle, peer_connection)
     }
 
     async fn launch_subprotocol_network(
@@ -108,5 +117,60 @@ where
         };
         info!(%peer_id, "🟢 connection established");
         peer_conn
+    }
+}
+
+struct ConnectionHandle {
+    peer_id: PeerId,
+    to_connection: mpsc::UnboundedSender<RessPeerRequest>,
+}
+
+struct RessNetworkManager {
+    protocol_events: UnboundedReceiverStream<ProtocolEvent>,
+    connections: VecDeque<ConnectionHandle>,
+    peer_requests: UnboundedReceiverStream<RessPeerRequest>,
+}
+
+impl RessNetworkManager {
+    fn on_peer_request(&mut self, mut request: RessPeerRequest) {
+        // Rotate connections for peer requests
+        while let Some(connection) = self.connections.pop_front() {
+            trace!(target: "ress::net", peer_id = %connection.peer_id, ?request, "Sending request to peer");
+            match connection.to_connection.send(request) {
+                Ok(()) => {
+                    self.connections.push_back(connection);
+                    return
+                }
+                Err(mpsc::error::SendError(request_)) => {
+                    request = request_;
+                    trace!(target: "ress::net", peer_id = %connection.peer_id, ?request, "Failed to send request, connection closed");
+                }
+            }
+        }
+        // TODO: consider parking the requests
+        trace!(target: "ress::net", ?request, "No connections are available");
+    }
+}
+
+impl Future for RessNetworkManager {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        loop {
+            if let Poll::Ready(Some(event)) = this.protocol_events.poll_next_unpin(cx) {
+                let ProtocolEvent::Established { direction, peer_id, to_connection } = event;
+                info!(target: "ress::net", %peer_id, %direction, "Peer connection established");
+                this.connections.push_back(ConnectionHandle { peer_id, to_connection });
+                continue
+            }
+
+            if let Poll::Ready(Some(request)) = this.peer_requests.poll_next_unpin(cx) {
+                this.on_peer_request(request);
+                continue
+            }
+
+            return Poll::Pending
+        }
     }
 }
