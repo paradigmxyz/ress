@@ -19,14 +19,19 @@ use tracing::*;
 
 /// Struct for downloading chain data from the network.
 pub struct EngineDownloader {
+    /// Handle to the network for making requests.
     network: RessNetworkHandle,
+    /// Consensus engine for validation.
     consensus: EthBeaconConsensus<ChainSpec>,
-
+    /// Delay between retry attempts for failed requests.
     retry_delay: Duration,
-
+    /// List of ongoing requests for full blocks.
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
+    /// List of ongoing requests for bytecode.
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
+    /// List of ongoing requests for witnesses.
     inflight_witness_requests: Vec<FetchWitnessFuture>,
+    /// Queue of outcomes from completed download requests.
     outcomes: VecDeque<DownloadOutcome>,
 }
 
@@ -36,7 +41,7 @@ impl EngineDownloader {
         Self {
             network,
             consensus,
-            retry_delay: Duration::from_millis(60),
+            retry_delay: Duration::from_millis(50),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
             inflight_bytecode_requests: Vec::new(),
@@ -50,7 +55,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %block_hash, "Downloading block");
+        trace!(target: "ress::engine::downloader", %block_hash, "Downloading full block");
         let mut fut = FetchFullBlockFuture {
             network: self.network.clone(),
             consensus: self.consensus.clone(),
@@ -250,10 +255,7 @@ impl Future for FetchFullBlockFuture {
                 }
             }
 
-            if this.header.is_some() && this.body.is_some() {
-                let header = this.header.take().unwrap();
-                let body = this.body.take().unwrap();
-
+            if let (Some(header), Some(body)) = (this.header.take(), this.body.take()) {
                 // ensure the block is valid, else retry
                 if let Err(error) = <EthBeaconConsensus<ChainSpec> as Consensus<Block>>::validate_body_against_header(&this.consensus, &body, &header) {
                     debug!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
