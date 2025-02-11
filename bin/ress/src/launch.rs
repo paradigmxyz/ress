@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use alloy_eips::BlockNumHash;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
@@ -17,6 +14,7 @@ use reth_network::{
 };
 use reth_network_peers::TrustedPeer;
 use reth_node_api::{BeaconConsensusEngineHandle, BeaconEngineMessage};
+use reth_node_core::primitives::{RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
 };
@@ -26,6 +24,7 @@ use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_storage_api::noop::NoopProvider;
 use reth_tasks::TokioTaskExecutor;
 use reth_transaction_pool::noop::NoopTransactionPool;
+use std::sync::Arc;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
@@ -61,11 +60,7 @@ impl NodeLauncher {
 
 impl NodeLauncher {
     /// Launch ress node.
-    pub async fn launch(
-        self,
-        current_head: BlockNumHash,
-        remote_peer: Option<TrustedPeer>,
-    ) -> eyre::Result<Node> {
+    pub async fn launch(self) -> eyre::Result<Node> {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
         // Open database.
@@ -73,12 +68,25 @@ impl NodeLauncher {
         debug!(target: "ress", path = %db_path.display(), "Opening database");
         let database = RessDatabase::new(&db_path)?;
         info!(target: "ress", path = %db_path.display(), "Database opened");
-        let provider = RessProvider::new(self.args.chain.clone(), database, current_head);
+        let provider = RessProvider::new(self.args.chain.clone(), database);
+
+        // Insert genesis block.
+        let genesis_hash = self.args.chain.genesis_hash();
+        let genesis_header = self.args.chain.genesis_header().clone();
+        provider.insert_block(RecoveredBlock::new_sealed(
+            SealedBlock::from_parts_unchecked(genesis_header, Default::default(), genesis_hash),
+            Vec::new(),
+        ));
+        provider.insert_canonical_hash(0, genesis_hash);
+        info!(target: "ress", %genesis_hash, "Inserted genesis block");
+
+        // TODO: insert bytecodes from genesis
 
         // Launch network.
         let network_secret_path = self.args.network.network_secret_path(&data_dir);
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
+        let remote_peer = self.args.remote_peer.clone();
         let network_handle = if let Some(url) = self.args.debug.rpc_adapter_url.clone() {
             info!(target: "ress", %url, "Using RPC adapter");
             let rpc_adapter = RpcAdapterProvider::new(&url)?;
@@ -99,7 +107,7 @@ impl NodeLauncher {
             from_auth_rpc,
         );
         let consensus_engine_handle = tokio::spawn(consensus_engine);
-        info!(target: "ress", head = ?current_head, "Consensus engine spawned");
+        info!(target: "ress", "Consensus engine spawned");
 
         // Start auth RPC server.
         let jwt_key = self.args.rpc.auth_jwt_secret(data_dir.jwt())?;

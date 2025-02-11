@@ -14,6 +14,8 @@ use tracing::trace;
 
 /// EVM database implementation that uses state witness for account and storage data retrieval.
 /// Block hashes and bytecodes are retrieved from ress node storage.
+/// TODO: currently this only looks up canonical block hashes even if we are executing pending
+/// payload. fix this
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
     provider: RessProvider,
@@ -77,7 +79,7 @@ impl Database for WitnessDatabase<'_> {
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         trace!(target: "ress::vm", block_number, "retrieving block hash");
         self.provider
-            .get_block_hash(block_number)
-            .map_err(|_| ProviderError::StateForNumberNotFound(block_number))
+            .block_hash(&block_number)
+            .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

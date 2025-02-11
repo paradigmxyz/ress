@@ -1,9 +1,10 @@
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
 use rayon::iter::IntoParallelRefIterator;
-use ress_evm::{BlockExecutor, EvmError, WitnessDatabase};
+use ress_evm::{BlockExecutor, WitnessDatabase};
 use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
@@ -49,6 +50,8 @@ pub struct EngineTree {
     /// Engine validator.
     pub(crate) engine_validator: EthereumEngineValidator,
 
+    /// Current canonical head.
+    pub(crate) canonical_head: BlockNumHash,
     /// Tracks the forkchoice state updates received by the CL.
     pub(crate) forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Pending block buffer.
@@ -64,10 +67,12 @@ impl EngineTree {
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
     ) -> Self {
+        let canonical_head = provider.chain_spec().genesis_header().num_hash_slow();
         Self {
             provider,
             consensus,
             engine_validator,
+            canonical_head,
             forkchoice_state_tracker: ForkchoiceStateTracker::default(),
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
@@ -119,7 +124,7 @@ impl EngineTree {
         // - if we have payload attributes, delegate them to the payload service
 
         // 1. ensure we have a new head block
-        if self.provider.get_canonical_head().hash == state.head_block_hash {
+        if self.canonical_head.hash == state.head_block_hash {
             trace!(target: "ress::engine", "fcu head hash is already canonical");
 
             // update the safe and finalized blocks and ensure their values are valid
@@ -130,8 +135,8 @@ impl EngineTree {
 
             // we still need to process payload attributes if the head is already canonical
             if let Some(attr) = payload_attrs {
-                let head = self.provider.get_canonical_head();
-                let tip = self.provider.header(head.hash).ok_or_else(|| {
+                let head = self.canonical_head;
+                let tip = self.provider.sealed_header(&head.hash).ok_or_else(|| {
                     // If we can't find the canonical block, then something is wrong and we need
                     // to return an error
                     ProviderError::HeaderNotFound(state.head_block_hash.into())
@@ -162,7 +167,7 @@ impl EngineTree {
             // TODO: figure out why this causes 2 additional hive failures
             // self.provider
             //     .storage
-            //     .on_new_finalized_hash(state.finalized_block_hash)
+            //     .on_finalized(state.finalized_block_hash)
             //     .map_err(RethError::other)?;
 
             if let Some(attr) = payload_attrs {
@@ -178,7 +183,7 @@ impl EngineTree {
         }
 
         // 3. check if the head is already part of the canonical chain
-        if let Some(header) = self.provider.header(state.head_block_hash) {
+        if let Some(header) = self.provider.sealed_header(&state.head_block_hash) {
             debug!(target: "ress::engine", head = header.number, "fcu head block is already canonical");
 
             // 2. Client software MAY skip an update of the forkchoice state and MUST NOT begin a
@@ -205,7 +210,7 @@ impl EngineTree {
         let target = if self.forkchoice_state_tracker.is_empty() &&
             // check that safe block is valid and missing
             !state.safe_block_hash.is_zero() &&
-            self.provider.header(state.safe_block_hash).is_none()
+            self.provider.sealed_header(&state.safe_block_hash).is_none()
         {
             debug!(target: "ress::engine", "missing safe block on initial FCU, downloading safe block");
             state.safe_block_hash
@@ -254,11 +259,13 @@ impl EngineTree {
         state: ForkchoiceState,
     ) -> Result<(), OnForkChoiceUpdated> {
         if !state.finalized_block_hash.is_zero() &&
-            !self.provider.is_canonical(state.finalized_block_hash)
+            !self.provider.is_hash_canonical(&state.finalized_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
-        if !state.safe_block_hash.is_zero() && !self.provider.is_canonical(state.safe_block_hash) {
+        if !state.safe_block_hash.is_zero() &&
+            !self.provider.is_hash_canonical(&state.safe_block_hash)
+        {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
 
@@ -272,9 +279,9 @@ impl EngineTree {
     /// Note: This does not update the tracked state and instead returns the new chain based on the
     /// given head.
     fn on_new_head(&self, new_head: B256) -> Option<NewCanonicalChain> {
-        let new_head_block = self.provider.sealed_header(new_head)?;
+        let new_head_block = self.provider.sealed_header(&new_head)?;
 
-        let mut current_canonical_number = self.provider.get_canonical_head().number;
+        let mut current_canonical_number = self.canonical_head.number;
         let (mut current_number, mut current_hash) =
             new_head_block.parent_num_hash().into_components();
         let mut new_chain = vec![new_head_block];
@@ -284,7 +291,7 @@ impl EngineTree {
         // This is only done for in-memory blocks, because we should not have persisted any blocks
         // that are _above_ the current canonical head.
         while current_number > current_canonical_number {
-            if let Some(header) = self.provider.sealed_header(current_hash) {
+            if let Some(header) = self.provider.sealed_header(&current_hash) {
                 current_hash = header.parent_hash;
                 current_number -= 1;
                 new_chain.push(header);
@@ -298,19 +305,19 @@ impl EngineTree {
 
         // If we have reached the current canonical head by walking back from the target, then we
         // know this represents an extension of the canonical chain.
-        if current_hash == self.provider.get_canonical_head().hash {
+        if current_hash == self.canonical_head.hash {
             new_chain.reverse();
             return Some(NewCanonicalChain::Commit { new: new_chain });
         }
 
         // We have a reorg. Walk back both chains to find the fork point.
         let mut old_chain = Vec::new();
-        let mut old_hash = self.provider.get_canonical_head().hash;
+        let mut old_hash = self.canonical_head.hash;
 
         // If the canonical chain is ahead of the new chain,
         // gather all blocks until new head number.
         while current_canonical_number > current_number {
-            if let Some(header) = self.provider.sealed_header(old_hash) {
+            if let Some(header) = self.provider.sealed_header(&old_hash) {
                 old_hash = header.parent_hash;
                 current_canonical_number -= 1;
                 old_chain.push(header);
@@ -327,7 +334,7 @@ impl EngineTree {
         // Walk both chains from specified hashes at same height until
         // a common ancestor (fork block) is reached.
         while old_hash != current_hash {
-            if let Some(header) = self.provider.sealed_header(old_hash) {
+            if let Some(header) = self.provider.sealed_header(&old_hash) {
                 old_hash = header.parent_hash;
                 old_chain.push(header);
             } else {
@@ -336,7 +343,7 @@ impl EngineTree {
                 return None;
             }
 
-            if let Some(header) = self.provider.sealed_header(current_hash) {
+            if let Some(header) = self.provider.sealed_header(&current_hash) {
                 current_hash = header.parent_hash;
                 new_chain.push(header);
             } else {
@@ -400,7 +407,7 @@ impl EngineTree {
     /// This is invoked on a valid forkchoice update, or if we can make the target block canonical.
     fn on_canonical_chain_update(&mut self, update: NewCanonicalChain) {
         trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
-        self.provider.set_canonical_head(update.tip().num_hash());
+        self.canonical_head = update.tip().num_hash();
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
@@ -601,14 +608,14 @@ impl EngineTree {
         let block_num_hash = block.num_hash();
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
 
-        if self.provider.header(block.hash()).is_some() {
+        if self.provider.sealed_header(block.hash_ref()).is_some() {
             return Ok(InsertPayloadOk::AlreadySeen(BlockStatus::Valid));
         }
 
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
         self.validate_block(&block)?;
 
-        let Some(parent) = self.provider.header(block.parent_hash) else {
+        let Some(parent) = self.provider.sealed_header(&block.parent_hash) else {
             // we don't have the state required to execute this block, buffering it and find the
             // missing parent block
             let missing_ancestor = self
@@ -622,7 +629,7 @@ impl EngineTree {
             }
             self.block_buffer.insert_block(block);
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                head: self.provider.get_canonical_head(),
+                head: self.canonical_head,
                 missing_ancestor,
             }));
         };
@@ -640,7 +647,7 @@ impl EngineTree {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block=?block_num_hash, "Block has missing witness");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                head: self.provider.get_canonical_head(),
+                head: self.canonical_head,
                 missing_ancestor: block_num_hash,
             }))
         };
@@ -655,10 +662,7 @@ impl EngineTree {
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
         let mut block_executor = BlockExecutor::new(self.provider.chain_spec(), database);
-        let output = block_executor.execute(&block).map_err(|error| match error {
-            EvmError::BlockExecution(error) => InsertBlockErrorKind::Execution(error),
-            EvmError::DB(error) => InsertBlockErrorKind::Other(Box::new(error)),
-        })?;
+        let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 
         // ===================== Post Execution Validation =====================
@@ -682,7 +686,7 @@ impl EngineTree {
         }
 
         // ===================== Update Node State =====================
-        self.provider.insert_header(block.header().clone());
+        self.provider.insert_block(block);
 
         debug!(target: "ress::engine", block=?block_num_hash, "Finished inserting block");
         Ok(InsertPayloadOk::Inserted(BlockStatus::Valid))
@@ -725,7 +729,7 @@ impl EngineTree {
     fn prepare_invalid_response(&mut self, mut parent_hash: B256) -> PayloadStatus {
         // Edge case: the `latestValid` field is the zero hash if the parent block is the terminal
         // PoW block, which we need to identify by looking at the parent's block difficulty
-        if let Some(parent) = self.provider.header(parent_hash) {
+        if let Some(parent) = self.provider.sealed_header(&parent_hash) {
             if !parent.difficulty.is_zero() {
                 parent_hash = B256::ZERO;
             }
@@ -781,7 +785,7 @@ impl EngineTree {
     ///     the above conditions.
     fn latest_valid_hash_for_invalid_payload(&mut self, parent_hash: B256) -> Option<B256> {
         // Check if parent exists in side chain or in canonical chain.
-        if self.provider.header(parent_hash).is_some() {
+        if self.provider.sealed_header(&parent_hash).is_some() {
             return Some(parent_hash);
         }
 
@@ -795,7 +799,7 @@ impl EngineTree {
 
             // If current_header is None, then the current_hash does not have an invalid
             // ancestor in the cache, check its presence in blockchain tree
-            if current_block.is_none() && self.provider.header(current_hash).is_some() {
+            if current_block.is_none() && self.provider.sealed_header(&current_hash).is_some() {
                 return Some(current_hash);
             }
         }

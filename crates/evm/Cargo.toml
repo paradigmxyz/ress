@@ -29,5 +29,4 @@ reth-revm.workspace = true
 reth-trie-sparse.workspace = true
 
 # misc
-thiserror.workspace = true
 tracing.workspace = true

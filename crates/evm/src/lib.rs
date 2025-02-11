@@ -3,7 +3,7 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 use reth_chainspec::ChainSpec;
-use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
+use reth_evm::execute::{BlockExecutionError, BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
@@ -12,9 +12,6 @@ use std::sync::Arc;
 
 mod db;
 pub use db::WitnessDatabase;
-
-mod errors;
-pub use errors::EvmError;
 
 /// Block executor that wraps reth's [`EthExecutionStrategy`].
 #[allow(missing_debug_implementations)]
@@ -36,7 +33,7 @@ impl<'a> BlockExecutor<'a> {
     pub fn execute(
         &mut self,
         block: &RecoveredBlock<Block>,
-    ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
+    ) -> Result<BlockExecutionOutput<Receipt>, BlockExecutionError> {
         self.strategy.apply_pre_execution_changes(block)?;
         let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
         let requests = self.strategy.apply_post_execution_changes(block, &receipts)?;
