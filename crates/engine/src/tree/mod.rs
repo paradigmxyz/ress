@@ -6,9 +6,9 @@ use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
 use rayon::iter::IntoParallelRefIterator;
+use ress_evm::{BlockExecutor, EvmError, WitnessDatabase};
 use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
-use ress_vm::{db::WitnessDatabase, errors::EvmError, executor::BlockExecutor};
 use reth_chainspec::ChainSpec;
 use reth_consensus::{
     Consensus, ConsensusError, FullConsensus, HeaderValidator, PostExecutionInput,

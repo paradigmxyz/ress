@@ -15,12 +15,12 @@ members = [
 
     "crates/common",
     "crates/engine",
+    "crates/evm",
     "crates/net/network",
     "crates/net/protocol",
     "crates/primitives",
     "crates/provider",
     "crates/rpc",
-    "crates/vm",
 
     "crates/testing",
 ]
@@ -81,7 +81,7 @@ ress-network = { path = "crates/net/network" }
 ress-protocol = { path = "crates/net/protocol" }
 ress-provider = { path = "crates/provider" }
 ress-common = { path = "crates/common" }
-ress-vm = { path = "crates/vm" }
+ress-evm = { path = "crates/evm" }
 ress-primitives = { path = "crates/primitives" }
 ress-rpc = { path = "crates/rpc" }
 ress-testing = { path = "crates/testing" }
@@ -99,6 +99,7 @@ reth-errors = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 
 ## db
 reth-db = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
+reth-db-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237", features = [
     "test-utils",
 ] }
@@ -135,6 +136,7 @@ reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237
 
 ## node
 reth-node-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
+reth-node-core = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237", features = [
@@ -192,6 +194,7 @@ reqwest = { version = "0.12", features = [
 dotenvy = "0.15.7"
 itertools = "0.13"
 metrics = "0.24.0"
+derive_more = { version = "1", default-features = false, features = ["full"] }
 
 # for now disk using sqlite
 rusqlite = { version = "0.32.0", features = ["bundled"] }

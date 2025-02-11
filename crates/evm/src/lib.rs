@@ -1,14 +1,20 @@
-//! EVM block executor.
+//! EVM executor and database.
+
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 use reth_chainspec::ChainSpec;
 use reth_evm::execute::{BlockExecutionStrategy, ExecuteOutput};
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
-use reth_primitives::{Receipt, RecoveredBlock};
+use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
 use reth_revm::StateBuilder;
 use std::sync::Arc;
 
-use crate::{db::WitnessDatabase, errors::EvmError};
+mod db;
+pub use db::WitnessDatabase;
+
+mod errors;
+pub use errors::EvmError;
 
 /// Block executor that wraps reth's [`EthExecutionStrategy`].
 #[allow(missing_debug_implementations)]
@@ -29,7 +35,7 @@ impl<'a> BlockExecutor<'a> {
     /// Execute a block.
     pub fn execute(
         &mut self,
-        block: &RecoveredBlock<reth_ethereum_primitives::Block>,
+        block: &RecoveredBlock<Block>,
     ) -> Result<BlockExecutionOutput<Receipt>, EvmError> {
         self.strategy.apply_pre_execution_changes(block)?;
         let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;

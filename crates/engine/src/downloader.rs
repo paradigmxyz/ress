@@ -6,8 +6,7 @@ use ress_protocol::{StateWitnessEntry, StateWitnessNet};
 use reth_chainspec::ChainSpec;
 use reth_consensus::Consensus;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
-use reth_primitives::{Block, BlockBody, Header, SealedBlock, SealedHeader};
-use reth_revm::primitives::Bytecode;
+use reth_primitives::{Block, BlockBody, Bytecode, Header, SealedBlock, SealedHeader};
 use std::{
     collections::VecDeque,
     future::Future,

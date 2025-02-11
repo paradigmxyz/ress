@@ -11,10 +11,6 @@ pub enum StorageError {
     #[error("invalid bytecode: {0}")]
     InvalidBytecode(B256),
 
-    /// Error related to disk storage operations.
-    #[error("Disk storage: {0}")]
-    Disk(#[from] DiskStorageError),
-
     /// Error related to memory storage operations.
     #[error("Memory storage: {0}")]
     Memory(#[from] MemoryStorageError),
@@ -34,12 +30,4 @@ pub enum MemoryStorageError {
     /// Block does not belong to canonical chain.
     #[error("non canonical chain: {0}")]
     NonCanonicalChain(BlockHash),
-}
-
-/// Errors that can occur during disk storage operations.
-#[derive(Debug, thiserror::Error)]
-pub enum DiskStorageError {
-    /// Database-related error.
-    #[error("Database: {0}")]
-    Database(#[from] rusqlite::Error),
 }

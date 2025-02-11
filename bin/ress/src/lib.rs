@@ -1,17 +1,18 @@
 //! Ress node launcher.
 
-use alloy_eips::BlockNumHash;
 use ress_common::test_utils::TestPeers;
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkLauncher};
 use ress_provider::RessProvider;
 use ress_rpc::RpcHandle;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
-use reth_chainspec::ChainSpec;
+use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_network_peers::TrustedPeer;
 use reth_node_ethereum::{consensus::EthBeaconConsensus, node::EthereumEngineValidator};
 use reth_rpc_builder::auth::AuthServerHandle;
-use std::sync::Arc;
+
+/// Ress CLI arguments.
+pub mod cli;
 
 /// Ress node components.
 #[derive(Debug)]
@@ -23,18 +24,17 @@ pub struct Node {
     /// Auth RPC server handle.
     pub authserver_handle: AuthServerHandle,
     /// Consensus engine handle.
-    pub consensus_engine_handle: tokio::task::JoinHandle<()>,
+    pub consensus_engine_handle: tokio::task::JoinHandle<Result<(), InsertBlockFatalError>>,
 }
 
 /// Launch the test node.
 pub async fn launch_test_node(
     id: TestPeers,
-    chain_spec: Arc<ChainSpec>,
+    provider: RessProvider,
     remote_peer: Option<TrustedPeer>,
-    current_head: BlockNumHash,
     rpc_adapter: Option<RpcAdapterProvider>,
 ) -> Node {
-    let provider = RessProvider::new(chain_spec.clone(), current_head);
+    let chain_spec = provider.chain_spec();
 
     let network_handle = if let Some(rpc_adapter) = rpc_adapter {
         RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter).launch(id, remote_peer).await
