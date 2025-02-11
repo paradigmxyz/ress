@@ -74,3 +74,14 @@ pub enum NetworkStorageError {
     #[error("Failed to receive response from channel: {0}")]
     ChannelReceive(#[from] oneshot::error::RecvError),
 }
+
+/// Error type for download operations.
+#[derive(Debug, thiserror::Error)]
+pub enum DownloadError {
+    /// Returned when the maximum number of download retry attempts has been exceeded.
+    #[error("Too many retries")]
+    TooManyRetries,
+    /// Returned when a network-related error occurs during download.
+    #[error("Network error: {0}")]
+    Network(NetworkStorageError),
+}
