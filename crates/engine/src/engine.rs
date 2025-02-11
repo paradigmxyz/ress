@@ -66,31 +66,6 @@ impl ConsensusEngine {
                     self.downloader.download_witness(block_hash);
                 }
             }
-            TreeEvent::Download(DownloadRequest::BlockRange { block_hash, distance }) => {
-                trace!(target: "ress::engine", %block_hash,%distance, "try download block range");
-                // Download the initial block
-                self.downloader.download_block(block_hash);
-                if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
-                    self.downloader.download_witness(block_hash);
-                }
-
-                // Download ancestors up to the specified distance
-                let mut current_hash = block_hash;
-                for _ in 0..distance {
-                    if let Some(parent_block) =
-                        self.tree.block_buffer.lowest_ancestor(&current_hash)
-                    {
-                        let parent_hash = parent_block.hash();
-                        self.downloader.download_block(parent_hash);
-                        if !self.tree.block_buffer.witnesses.contains_key(&parent_hash) {
-                            self.downloader.download_witness(parent_hash);
-                        }
-                        current_hash = parent_hash;
-                    } else {
-                        break;
-                    }
-                }
-            }
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
                 self.downloader.download_witness(block_hash);
             }

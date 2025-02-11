@@ -1,4 +1,3 @@
-use alloy_eips::BlockNumHash;
 use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
@@ -490,8 +489,7 @@ impl EngineTree {
             }
         };
 
-        let mut missing_ancestor_res = None;
-        let mut head_res = None;
+        let mut missing_ancestor_hash = None;
         let mut latest_valid_hash = None;
         let status = match self.insert_block(recovered, maybe_witness) {
             Ok(status) => {
@@ -506,16 +504,15 @@ impl EngineTree {
                         PayloadStatusEnum::Valid
                     }
                     InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                        head,
                         missing_ancestor,
+                        ..
                     }) |
                     InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected {
-                        head,
                         missing_ancestor,
+                        ..
                     }) => {
                         // not known to be invalid, but we don't know anything else
-                        missing_ancestor_res = Some(missing_ancestor);
-                        head_res = Some(head);
+                        missing_ancestor_hash = Some(missing_ancestor.hash);
                         PayloadStatusEnum::Syncing
                     }
                 };
@@ -535,13 +532,15 @@ impl EngineTree {
             outcome = outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
                 sync_target_head: block_hash,
             }));
-        } else if let (Some(missing_ancestor), Some(head)) = (missing_ancestor_res, head_res) {
-            // block is not connected to the canonical head, we need to download
-            // its missing branch first
-            outcome = match self.on_disconnected_downloaded_block(missing_ancestor, head) {
-                Some(event) => outcome.with_event(event),
-                None => outcome,
-            }
+        } else if let Some(missing_ancestor) = missing_ancestor_hash {
+            let request = if missing_ancestor == block_hash {
+                // TODO: fix this
+                // we use `missing_ancestor == block_hash` for witness download
+                DownloadRequest::Witness { block_hash: missing_ancestor }
+            } else {
+                DownloadRequest::Block { block_hash: missing_ancestor }
+            };
+            outcome = outcome.with_event(TreeEvent::Download(request));
         }
 
         Ok(outcome)
@@ -586,16 +585,20 @@ impl EngineTree {
                 // TODO: self.try_connect_buffered_blocks(block_num_hash)?;
                 outcome
             }
-            Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected { head, missing_ancestor })) => {
+            Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                missing_ancestor, ..
+            })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                match self.on_disconnected_downloaded_block(missing_ancestor, head) {
-                    Some(event) => {
-                        TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
-                            .with_event(event)
-                    }
-                    None => TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)),
-                }
+                // TODO: fix this
+                // we use `missing_ancestor == block_hash` for witness download
+                let request = if missing_ancestor.hash == block_hash {
+                    DownloadRequest::Witness { block_hash }
+                } else {
+                    DownloadRequest::Block { block_hash: missing_ancestor.hash }
+                };
+                TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
+                    .with_event(TreeEvent::Download(request))
             }
             Ok(InsertPayloadOk::AlreadySeen(block_status)) => {
                 trace!(target: "ress::engine", "downloaded block already executed");
@@ -615,50 +618,6 @@ impl EngineTree {
             }
         };
         Ok(outcome)
-    }
-
-    /// This handles downloaded blocks that are shown to be disconnected from the canonical chain.
-    ///
-    /// This mainly compares the missing parent of the downloaded block with the current canonical
-    /// tip, and decides whether or not backfill sync should be triggered.
-    fn on_disconnected_downloaded_block(
-        &self,
-        missing_parent: BlockNumHash,
-        head: BlockNumHash,
-    ) -> Option<TreeEvent> {
-        // continue downloading the missing parent
-        //
-        // this happens if either:
-        //  * the missing parent block num < canonical tip num
-        //    * this case represents a missing block on a fork that is shorter than the canonical
-        //      chain
-        //  * the missing parent block num >= canonical tip num, but the number of missing blocks is
-        //    less than the backfill threshold
-        //    * this case represents a potentially long range of blocks to download and execute
-        let request = if let Some(distance) =
-            self.distance_from_local_tip(head.number, missing_parent.number)
-        {
-            trace!(target: "engine::tree", %distance, missing=?missing_parent, "downloading missing parent block range");
-            DownloadRequest::BlockRange { block_hash: missing_parent.hash, distance }
-        } else {
-            trace!(target: "engine::tree", missing=?missing_parent, "downloading missing parent block");
-            // This happens when the missing parent is on an outdated
-            // sidechain and we can only download the missing block itself
-            DownloadRequest::Witness { block_hash: missing_parent.hash }
-        };
-
-        Some(TreeEvent::Download(request))
-    }
-
-    /// Returns how far the local tip is from the given block. If the local tip is at the same
-    /// height or its block number is greater than the given block, this returns None.
-    #[inline]
-    const fn distance_from_local_tip(&self, local_tip: u64, block: u64) -> Option<u64> {
-        if block > local_tip {
-            Some(block - local_tip)
-        } else {
-            None
-        }
     }
 
     /// Insert block into the tree.
