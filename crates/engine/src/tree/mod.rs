@@ -1,3 +1,6 @@
+use std::time::Instant;
+
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
@@ -72,6 +75,47 @@ impl EngineTree {
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
         }
+    }
+
+    fn try_connect_buffered_blocks(
+        &mut self,
+        parent: BlockNumHash,
+    ) -> Result<(), InsertBlockFatalError> {
+        let blocks = self.block_buffer.remove_block_with_children(parent.hash);
+
+        if blocks.is_empty() {
+            // nothing to append
+            return Ok(())
+        }
+
+        let now = Instant::now();
+        let block_count = blocks.len();
+        for (child, maybe_witness) in blocks {
+            let child_num_hash = child.num_hash();
+            match self.insert_block(child.clone(), Some(maybe_witness)) {
+                Ok(res) => {
+                    debug!(target: "engine::tree", child =?child_num_hash, ?res, "connected buffered block");
+                    if self.is_sync_target_head(child_num_hash.hash) &&
+                        matches!(res, InsertPayloadOk::Inserted(BlockStatus::Valid))
+                    {
+                        self.make_canonical(child_num_hash.hash);
+                    }
+                }
+                Err(err) => {
+                    debug!(target: "engine::tree", ?err, "failed to connect buffered block to tree");
+                    if let Err(fatal) = self.on_insert_block_error(InsertBlockError::new(
+                        child.into_sealed_block(),
+                        err,
+                    )) {
+                        warn!(target: "engine::tree", %fatal, "fatal error occurred while connecting buffered blocks");
+                        return Err(fatal)
+                    }
+                }
+            }
+        }
+
+        debug!(target: "engine::tree", elapsed = ?now.elapsed(), %block_count, "connected buffered blocks");
+        Ok(())
     }
 
     /// Returns true if the given hash is the last received sync target block.
@@ -415,10 +459,11 @@ impl EngineTree {
         maybe_witness: Option<ExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
+        let block_number = payload.payload.block_number();
         info!(
             target: "ress::engine",
             block_hash = %payload.payload.block_hash(),
-            block_number = %payload.payload.block_number(),
+            block_number = %block_number,
             parent_hash = %parent_hash,
             "👋 new payload"
         );
@@ -491,12 +536,13 @@ impl EngineTree {
 
         let mut missing_ancestor_hash = None;
         let mut latest_valid_hash = None;
+        let num_hash = block.num_hash();
         let status = match self.insert_block(recovered, maybe_witness) {
             Ok(status) => {
                 let status = match status {
                     InsertPayloadOk::Inserted(BlockStatus::Valid) => {
                         latest_valid_hash = Some(block_hash);
-                        // TODO: self.try_connect_buffered_blocks(num_hash)?;
+                        self.try_connect_buffered_blocks(num_hash)?;
                         PayloadStatusEnum::Valid
                     }
                     InsertPayloadOk::AlreadySeen(BlockStatus::Valid) => {
@@ -582,7 +628,7 @@ impl EngineTree {
                         }));
                 }
                 trace!(target: "ress::engine", "appended downloaded block");
-                // TODO: self.try_connect_buffered_blocks(block_num_hash)?;
+                self.try_connect_buffered_blocks(block_num_hash)?;
                 outcome
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
