@@ -644,7 +644,7 @@ impl EngineTree {
             trace!(target: "engine::tree", missing=?missing_parent, "downloading missing parent block");
             // This happens when the missing parent is on an outdated
             // sidechain and we can only download the missing block itself
-            DownloadRequest::Block { block_hash: missing_parent.hash }
+            DownloadRequest::Witness { block_hash: missing_parent.hash }
         };
 
         Some(TreeEvent::Download(request))
