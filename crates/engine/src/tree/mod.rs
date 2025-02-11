@@ -539,11 +539,8 @@ impl EngineTree {
             // block is not connected to the canonical head, we need to download
             // its missing branch first
             outcome = match self.on_disconnected_downloaded_block(missing_ancestor, head) {
-                Some(event) => {
-                    TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
-                        .with_event(event)
-                }
-                None => TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)),
+                Some(event) => outcome.with_event(event),
+                None => outcome,
             }
         }
 
