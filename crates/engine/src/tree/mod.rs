@@ -490,7 +490,8 @@ impl EngineTree {
             }
         };
 
-        let mut missing_ancestor_hash = None;
+        let mut missing_ancestor_res = None;
+        let mut head_res = None;
         let mut latest_valid_hash = None;
         let status = match self.insert_block(recovered, maybe_witness) {
             Ok(status) => {
@@ -505,15 +506,16 @@ impl EngineTree {
                         PayloadStatusEnum::Valid
                     }
                     InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                        head,
                         missing_ancestor,
-                        ..
                     }) |
                     InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected {
+                        head,
                         missing_ancestor,
-                        ..
                     }) => {
                         // not known to be invalid, but we don't know anything else
-                        missing_ancestor_hash = Some(missing_ancestor.hash);
+                        missing_ancestor_res = Some(missing_ancestor);
+                        head_res = Some(head);
                         PayloadStatusEnum::Syncing
                     }
                 };
@@ -533,19 +535,16 @@ impl EngineTree {
             outcome = outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
                 sync_target_head: block_hash,
             }));
-        } else if let Some(missing_ancestor) = missing_ancestor_hash {
-            if let Some(status) = self.check_invalid_ancestor(missing_ancestor) {
-                warn!("🍕");
-                return Ok(TreeOutcome::new(status));
+        } else if let (Some(missing_ancestor), Some(head)) = (missing_ancestor_res, head_res) {
+            // block is not connected to the canonical head, we need to download
+            // its missing branch first
+            outcome = match self.on_disconnected_downloaded_block(missing_ancestor, head) {
+                Some(event) => {
+                    TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
+                        .with_event(event)
+                }
+                None => TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None)),
             }
-            let request = if missing_ancestor == block_hash {
-                // TODO: fix this
-                // we use `missing_ancestor == block_hash` for witness download
-                DownloadRequest::Witness { block_hash: missing_ancestor }
-            } else {
-                DownloadRequest::Block { block_hash: missing_ancestor }
-            };
-            outcome = outcome.with_event(TreeEvent::Download(request));
         }
 
         Ok(outcome)
@@ -593,8 +592,7 @@ impl EngineTree {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected { head, missing_ancestor })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                match self.on_disconnected_downloaded_block(block_num_hash, missing_ancestor, head)
-                {
+                match self.on_disconnected_downloaded_block(missing_ancestor, head) {
                     Some(event) => {
                         TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
                             .with_event(event)
@@ -628,7 +626,6 @@ impl EngineTree {
     /// tip, and decides whether or not backfill sync should be triggered.
     fn on_disconnected_downloaded_block(
         &self,
-        _downloaded_block: BlockNumHash,
         missing_parent: BlockNumHash,
         head: BlockNumHash,
     ) -> Option<TreeEvent> {
