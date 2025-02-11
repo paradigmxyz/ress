@@ -13,7 +13,6 @@ workspace = true
 [dependencies]
 # ress
 ress-protocol.workspace = true
-ress-common.workspace = true
 
 # reth
 reth-network.workspace = true

@@ -37,9 +37,13 @@ pub async fn launch_test_node(
     let chain_spec = provider.chain_spec();
 
     let network_handle = if let Some(rpc_adapter) = rpc_adapter {
-        RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter).launch(id, remote_peer).await
+        RessNetworkLauncher::new(chain_spec.clone(), rpc_adapter)
+            .launch(id.get_key(), id.get_network_addr(), remote_peer)
+            .await
     } else {
-        RessNetworkLauncher::new(chain_spec.clone(), provider.clone()).launch(id, remote_peer).await
+        RessNetworkLauncher::new(chain_spec.clone(), provider.clone())
+            .launch(id.get_key(), id.get_network_addr(), remote_peer)
+            .await
     };
     let rpc_handle = RpcHandle::start_server(id, chain_spec.clone()).await;
 
