@@ -5458,8 +5458,6 @@ name = "ress"
 version = "0.1.0"
 dependencies = [
  "alloy-eips",
- "alloy-provider",
- "alloy-rpc-types",
  "alloy-rpc-types-engine",
  "clap",
  "dirs-next",

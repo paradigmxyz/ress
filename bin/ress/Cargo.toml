@@ -20,9 +20,7 @@ ress-testing.workspace = true
 
 # alloy
 alloy-eips.workspace = true
-alloy-rpc-types.workspace = true
 alloy-rpc-types-engine.workspace = true
-alloy-provider.workspace = true
 
 # reth
 reth-ethereum-primitives.workspace = true
