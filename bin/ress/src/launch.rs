@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_eips::BlockNumHash;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use ress_engine::engine::ConsensusEngine;
@@ -6,6 +8,7 @@ use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolPr
 use ress_provider::{RessDatabase, RessProvider};
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
+use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_ethereum_primitives::EthPrimitives;
 use reth_network::{
@@ -62,7 +65,6 @@ impl NodeLauncher {
         self,
         current_head: BlockNumHash,
         remote_peer: Option<TrustedPeer>,
-        rpc_adapter: Option<RpcAdapterProvider>,
     ) -> eyre::Result<Node> {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
@@ -76,7 +78,10 @@ impl NodeLauncher {
         // Launch network.
         let network_secret_path = self.args.network.network_secret_path(&data_dir);
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
-        let network_handle = if let Some(rpc_adapter) = rpc_adapter {
+
+        let network_handle = if let Some(url) = self.args.debug.rpc_adapter_url.clone() {
+            info!(target: "ress", %url, "Using RPC adapter");
+            let rpc_adapter = RpcAdapterProvider::new(&url)?;
             self.launch_network(rpc_adapter, network_secret, remote_peer).await?
         } else {
             self.launch_network(provider.clone(), network_secret, remote_peer).await?
@@ -101,6 +106,16 @@ impl NodeLauncher {
         let auth_server_handle =
             self.start_auth_server(jwt_key, engine_validator, to_engine).await?;
         info!(target: "ress", addr = %auth_server_handle.local_addr(), "Auth RPC server started");
+
+        // Start debug consensus.
+        if let Some(url) = self.args.debug.debug_consensus_url {
+            let provider = Arc::new(RpcBlockProvider::new(url.clone()));
+            tokio::spawn(
+                DebugConsensusClient::new(auth_server_handle.clone(), provider)
+                    .run::<EthEngineTypes>(),
+            );
+            info!(target: "ress", %url, "Debug consensus started");
+        }
 
         Ok(Node { provider, network_handle, auth_server_handle, consensus_engine_handle })
     }

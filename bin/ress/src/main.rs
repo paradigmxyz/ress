@@ -6,10 +6,8 @@ use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
 use ress::{cli::RessArgs, launch::NodeLauncher};
-use ress_testing::rpc_adapter::RpcAdapterProvider;
-use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_network::NetworkEventListenerProvider;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 
@@ -25,7 +23,6 @@ async fn main() -> eyre::Result<()> {
         .with_env_filter(
             EnvFilter::builder().with_default_directive(LevelFilter::INFO.into()).from_env_lossy(),
         )
-        .with_writer(std::io::stderr)
         .init();
 
     let args = RessArgs::parse();
@@ -44,17 +41,8 @@ async fn main() -> eyre::Result<()> {
     let latest_block_number = latest_block.inner.header.number;
     let latest_block_hash = latest_block.inner.header.hash;
 
-    let maybe_rpc_adapter = if args.rpc_adapter_enabled {
-        let rpc_url = std::env::var("RPC_URL").expect("`RPC_URL` env not set");
-        Some(RpcAdapterProvider::new(&rpc_url)?)
-    } else {
-        None
-    };
-
     let current_head = NumHash::new(latest_block_number, latest_block_hash);
-    let node = NodeLauncher::new(args.clone())
-        .launch(current_head, args.remote_peer, maybe_rpc_adapter)
-        .await?;
+    let node = NodeLauncher::new(args.clone()).launch(current_head, args.remote_peer).await?;
 
     // ================ PARALLEL FETCH + STORE HEADERS ================
     let start_time = std::time::Instant::now();
@@ -120,21 +108,7 @@ async fn main() -> eyre::Result<()> {
     let head = node.provider.get_canonical_head();
     info!("head: {:#?}", head);
 
-    // ================ CONSENSUS CLIENT ================
-
-    if args.enable_debug_consensus {
-        let ws_block_provider =
-            RpcBlockProvider::new(std::env::var("WS_RPC_URL").expect("need ws rpc").parse()?);
-        let rpc_consensus_client =
-            DebugConsensusClient::new(node.auth_server_handle, Arc::new(ws_block_provider));
-        tokio::spawn(async move {
-            info!("💨 running debug consensus client");
-            rpc_consensus_client.run::<reth_node_ethereum::EthEngineTypes>().await;
-        });
-    }
-
     // =================================================================
-
     let mut events = node.network_handle.inner().event_listener();
     while let Some(event) = events.next().await {
         info!(target: "ress", ?event, "Received network event");

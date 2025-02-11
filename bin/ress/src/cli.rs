@@ -52,14 +52,6 @@ pub struct RessArgs {
     #[arg(long)]
     pub remote_peer: Option<TrustedPeer>,
 
-    /// If passed, the debug consensus client will be started
-    #[arg(long = "enable-debug-consensus")]
-    pub enable_debug_consensus: bool,
-
-    /// Flag indicating whether RPC adapter should be used.
-    #[arg(long = "enable-rpc-adapter")]
-    pub rpc_adapter_enabled: bool,
-
     /// Network args.
     #[clap(flatten)]
     pub network: RessNetworkArgs,
@@ -67,6 +59,10 @@ pub struct RessArgs {
     /// RPC args.
     #[clap(flatten)]
     pub rpc: RessRpcArgs,
+
+    /// Debug args.
+    #[clap(flatten)]
+    pub debug: DebugArgs,
 }
 
 /// Ress networking args.
@@ -138,6 +134,18 @@ impl RessRpcArgs {
             None => get_or_create_jwt_secret_from_path(&default_jwt_path),
         }
     }
+}
+
+/// Ress debug args.
+#[derive(Clone, Debug, Args)]
+pub struct DebugArgs {
+    /// Url for debug consensus client.
+    #[arg(long = "debug.consensus-url")]
+    pub debug_consensus_url: Option<String>,
+
+    /// Url for RPC adapter.
+    #[arg(long = "debug.rpc-adapter-url")]
+    pub rpc_adapter_url: Option<String>,
 }
 
 /// Returns the path to the ress data dir.
