@@ -1,7 +1,11 @@
 //! Reth node that supports ress subprotocol.
 
 use alloy_consensus::BlockHeader as _;
-use alloy_primitives::{keccak256, map::B256HashMap, Address, Bytes, B256, U256};
+use alloy_primitives::{
+    keccak256,
+    map::{B256HashMap, B256HashSet},
+    Address, BlockNumber, Bytes, B256, U256,
+};
 use futures::StreamExt;
 use parking_lot::RwLock;
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
@@ -9,7 +13,7 @@ use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
     providers::{
         providers::{BlockchainProvider, ProviderNodeTypes},
-        BlockReader, BlockSource, ProviderError, ProviderResult, StateProvider,
+        BlockNumReader, BlockReader, BlockSource, ProviderError, ProviderResult, StateProvider,
         StateProviderFactory,
     },
     revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, Database, State},
@@ -21,7 +25,10 @@ use reth_node_ethereum::EthereumNode;
 use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, RecoveredBlock};
 use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 use tokio::sync::mpsc;
 use tracing::*;
 
@@ -36,7 +43,7 @@ fn main() -> eyre::Result<()> {
         // Spawn maintenance task for pending state.
         let events = node.add_ons_handle.engine_events.new_listener();
         let pending_ = pending_state.clone();
-        node.task_executor.spawn(maintain_pending_state(events, pending_));
+        node.task_executor.spawn(maintain_pending_state(node.provider.clone(), events, pending_));
 
         // add the custom network subprotocol to the launched node
         let (tx, mut _rx) = mpsc::unbounded_channel();
@@ -200,21 +207,30 @@ where
 struct PendingStateInner {
     blocks_by_hash: HashMap<B256, ExecutedBlockWithTrieUpdates>,
     invalid_blocks_by_hash: HashMap<B256, Arc<RecoveredBlock<Block>>>,
-    // TODO: block_hashes_by_number: BTreeMap<BlockNumber, HashSet<B256>>,
+    /// Valid and invalid block hashes by number, used for eviction.
+    block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
 }
 
 #[derive(Clone, Default, Debug)]
 struct PendingState(Arc<RwLock<PendingStateInner>>);
 
 impl PendingState {
+    /// Insert valid executed block.
     fn insert_block(&self, block: ExecutedBlockWithTrieUpdates) {
+        let block_number = block.recovered_block.number;
         let block_hash = block.recovered_block.hash();
-        self.0.write().blocks_by_hash.insert(block_hash, block);
+        let mut this = self.0.write();
+        this.block_hashes_by_number.entry(block_number).or_default().insert(block_hash);
+        this.blocks_by_hash.insert(block_hash, block);
     }
 
+    /// Insert invalid block.
     fn insert_invalid_block(&self, block: Arc<RecoveredBlock<Block>>) {
+        let block_number = block.number;
         let block_hash = block.hash();
-        self.0.write().invalid_blocks_by_hash.insert(block_hash, block);
+        let mut this = self.0.write();
+        this.block_hashes_by_number.entry(block_number).or_default().insert(block_hash);
+        this.invalid_blocks_by_hash.insert(block_hash, block);
     }
 
     /// Returns only valid executed blocks by hash.
@@ -240,9 +256,27 @@ impl PendingState {
         }
         None
     }
+
+    /// Remove all blocks before the specified block number.
+    fn remove_blocks_before(&self, block_number: BlockNumber) {
+        let mut this = self.0.write();
+        while this
+            .block_hashes_by_number
+            .first_key_value()
+            .is_some_and(|(number, _)| number < &block_number)
+        {
+            let (block_number, block_hashes) = this.block_hashes_by_number.pop_first().unwrap();
+            trace!(target: "reth::ress_provider", block_number, len = block_hashes.len(), "Removing blocks for block number");
+            for block_hash in block_hashes {
+                this.blocks_by_hash.remove(&block_hash);
+                this.invalid_blocks_by_hash.remove(&block_hash);
+            }
+        }
+    }
 }
 
-async fn maintain_pending_state(
+async fn maintain_pending_state<N: ProviderNodeTypes<Primitives = EthPrimitives>>(
+    provider: BlockchainProvider<N>,
     mut events: EventStream<BeaconConsensusEngineEvent>,
     state: PendingState,
 ) {
@@ -264,9 +298,15 @@ async fn maintain_pending_state(
                     state.insert_invalid_block(Arc::new(block));
                 }
             }
-            BeaconConsensusEngineEvent::ForkchoiceUpdated(_state, status) => {
+            BeaconConsensusEngineEvent::ForkchoiceUpdated(fcu_state, status) => {
                 if status.is_valid() {
-                    // TODO: clean up all blocks before finalized
+                    let safe_block_hash = fcu_state.safe_block_hash;
+                    if let Ok(Some(safe_block_number)) = provider.block_number(safe_block_hash) {
+                        trace!(target: "reth::ress_provider", %safe_block_hash, safe_block_number, "Removing blocks before safe block from pending state");
+                        state.remove_blocks_before(safe_block_number);
+                    } else {
+                        warn!(target: "reth::ress_provider", %safe_block_hash, "Safe block not found in database");
+                    }
                 }
             }
             // ignore
