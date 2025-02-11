@@ -110,9 +110,9 @@ impl EngineDownloader {
     }
 
     /// Poll downloader.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome> {
+    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Result<DownloadOutcome, DownloadError>> {
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(outcome)
+            return Poll::Ready(Ok(outcome))
         }
 
         // advance all full block requests
@@ -126,7 +126,7 @@ impl EngineDownloader {
                     }
                     Err(error) => {
                         debug!(target: "ress::engine::downloader", %error, "Block download failed, skipping");
-                        continue;
+                        return Poll::Ready(Err(error))
                     }
                 }
             } else {
@@ -146,7 +146,7 @@ impl EngineDownloader {
                     }
                     Err(error) => {
                         debug!(target: "ress::engine::downloader", %error, "Witness download failed, skipping");
-                        continue;
+                        return Poll::Ready(Err(error))
                     }
                 }
             } else {
@@ -166,7 +166,7 @@ impl EngineDownloader {
         }
 
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(outcome)
+            return Poll::Ready(Ok(outcome))
         }
 
         Poll::Pending

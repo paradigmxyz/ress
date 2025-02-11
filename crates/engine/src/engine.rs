@@ -5,7 +5,7 @@ use crate::{
 use alloy_primitives::B256;
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
-use ress_network::RessNetworkHandle;
+use ress_network::{DownloadError, RessNetworkHandle};
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
@@ -75,46 +75,53 @@ impl ConsensusEngine {
         }
     }
 
-    fn on_download_outcome(&mut self, outcome: DownloadOutcome) {
+    fn on_download_outcome(&mut self, outcome: Result<DownloadOutcome, DownloadError>) {
         let mut blocks = Vec::new();
         match outcome {
-            DownloadOutcome::Block(block) => {
-                let block_num_hash = block.num_hash();
-                trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
-                let recovered = match block.try_recover() {
-                    Ok(block) => block,
-                    Err(_error) => {
-                        debug!(target: "ress::engine", ?block_num_hash, "Error recovering downloaded block");
-                        return
-                    }
-                };
-                self.tree.block_buffer.insert_block(recovered);
-                blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
-            }
-            DownloadOutcome::Witness(block_hash, witness) => {
-                let mut bytecodes = witness.bytecode_hashes().clone();
-                bytecodes.retain(|code_hash| !self.tree.provider.bytecode_exists(code_hash));
-                self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
-                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
-                if bytecodes.is_empty() {
-                    blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
-                } else {
-                    for code_hash in bytecodes {
-                        self.downloader.download_bytecode(code_hash);
+            Ok(outcome) => match outcome {
+                DownloadOutcome::Block(block) => {
+                    let block_num_hash = block.num_hash();
+                    trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
+                    let recovered = match block.try_recover() {
+                        Ok(block) => block,
+                        Err(_error) => {
+                            debug!(target: "ress::engine", ?block_num_hash, "Error recovering downloaded block");
+                            return
+                        }
+                    };
+                    self.tree.block_buffer.insert_block(recovered);
+                    blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+                }
+                DownloadOutcome::Witness(block_hash, witness) => {
+                    let mut bytecodes = witness.bytecode_hashes().clone();
+                    bytecodes.retain(|code_hash| !self.tree.provider.bytecode_exists(code_hash));
+                    self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
+                    if bytecodes.is_empty() {
+                        blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
+                    } else {
+                        for code_hash in bytecodes {
+                            self.downloader.download_bytecode(code_hash);
+                        }
                     }
                 }
-            }
-            DownloadOutcome::Bytecode(code_hash, bytecode) => {
-                trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
-                match self.tree.provider.insert_bytecode(code_hash, bytecode) {
-                    Ok(()) => {
-                        blocks =
-                            self.tree.block_buffer.remove_blocks_with_received_bytecode(code_hash);
-                    }
-                    Err(error) => {
-                        error!(target: "ress::engine", %error, "Failed to insert the bytecode");
-                    }
-                };
+                DownloadOutcome::Bytecode(code_hash, bytecode) => {
+                    trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
+                    match self.tree.provider.insert_bytecode(code_hash, bytecode) {
+                        Ok(()) => {
+                            blocks = self
+                                .tree
+                                .block_buffer
+                                .remove_blocks_with_received_bytecode(code_hash);
+                        }
+                        Err(error) => {
+                            error!(target: "ress::engine", %error, "Failed to insert the bytecode");
+                        }
+                    };
+                }
+            },
+            Err(error) => {
+                error!(target: "ress::engine", %error, "Error while download");
             }
         };
         for (block, witness) in blocks {
