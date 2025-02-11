@@ -61,6 +61,13 @@ pub enum DownloadRequest {
         /// Target block hash.
         block_hash: B256,
     },
+    /// Download range of block.
+    BlockRange {
+        /// Target block hash.
+        block_hash: B256,
+        /// Distance
+        distance: u64,
+    },
     /// Download witness.
     Witness {
         /// Target block hash.
