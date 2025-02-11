@@ -35,8 +35,7 @@ fn main() -> eyre::Result<()> {
 
         // Spawn maintenance task for pending state.
         let events = node.add_ons_handle.engine_events.new_listener();
-        let pending_ = pending_state.clone();
-        node.task_executor.spawn(maintain_pending_state(events, pending_));
+        node.task_executor.spawn(maintain_pending_state(events, pending_state.clone()));
 
         // add the custom network subprotocol to the launched node
         let (tx, mut _rx) = mpsc::unbounded_channel();
@@ -248,13 +247,21 @@ async fn maintain_pending_state(
 ) {
     while let Some(event) = events.next().await {
         match event {
-            BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _) |
+            BeaconConsensusEngineEvent::CanonicalBlockAdded(block, _) => {
+                trace!(
+                    target: "reth::ress_provider",
+                    block_number = block.recovered_block.number,
+                    block_hash = %block.recovered_block.hash(),
+                    "Insert canonical block into pending state"
+                );
+                state.insert_block(block);
+            }
             BeaconConsensusEngineEvent::ForkBlockAdded(block, _) => {
                 trace!(
                     target: "reth::ress_provider",
                     block_number = block.recovered_block.number,
                     block_hash = %block.recovered_block.hash(),
-                    "Insert block into pending state"
+                    "Insert fork block into pending state"
                 );
                 state.insert_block(block);
             }
