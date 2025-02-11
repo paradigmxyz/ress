@@ -5,51 +5,14 @@ use alloy_provider::{network::AnyNetwork, Provider, ProviderBuilder};
 use alloy_rpc_types::BlockTransactionsKind;
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
-use ress::launch_test_node;
+use ress::{cli::RessArgs, launch_test_node};
 use ress_common::test_utils::TestPeers;
+use ress_provider::{RessDatabase, RessProvider};
 use ress_testing::rpc_adapter::RpcAdapterProvider;
-use reth_chainspec::ChainSpec;
-use reth_cli::chainspec::ChainSpecParser;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
-use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
 use reth_network::NetworkEventListenerProvider;
-use reth_network_peers::TrustedPeer;
 use std::{collections::HashMap, sync::Arc};
 use tracing::info;
-
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Peer number (1 or 2)
-    #[arg(value_parser = clap::value_parser!(u8).range(1..=2))]
-    peer_number: u8,
-
-    /// The chain this node is running.
-    ///
-    /// Possible values are either a built-in chain or the path to a chain specification file.
-    #[arg(
-        long,
-        value_name = "CHAIN_OR_PATH",
-        long_help = EthereumChainSpecParser::help_message(),
-        default_value = EthereumChainSpecParser::SUPPORTED_CHAINS[0],
-        value_parser = EthereumChainSpecParser::parser()
-    )]
-    pub chain: Arc<ChainSpec>,
-
-    #[allow(clippy::doc_markdown)]
-    /// URL of the remote peer for P2P connections.
-    ///
-    /// --remote-peer enode://abcd@192.168.0.1:30303
-    #[arg(long)]
-    pub remote_peer: Option<TrustedPeer>,
-
-    /// If passed, the debug consensus client will be started
-    #[arg(long = "enable-debug-consensus")]
-    pub enable_debug_consensus: bool,
-
-    #[arg(long = "enable-rpc-adapter")]
-    rpc_adapter_enabled: bool,
-}
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -65,7 +28,7 @@ async fn main() -> eyre::Result<()> {
     // =================================================================
 
     // <for testing purpose>
-    let args = Args::parse();
+    let args = RessArgs::parse();
     let local_node = match args.peer_number {
         1 => TestPeers::Peer1,
         2 => TestPeers::Peer2,
@@ -93,14 +56,13 @@ async fn main() -> eyre::Result<()> {
         None
     };
 
-    let node = launch_test_node(
-        local_node,
-        args.chain,
-        args.remote_peer,
-        NumHash::new(latest_block_number, latest_block_hash),
-        maybe_rpc_adapter,
-    )
-    .await;
+    // Initialize the database.
+    let data_dir_path = args.datadir.unwrap_or_chain_default(args.chain.chain());
+    let database = RessDatabase::new(data_dir_path.db())?;
+
+    let current_head = NumHash::new(latest_block_number, latest_block_hash);
+    let provider = RessProvider::new(args.chain, database, current_head);
+    let node = launch_test_node(local_node, provider, args.remote_peer, maybe_rpc_adapter).await;
     assert!(local_node.is_ports_alive());
 
     // ================ PARALLEL FETCH + STORE HEADERS ================

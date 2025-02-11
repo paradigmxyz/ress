@@ -8,6 +8,8 @@ use futures::{FutureExt, StreamExt};
 use ress_network::RessNetworkHandle;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
+use reth_engine_tree::tree::error::InsertBlockFatalError;
+use reth_errors::ProviderError;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
 use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
@@ -75,7 +77,10 @@ impl ConsensusEngine {
         }
     }
 
-    fn on_download_outcome(&mut self, outcome: DownloadOutcome) {
+    fn on_download_outcome(
+        &mut self,
+        outcome: DownloadOutcome,
+    ) -> Result<(), InsertBlockFatalError> {
         let mut blocks = Vec::new();
         match outcome {
             DownloadOutcome::Block(block) => {
@@ -85,21 +90,28 @@ impl ConsensusEngine {
                     Ok(block) => block,
                     Err(_error) => {
                         debug!(target: "ress::engine", ?block_num_hash, "Error recovering downloaded block");
-                        return
+                        return Ok(())
                     }
                 };
                 self.tree.block_buffer.insert_block(recovered);
                 blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
             }
             DownloadOutcome::Witness(block_hash, witness) => {
-                let mut bytecodes = witness.bytecode_hashes().clone();
-                bytecodes.retain(|code_hash| !self.tree.provider.bytecode_exists(code_hash));
-                self.tree.block_buffer.insert_witness(block_hash, witness, bytecodes.clone());
-                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = bytecodes.len(), "Downloaded witness");
-                if bytecodes.is_empty() {
+                let code_hashes = witness.bytecode_hashes().clone();
+                let missing_code_hashes =
+                    self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
+                        InsertBlockFatalError::Provider(ProviderError::Database(error))
+                    })?;
+                self.tree.block_buffer.insert_witness(
+                    block_hash,
+                    witness,
+                    missing_code_hashes.clone(),
+                );
+                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = missing_code_hashes.len(), "Downloaded witness");
+                if missing_code_hashes.is_empty() {
                     blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
                 } else {
-                    for code_hash in bytecodes {
+                    for code_hash in missing_code_hashes {
                         self.downloader.download_bytecode(code_hash);
                     }
                 }
@@ -141,6 +153,7 @@ impl ConsensusEngine {
                 }
             }
         }
+        Ok(())
     }
 
     fn on_engine_message(&mut self, message: BeaconEngineMessage<EthEngineTypes>) {
@@ -207,14 +220,14 @@ impl ConsensusEngine {
 }
 
 impl Future for ConsensusEngine {
-    type Output = ();
+    type Output = Result<(), InsertBlockFatalError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
         loop {
             if let Poll::Ready(outcome) = this.downloader.poll(cx) {
-                this.on_download_outcome(outcome);
+                this.on_download_outcome(outcome)?;
                 continue;
             }
 

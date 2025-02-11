@@ -24,7 +24,6 @@ reth-primitives-traits.workspace = true
 reth-chainspec.workspace = true
 reth-errors.workspace = true
 reth-consensus.workspace = true
-reth-revm.workspace = true
 reth-trie.workspace = true
 reth-trie-sparse.workspace = true
 reth-engine-tree.workspace = true

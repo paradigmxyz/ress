@@ -6,8 +6,12 @@
 mod provider;
 pub use provider::RessProvider;
 
-/// Error types.
-pub mod errors;
+/// Ress database.
+mod database;
+pub use database::RessDatabase;
 
 /// Data storage backends.
 pub mod backends;
+
+/// Error types.
+pub mod errors;

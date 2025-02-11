@@ -1,14 +1,14 @@
-use crate::{
-    backends::{disk::DiskStorage, memory::MemoryStorage},
-    errors::StorageError,
-};
+use crate::{backends::memory::MemoryStorage, database::RessDatabase, errors::StorageError};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{map::B256HashMap, BlockHash, BlockNumber, Bytes, B256};
+use alloy_primitives::{
+    map::{B256HashMap, B256HashSet},
+    BlockHash, BlockNumber, Bytes, B256,
+};
 use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
-use reth_primitives::{Header, SealedHeader};
-use reth_revm::primitives::Bytecode;
-use reth_storage_errors::provider::{ProviderError, ProviderResult};
+use reth_db::DatabaseError;
+use reth_primitives::{Bytecode, Header, SealedHeader};
+use reth_storage_errors::provider::ProviderResult;
 use std::{collections::HashMap, sync::Arc};
 
 /// Provider for retrieving blockchain data.
@@ -17,16 +17,19 @@ use std::{collections::HashMap, sync::Arc};
 #[derive(Clone, Debug)]
 pub struct RessProvider {
     chain_spec: Arc<ChainSpec>,
+    database: RessDatabase,
     memory: MemoryStorage,
-    disk: DiskStorage,
 }
 
 impl RessProvider {
     /// Instantiate new storage.
-    pub fn new(chain_spec: Arc<ChainSpec>, current_head: BlockNumHash) -> Self {
+    pub fn new(
+        chain_spec: Arc<ChainSpec>,
+        database: RessDatabase,
+        current_head: BlockNumHash,
+    ) -> Self {
         let memory = MemoryStorage::new(current_head);
-        let disk = DiskStorage::new("test.db");
-        Self { chain_spec, memory, disk }
+        Self { chain_spec, memory, database }
     }
 
     /// Get chain spec.
@@ -84,26 +87,30 @@ impl RessProvider {
     }
 
     /// Returns `true` if bytecode exists in the database.
-    pub fn bytecode_exists(&self, code_hash: &B256) -> bool {
-        self.disk.bytecode_exists(code_hash)
+    pub fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
+        self.database.bytecode_exists(code_hash)
     }
 
     /// Get contract bytecode from given code hash from the disk
-    pub fn get_bytecode(&self, code_hash: B256) -> Result<Bytecode, StorageError> {
-        if let Some(bytecode) = self.disk.get_bytecode(code_hash)? {
-            return Ok(bytecode);
-        }
-        Err(StorageError::NoCodeForCodeHash(code_hash))
+    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
+        self.database.get_bytecode(code_hash)
     }
 
     /// Insert bytecode into the database.
-    pub fn insert_bytecode(&self, code_hash: B256, bytecode: Bytecode) -> Result<(), StorageError> {
-        Ok(self.disk.insert_bytecode(code_hash, bytecode)?)
+    pub fn insert_bytecode(
+        &self,
+        code_hash: B256,
+        bytecode: Bytecode,
+    ) -> Result<(), DatabaseError> {
+        self.database.insert_bytecode(code_hash, bytecode)
     }
 
-    /// Filter code hashes only not stored in disk already
-    pub fn filter_code_hashes(&self, code_hashes: Vec<B256>) -> Vec<B256> {
-        self.disk.filter_code_hashes(code_hashes)
+    /// Filter the collection of code hashes for the ones that are missing from the database.
+    pub fn missing_code_hashes(
+        &self,
+        code_hashes: B256HashSet,
+    ) -> Result<B256HashSet, DatabaseError> {
+        self.database.missing_code_hashes(code_hashes)
     }
 
     /// Set safe canonical block hash that historical 256 blocks from canonical head
@@ -153,11 +160,7 @@ impl RessProtocolProvider for RessProvider {
     }
 
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        let bytes = self
-            .get_bytecode(code_hash)
-            .map_err(|_| ProviderError::StateForHashNotFound(code_hash))?
-            .bytes();
-        Ok(Some(bytes))
+        Ok(self.get_bytecode(code_hash)?.map(|bytecode| bytecode.original_bytes()))
     }
 
     fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {

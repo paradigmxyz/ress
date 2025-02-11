@@ -1,0 +1,140 @@
+use clap::Parser;
+use reth_chainspec::{Chain, ChainSpec};
+use reth_cli::chainspec::ChainSpecParser;
+use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
+use reth_network_peers::TrustedPeer;
+use reth_node_core::dirs::{ChainPath, PlatformPath, XdgPath};
+use std::{env::VarError, fmt, path::PathBuf, str::FromStr, sync::Arc};
+
+/// Ress CLI interface.
+#[derive(Parser, Debug)]
+#[command(author, version, about = "Ress", long_about = None)]
+pub struct RessArgs {
+    /// The chain this node is running.
+    ///
+    /// Possible values are either a built-in chain or the path to a chain specification file.
+    #[arg(
+        long,
+        value_name = "CHAIN_OR_PATH",
+        long_help = EthereumChainSpecParser::help_message(),
+        default_value = EthereumChainSpecParser::SUPPORTED_CHAINS[0],
+        value_parser = EthereumChainSpecParser::parser()
+    )]
+    pub chain: Arc<ChainSpec>,
+
+    /// The path to the data dir for all ress files and subdirectories.
+    ///
+    /// Defaults to the OS-specific data directory:
+    ///
+    /// - Linux: `$XDG_DATA_HOME/ress/` or `$HOME/.local/share/ress/`
+    /// - Windows: `{FOLDERID_RoamingAppData}/ress/`
+    /// - macOS: `$HOME/Library/Application Support/ress/`
+    #[arg(long, value_name = "DATA_DIR", verbatim_doc_comment, default_value_t)]
+    pub datadir: MaybePlatformPath<DataDirPath>,
+
+    #[allow(clippy::doc_markdown)]
+    /// URL of the remote peer for P2P connections.
+    ///
+    /// --remote-peer enode://abcd@192.168.0.1:30303
+    #[arg(long)]
+    pub remote_peer: Option<TrustedPeer>,
+
+    /// If passed, the debug consensus client will be started
+    #[arg(long = "enable-debug-consensus")]
+    pub enable_debug_consensus: bool,
+
+    /// Flag indicating whether RPC adapter should be used.
+    #[arg(long = "enable-rpc-adapter")]
+    pub rpc_adapter_enabled: bool,
+
+    /// Peer number (1 or 2)
+    #[arg(value_parser = clap::value_parser!(u8).range(1..=2))]
+    pub peer_number: u8,
+}
+
+/// Returns the path to the ress data dir.
+///
+/// The data dir should contain a subdirectory for each chain, and those chain directories will
+/// include all information for that chain, such as the p2p secret.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct DataDirPath;
+
+impl XdgPath for DataDirPath {
+    fn resolve() -> Option<PathBuf> {
+        data_dir()
+    }
+}
+
+/// Returns the path to the ress data directory.
+///
+/// Refer to [`dirs_next::data_dir`] for cross-platform behavior.
+pub fn data_dir() -> Option<PathBuf> {
+    dirs_next::data_dir().map(|root| root.join("ress"))
+}
+
+/// Returns the path to the ress database.
+///
+/// Refer to [`dirs_next::data_dir`] for cross-platform behavior.
+pub fn database_path() -> Option<PathBuf> {
+    data_dir().map(|root| root.join("db"))
+}
+
+/// An Optional wrapper type around [`PlatformPath`].
+///
+/// This is useful for when a path is optional, such as the `--data-dir` flag.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MaybePlatformPath<D>(Option<PlatformPath<D>>);
+
+// === impl MaybePlatformPath ===
+
+impl<D: XdgPath> MaybePlatformPath<D> {
+    /// Returns the path if it is set, otherwise returns the default path for the given chain.
+    pub fn unwrap_or_chain_default(&self, chain: Chain) -> ChainPath<D> {
+        ChainPath::new(
+            self.0.clone().unwrap_or_else(|| PlatformPath::default().join(chain.to_string())),
+            chain,
+            Default::default(),
+        )
+    }
+}
+
+impl<D: XdgPath> fmt::Display for MaybePlatformPath<D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(path) = &self.0 {
+            path.fmt(f)
+        } else {
+            // NOTE: this is a workaround for making it work with clap's `default_value_t` which
+            // computes the default value via `Default -> Display -> FromStr`
+            write!(f, "default")
+        }
+    }
+}
+
+impl<D> Default for MaybePlatformPath<D> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
+
+impl<D> FromStr for MaybePlatformPath<D> {
+    type Err = shellexpand::LookupError<VarError>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let p = match s {
+            "default" => {
+                // NOTE: this is a workaround for making it work with clap's `default_value_t` which
+                // computes the default value via `Default -> Display -> FromStr`
+                None
+            }
+            _ => Some(PlatformPath::from_str(s)?),
+        };
+        Ok(Self(p))
+    }
+}
+
+// impl<D> From<PathBuf> for MaybePlatformPath<D> {
+//     fn from(path: PathBuf) -> Self {
+//         Self(Some(PlatformPath(path, std::marker::PhantomData)))
+//     }
+// }

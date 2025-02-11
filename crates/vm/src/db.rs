@@ -53,11 +53,12 @@ impl Database for WitnessDatabase<'_> {
     /// Get storage value of address at index.
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         debug!("request for storage: {}, index: {}", address, index);
-        let storage_value = match self
-            .trie
-            .get_storage_slot_value(&keccak256(address), &keccak256(B256::from(index)))
-        {
-            Some(value) => U256::decode(&mut value.as_slice()).unwrap(),
+        let hashed_address = keccak256(address);
+        let hashed_slot = keccak256(B256::from(index));
+        let storage_value = match self.trie.get_storage_slot_value(&hashed_address, &hashed_slot) {
+            Some(value) => U256::decode(&mut value.as_slice()).map_err(|error| {
+                ProviderError::TrieWitnessError(format!("error decoding leaf: {error}"))
+            })?,
             None => U256::ZERO,
         };
         debug!("storage value {:?}", storage_value);
@@ -67,9 +68,13 @@ impl Database for WitnessDatabase<'_> {
     /// Get account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         debug!("request for code_hash: {}", code_hash);
-        self.provider
-            .get_bytecode(code_hash)
-            .map_err(|e| ProviderError::TrieWitnessError(e.to_string()))
+        Ok(self
+            .provider
+            .get_bytecode(code_hash)?
+            .ok_or_else(|| {
+                ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found"))
+            })?
+            .0)
     }
 
     /// Get block hash by block number.
