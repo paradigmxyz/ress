@@ -533,6 +533,10 @@ impl EngineTree {
                 sync_target_head: block_hash,
             }));
         } else if let Some(missing_ancestor) = missing_ancestor_hash {
+            if let Some(status) = self.check_invalid_ancestor(missing_ancestor) {
+                warn!("🍕");
+                return Ok(TreeOutcome::new(status));
+            }
             let request = if missing_ancestor == block_hash {
                 // TODO: fix this
                 // we use `missing_ancestor == block_hash` for witness download
