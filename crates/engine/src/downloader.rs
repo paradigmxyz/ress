@@ -36,7 +36,7 @@ impl EngineDownloader {
         Self {
             network,
             consensus,
-            retry_delay: Duration::from_millis(50),
+            retry_delay: Duration::from_millis(40),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
             inflight_bytecode_requests: Vec::new(),
