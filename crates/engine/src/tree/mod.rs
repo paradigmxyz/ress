@@ -4,7 +4,7 @@ use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
 use rayon::iter::IntoParallelRefIterator;
-use ress_evm::{BlockExecutor, WitnessDatabase};
+use ress_evm::BlockExecutor;
 use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
@@ -657,11 +657,10 @@ impl EngineTree {
                 InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
             },
         )?;
-        let database = WitnessDatabase::new(self.provider.clone(), &trie);
 
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
-        let mut block_executor = BlockExecutor::new(self.provider.chain_spec(), database);
+        let mut block_executor = BlockExecutor::new(self.provider.clone(), &trie);
         let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
         info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
 

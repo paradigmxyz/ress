@@ -14,18 +14,18 @@ use std::{fmt, path::Path, sync::Arc};
 
 /// Ress persisted database for storing bytecodes.
 #[derive(Clone, Debug)]
-pub struct RessDatabase {
+pub(crate) struct RessDatabase {
     database: Arc<DatabaseEnv>,
 }
 
 impl RessDatabase {
     /// Create new database at path.
-    pub fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
+    pub(crate) fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
         Self::new_with_args(path, DatabaseArguments::default())
     }
 
     /// Create new database at path with arguments.
-    pub fn new_with_args<P: AsRef<Path>>(path: P, args: DatabaseArguments) -> eyre::Result<Self> {
+    fn new_with_args<P: AsRef<Path>>(path: P, args: DatabaseArguments) -> eyre::Result<Self> {
         let database = create_db(path, args)?;
         database.create_tables_for::<Tables>()?;
         Ok(Self { database: Arc::new(database) })
@@ -33,17 +33,17 @@ impl RessDatabase {
 
     /// Check if bytecode exists in the database.
     /// NOTE: find a better way to check this.
-    pub fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
+    pub(crate) fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
         Ok(self.get_bytecode(code_hash)?.is_some())
     }
 
     /// Get bytecode by code hash.
-    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
+    pub(crate) fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
         self.database.tx()?.get::<tables::Bytecodes>(code_hash)
     }
 
     /// Insert bytecode into the database.
-    pub fn insert_bytecode(
+    pub(crate) fn insert_bytecode(
         &self,
         code_hash: B256,
         bytecode: Bytecode,
@@ -55,7 +55,7 @@ impl RessDatabase {
     }
 
     /// Filter the collection of code hashes for the ones that are missing from the database.
-    pub fn missing_code_hashes(
+    pub(crate) fn missing_code_hashes(
         &self,
         code_hashes: B256HashSet,
     ) -> Result<B256HashSet, DatabaseError> {

@@ -1,4 +1,3 @@
-use crate::{database::RessDatabase, ChainState};
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
     BlockHash, BlockNumber, Bytes, B256,
@@ -8,7 +7,9 @@ use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
 use reth_primitives::{Block, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
+
+use crate::{chain_state::ChainState, database::RessDatabase};
 
 /// Provider for retrieving blockchain data.
 ///
@@ -22,8 +23,9 @@ pub struct RessProvider {
 
 impl RessProvider {
     /// Instantiate new storage.
-    pub fn new(chain_spec: Arc<ChainSpec>, database: RessDatabase) -> Self {
-        Self { chain_spec, database, chain_state: ChainState::default() }
+    pub fn new<P: AsRef<Path>>(chain_spec: Arc<ChainSpec>, path: P) -> eyre::Result<Self> {
+        let database = RessDatabase::new(path)?;
+        Ok(Self { chain_spec, database, chain_state: ChainState::default() })
     }
 
     /// Get chain spec.
@@ -36,7 +38,8 @@ impl RessProvider {
         self.chain_state.is_hash_canonical(hash)
     }
 
-    /// Get block hash from memory of target block number
+    /// Finds block hash in memory for the target block number.
+    /// Includes both canonical and pending blocks.
     pub fn block_hash(&self, number: &BlockNumber) -> Option<BlockHash> {
         self.chain_state.block_hash(number)
     }

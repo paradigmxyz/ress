@@ -1,17 +1,17 @@
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedBlock, SealedHeader};
+use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::Arc,
 };
 
 /// In-memory blockchain tree state.
-/// Stores all validated blocks as well as keep tracks of the ones
+/// Stores all validated blocks as well as keeps track of the ones
 /// that form the canonical chain.
 #[derive(Clone, Default, Debug)]
-pub struct ChainState(Arc<RwLock<ChainStateInner>>);
+pub(crate) struct ChainState(Arc<RwLock<ChainStateInner>>);
 
 #[derive(Default, Debug)]
 struct ChainStateInner {
@@ -27,22 +27,30 @@ struct ChainStateInner {
 
 impl ChainState {
     /// Returns `true` if block hash is canonical.
-    pub fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
+    pub(crate) fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
     }
 
-    /// Returns canonical hash for a given block number.
-    pub fn block_hash(&self, number: &BlockNumber) -> Option<BlockHash> {
-        self.0.read().canonical_hashes_by_number.get(number).cloned()
+    /// Returns block hash for a given block number.
+    /// If no canonical hash is found, returns the first available hash for that block number.
+    // TODO: from B256HashSet is first element is best hash?
+    pub(crate) fn block_hash(&self, number: &BlockNumber) -> Option<BlockHash> {
+        let inner = self.0.read();
+        inner.canonical_hashes_by_number.get(number).cloned().or_else(|| {
+            inner
+                .block_hashes_by_number
+                .get(number)
+                .and_then(|hashes| hashes.iter().next().cloned())
+        })
     }
 
     /// Inserts canonical hash for block number.
-    pub fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+    pub(crate) fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
         self.0.write().canonical_hashes_by_number.insert(number, hash);
     }
 
     /// Remove canonical hash for block number if it matches.
-    pub fn remove_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
+    pub(crate) fn remove_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
         let mut this = self.0.write();
         if let btree_map::Entry::Occupied(entry) = this.canonical_hashes_by_number.entry(number) {
             if entry.get() == &hash {
@@ -52,32 +60,22 @@ impl ChainState {
     }
 
     /// Returns header by hash.
-    pub fn header(&self, hash: &BlockHash) -> Option<Header> {
+    pub(crate) fn header(&self, hash: &BlockHash) -> Option<Header> {
         self.map_recovered_block(hash, RecoveredBlock::clone_header)
     }
 
     /// Returns sealed header by hash.
-    pub fn sealed_header(&self, hash: &BlockHash) -> Option<SealedHeader> {
+    pub(crate) fn sealed_header(&self, hash: &BlockHash) -> Option<SealedHeader> {
         self.map_recovered_block(hash, RecoveredBlock::clone_sealed_header)
     }
 
     /// Returns block body by hash.
-    pub fn block_body(&self, hash: &BlockHash) -> Option<BlockBody> {
+    pub(crate) fn block_body(&self, hash: &BlockHash) -> Option<BlockBody> {
         self.map_recovered_block(hash, |b| b.body().clone())
     }
 
-    /// Returns sealed block by hash.
-    pub fn sealed_block(&self, hash: &BlockHash) -> Option<SealedBlock> {
-        self.map_recovered_block(hash, RecoveredBlock::clone_sealed_block)
-    }
-
-    /// Returns recovered block by hash.
-    pub fn recovered_block(&self, hash: &BlockHash) -> Option<RecoveredBlock<Block>> {
-        self.map_recovered_block(hash, Clone::clone)
-    }
-
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>) {
+    pub(crate) fn insert_block(&self, block: RecoveredBlock<Block>) {
         let mut this = self.0.write();
         this.block_hashes_by_number.entry(block.number).or_default().insert(block.hash());
         this.blocks_by_hash.insert(block.hash(), block);
@@ -85,7 +83,7 @@ impl ChainState {
 
     /// Remove all blocks before finalized as well as
     /// all canonical block hashes before `finalized.number - 256`.
-    pub fn remove_blocks_on_finalized(&self, finalized_hash: &B256) {
+    pub(crate) fn remove_blocks_on_finalized(&self, finalized_hash: &B256) {
         let mut this = self.0.write();
         if let Some(finalized) = this.blocks_by_hash.get(finalized_hash) {
             let finalized_number = finalized.number;

@@ -2,7 +2,7 @@ use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
-use ress_provider::{RessDatabase, RessProvider};
+use ress_provider::RessProvider;
 use ress_testing::rpc_adapter::RpcAdapterProvider;
 use reth_chainspec::ChainSpec;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
@@ -66,9 +66,8 @@ impl NodeLauncher {
         // Open database.
         let db_path = data_dir.db();
         debug!(target: "ress", path = %db_path.display(), "Opening database");
-        let database = RessDatabase::new(&db_path)?;
         info!(target: "ress", path = %db_path.display(), "Database opened");
-        let provider = RessProvider::new(self.args.chain.clone(), database);
+        let provider = RessProvider::new(self.args.chain.clone(), &db_path)?;
 
         // Insert genesis block.
         let genesis_hash = self.args.chain.genesis_hash();

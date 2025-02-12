@@ -21,7 +21,6 @@ alloy-rlp.workspace = true
 
 # reth
 reth-primitives.workspace = true
-reth-chainspec.workspace = true
 reth-provider.workspace = true
 reth-evm.workspace = true
 reth-evm-ethereum.workspace = true
