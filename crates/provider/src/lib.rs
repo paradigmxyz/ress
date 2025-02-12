@@ -8,6 +8,8 @@ pub use provider::RessProvider;
 
 /// Ress database.
 mod database;
+pub use database::RessDatabase;
 
 /// Chain state.
 mod chain_state;
+pub use chain_state::ChainState;

@@ -14,7 +14,7 @@ use std::{fmt, path::Path, sync::Arc};
 
 /// Ress persisted database for storing bytecodes.
 #[derive(Clone, Debug)]
-pub(crate) struct RessDatabase {
+pub struct RessDatabase {
     database: Arc<DatabaseEnv>,
 }
 
