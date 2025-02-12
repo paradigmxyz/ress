@@ -1,109 +1,108 @@
-use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use alloy_primitives::{Bytes, B256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
-use alloy_rpc_types_eth::{BlockNumberOrTag, BlockTransactionsKind};
-use parking_lot::RwLock;
-use ress_protocol::RessProtocolProvider;
-use reth_primitives::{BlockBody, Header, TransactionSigned};
-use reth_storage_errors::provider::{ProviderError, ProviderResult};
-use std::{collections::HashMap, sync::Arc};
+use alloy_rpc_types_eth::{Block, BlockNumberOrTag, BlockTransactionsKind};
+use futures::StreamExt;
+use ress_protocol::{RessPeerRequest, StateWitnessNet};
+use reth_primitives::{BlockBody, TransactionSigned};
+use std::collections::{hash_map, HashMap};
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::*;
 
-/// RPC adapter that implements [`RessProtocolProvider`].
+/// RPC adapter that can substitute `RessNetworkManager`.
 #[derive(Clone, Debug)]
-pub struct RpcAdapterProvider {
+pub struct RpcNetworkAdapter {
     provider: RootProvider,
-    bytecodes: Arc<RwLock<HashMap<B256, Bytes>>>,
+    bytecodes: HashMap<B256, Bytes>,
 }
 
-impl RpcAdapterProvider {
+impl RpcNetworkAdapter {
     /// Create new RPC adapter.
     pub fn new(url: &str) -> eyre::Result<Self> {
         let client = ClientBuilder::default().http(url.parse()?);
-        Ok(Self { provider: RootProvider::new(client), bytecodes: Arc::new(RwLock::default()) })
+        Ok(Self { provider: RootProvider::new(client), bytecodes: Default::default() })
     }
 }
 
-impl RessProtocolProvider for RpcAdapterProvider {
-    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
-        let provider = self.provider.clone();
-        let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { get_header_by_hash(provider, block_hash).await })
-        })
-        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(result))
+impl RpcNetworkAdapter {
+    async fn block(
+        &self,
+        block_hash: B256,
+        transactions_kind: BlockTransactionsKind,
+    ) -> Option<Block> {
+        let result =
+            self.provider.get_block_by_hash(block_hash, transactions_kind).await.inspect_err(
+                |error| {
+                    debug!(target: "ress::rpc_adapter", %block_hash, %error, "Failed to request block from provider");
+                },
+            );
+        result.ok().flatten()
     }
 
-    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
-        let provider = self.provider.clone();
-        let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { get_block_body_by_hash(provider, block_hash).await })
-        })
-        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash))?;
-        Ok(Some(result))
-    }
+    /// Run RPC network adapter to respond to peer requests.
+    pub async fn run(mut self, mut request_stream: UnboundedReceiverStream<RessPeerRequest>) {
+        while let Some(request) = request_stream.next().await {
+            match request {
+                RessPeerRequest::GetHeader { block_hash, tx } => {
+                    let maybe_block = self.block(block_hash, BlockTransactionsKind::Hashes).await;
+                    let maybe_header = maybe_block.map(|block| block.header.into_consensus());
+                    if tx.send(maybe_header.unwrap_or_default()).is_err() {
+                        debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send header");
+                    }
+                }
+                RessPeerRequest::GetBlockBody { block_hash, tx } => {
+                    let maybe_block = self.block(block_hash, BlockTransactionsKind::Full).await;
+                    let maybe_body = maybe_block.map(|block| {
+                        let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
+                        BlockBody {
+                            transactions: block.transactions.into_transactions().collect(),
+                            withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
+                            ommers: Default::default(),
+                        }
+                    });
+                    if tx.send(maybe_body.unwrap_or_default()).is_err() {
+                        debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send block body");
+                    }
+                }
+                RessPeerRequest::GetBytecode { code_hash, tx } => {
+                    let maybe_bytecode = self.bytecodes.get(&code_hash).cloned();
+                    if tx.send(maybe_bytecode.unwrap_or_default()).is_err() {
+                        debug!(target: "ress::rpc_adapter", %code_hash, "Failed to send bytecode");
+                    }
+                }
+                RessPeerRequest::GetWitness { block_hash, tx } => {
+                    let maybe_block = self.block(block_hash, BlockTransactionsKind::Hashes).await;
 
-    fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        Ok(self.bytecodes.read().get(&code_hash).cloned())
-    }
+                    let maybe_witness = if let Some(block) = maybe_block {
+                        let tag: BlockNumberOrTag = block.header.number.into();
+                        let maybe_witness =  self.provider
+                            .client()
+                            .request::<_, ExecutionWitness>("debug_executionWitness", [tag])
+                            .await
+                            .map_err(|error| {
+                                debug!(target: "ress::rpc_adapter", %block_hash, %error, "Failed to request witness from provider");
+                            })
+                            .ok();
+                        if let Some(witness) = &maybe_witness {
+                            for (code_hash, bytecode) in &witness.codes {
+                                if let hash_map::Entry::Vacant(entry) =
+                                    self.bytecodes.entry(*code_hash)
+                                {
+                                    entry.insert(bytecode.clone());
+                                }
+                            }
+                        }
+                        maybe_witness.map(|witness| StateWitnessNet::from_iter(witness.state))
+                    } else {
+                        None
+                    };
 
-    fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        let provider = self.provider.clone();
-        // Use `block_in_place` to safely block
-        let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { get_witness_by_hash(provider, block_hash).await })
-        })
-        .map_err(|_error| ProviderError::BlockHashNotFound(block_hash));
-        if let Ok(response) = &result {
-            // update bytecode cache
-            let mut bytecodes = self.bytecodes.write();
-            for (code_hash, bytecode) in &response.codes {
-                bytecodes.insert(*code_hash, bytecode.clone());
+                    if tx.send(maybe_witness.unwrap_or_default()).is_err() {
+                        debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send witness");
+                    }
+                }
             }
         }
-        result.map(|witness| Some(witness.state))
     }
-}
-
-async fn get_header_by_hash(provider: RootProvider, block_hash: B256) -> eyre::Result<Header> {
-    let block = provider
-        .get_block_by_hash(block_hash, BlockTransactionsKind::Hashes)
-        .await?
-        .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-    Ok(block.header.into_consensus())
-}
-
-async fn get_block_body_by_hash(
-    provider: RootProvider,
-    block_hash: B256,
-) -> eyre::Result<BlockBody> {
-    let block = provider
-        .get_block_by_hash(block_hash, BlockTransactionsKind::Full)
-        .await?
-        .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-    let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
-    Ok(BlockBody {
-        transactions: block.transactions.into_transactions().collect(),
-        withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
-        ommers: Default::default(),
-    })
-}
-
-async fn get_witness_by_hash(
-    provider: RootProvider,
-    block_hash: B256,
-) -> eyre::Result<ExecutionWitness> {
-    let block = provider
-        .get_block_by_hash(block_hash, BlockTransactionsKind::Hashes)
-        .await?
-        .ok_or(ProviderError::BlockHashNotFound(block_hash))?;
-
-    let tag: BlockNumberOrTag = block.header.number.into();
-    let witness: ExecutionWitness =
-        provider.client().request("debug_executionWitness", [tag]).await?;
-
-    Ok(witness)
 }

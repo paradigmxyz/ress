@@ -4,7 +4,7 @@ use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use ress_provider::{RessDatabase, RessProvider};
-use ress_testing::rpc_adapter::RpcAdapterProvider;
+use ress_testing::rpc_adapter::RpcNetworkAdapter;
 use reth_chainspec::ChainSpec;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
 use reth_engine_tree::tree::error::InsertBlockFatalError;
@@ -92,14 +92,9 @@ impl NodeLauncher {
         let network_secret_path = self.args.network.network_secret_path(&data_dir);
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
-        let remote_peer = self.args.remote_peer.clone();
-        let network_handle = if let Some(url) = self.args.debug.rpc_adapter_url.clone() {
-            info!(target: "ress", %url, "Using RPC adapter");
-            let rpc_adapter = RpcAdapterProvider::new(&url)?;
-            self.launch_network(rpc_adapter, network_secret, remote_peer).await?
-        } else {
-            self.launch_network(provider.clone(), network_secret, remote_peer).await?
-        };
+        let network_handle = self
+            .launch_network(provider.clone(), network_secret, self.args.remote_peer.clone())
+            .await?;
         info!(target: "ress", peer_id = %network_handle.inner().peer_id(), addr = %network_handle.inner().local_addr(), "Network launched");
 
         // Spawn consensus engine.
@@ -168,11 +163,18 @@ impl NodeLauncher {
         tokio::spawn(manager);
 
         let (peer_requests_tx, peer_requests_rx) = mpsc::unbounded_channel();
-        // spawn ress network manager
-        tokio::spawn(RessNetworkManager::new(
-            UnboundedReceiverStream::from(protocol_events),
-            UnboundedReceiverStream::from(peer_requests_rx),
-        ));
+        let peer_request_stream = UnboundedReceiverStream::from(peer_requests_rx);
+        if let Some(rpc_url) = self.args.debug.rpc_network_adapter_url.clone() {
+            info!(target: "ress", url = %rpc_url, "Using RPC network adapter");
+            tokio::spawn(RpcNetworkAdapter::new(&rpc_url)?.run(peer_request_stream));
+        } else {
+            // spawn ress network manager
+            tokio::spawn(RessNetworkManager::new(
+                UnboundedReceiverStream::from(protocol_events),
+                peer_request_stream,
+            ));
+        }
+
         Ok(RessNetworkHandle::new(network_handle, peer_requests_tx))
     }
 

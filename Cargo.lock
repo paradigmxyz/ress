@@ -5626,11 +5626,11 @@ dependencies = [
  "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",
  "eyre",
- "parking_lot",
+ "futures",
  "ress-protocol",
  "reth-primitives",
- "reth-storage-errors",
- "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]

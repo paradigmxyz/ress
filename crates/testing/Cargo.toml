@@ -15,7 +15,6 @@ workspace = true
 ress-protocol.workspace = true
 
 # reth
-reth-storage-errors.workspace = true
 reth-primitives.workspace = true
 
 # alloy
@@ -26,6 +25,7 @@ alloy-rpc-types-debug.workspace = true
 alloy-rpc-client.workspace = true
 
 # misc
-tokio.workspace = true
-parking_lot.workspace = true
+futures.workspace = true
+tokio-stream.workspace = true
 eyre.workspace = true
+tracing.workspace = true

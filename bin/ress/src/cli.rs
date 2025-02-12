@@ -140,12 +140,12 @@ impl RessRpcArgs {
 #[derive(Clone, Debug, Args)]
 pub struct DebugArgs {
     /// Url for debug consensus client.
-    #[arg(long = "debug.consensus-url")]
+    #[arg(long = "debug.debug-consensus-url")]
     pub debug_consensus_url: Option<String>,
 
     /// Url for RPC adapter.
-    #[arg(long = "debug.rpc-adapter-url")]
-    pub rpc_adapter_url: Option<String>,
+    #[arg(long = "debug.rpc-network-adapter-url")]
+    pub rpc_network_adapter_url: Option<String>,
 }
 
 /// Returns the path to the ress data dir.
