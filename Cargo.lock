@@ -5458,6 +5458,7 @@ name = "ress"
 version = "0.1.0"
 dependencies = [
  "alloy-eips",
+ "alloy-primitives",
  "alloy-rpc-types-engine",
  "clap",
  "dirs-next",

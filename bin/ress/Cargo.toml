@@ -21,6 +21,7 @@ ress-testing.workspace = true
 # alloy
 alloy-eips.workspace = true
 alloy-rpc-types-engine.workspace = true
+alloy-primitives.workspace = true
 
 # reth
 reth-ethereum-primitives.workspace = true
@@ -53,4 +54,3 @@ tracing-subscriber.workspace = true
 futures.workspace = true
 dirs-next = "2.0"
 shellexpand = "3.0"
-
