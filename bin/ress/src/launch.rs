@@ -65,7 +65,6 @@ impl NodeLauncher {
 
         // Open database.
         let db_path = data_dir.db();
-        debug!(target: "ress", path = %db_path.display(), "Opening database");
         info!(target: "ress", path = %db_path.display(), "Database opened");
         let provider = RessProvider::new(self.args.chain.clone(), &db_path)?;
 
