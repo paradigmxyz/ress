@@ -18,12 +18,17 @@ use tracing::trace;
 pub(crate) struct WitnessDatabase<'a> {
     provider: RessProvider,
     trie: &'a SparseStateTrie,
+    current_block_hash: B256,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub(crate) fn new(provider: RessProvider, trie: &'a SparseStateTrie) -> Self {
-        Self { trie, provider }
+    pub(crate) fn new(
+        provider: RessProvider,
+        trie: &'a SparseStateTrie,
+        current_block_hash: B256,
+    ) -> Self {
+        Self { trie, provider, current_block_hash }
     }
 }
 
@@ -77,7 +82,7 @@ impl Database for WitnessDatabase<'_> {
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
         trace!(target: "ress::evm", block_number, "retrieving block hash");
         self.provider
-            .block_hash(&block_number)
+            .block_hash(&block_number, self.current_block_hash)
             .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

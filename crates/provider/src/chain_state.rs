@@ -32,16 +32,27 @@ impl ChainState {
     }
 
     /// Returns block hash for a given block number.
-    /// If no canonical hash is found, returns the first available hash for that block number.
-    // TODO: from B256HashSet is first element is best hash?
-    pub fn block_hash(&self, number: &BlockNumber) -> Option<BlockHash> {
+    /// If no canonical hash is found, traverses parent hashes from the given block hash
+    /// to find an ancestor at the specified block number.
+    pub fn block_hash(&self, number: &BlockNumber, current_block_hash: B256) -> Option<BlockHash> {
         let inner = self.0.read();
-        inner.canonical_hashes_by_number.get(number).cloned().or_else(|| {
-            inner
-                .block_hashes_by_number
-                .get(number)
-                .and_then(|hashes| hashes.iter().next().cloned())
-        })
+        // First try to get canonical hash
+        if let Some(hash) = inner.canonical_hashes_by_number.get(number).cloned() {
+            return Some(hash);
+        }
+
+        // If not found, traverse parent hashes to find ancestor at given number
+        let mut current_hash = current_block_hash;
+        while let Some(block) = inner.blocks_by_hash.get(&current_hash) {
+            if &block.number == number {
+                return Some(block.hash());
+            }
+            if &block.number < number {
+                return None;
+            }
+            current_hash = block.parent_hash;
+        }
+        None
     }
 
     /// Inserts canonical hash for block number.
