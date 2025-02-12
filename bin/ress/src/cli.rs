@@ -2,6 +2,7 @@ use alloy_rpc_types_engine::{JwtError, JwtSecret};
 use clap::{Args, Parser};
 use reth_chainspec::{Chain, ChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
+use reth_cli_util::parse_socket_address;
 use reth_discv4::{DEFAULT_DISCOVERY_ADDR, DEFAULT_DISCOVERY_PORT};
 use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
 use reth_network_peers::TrustedPeer;
@@ -45,13 +46,6 @@ pub struct RessArgs {
     #[arg(long, value_name = "DATA_DIR", verbatim_doc_comment, default_value_t)]
     pub datadir: MaybePlatformPath<DataDirPath>,
 
-    #[allow(clippy::doc_markdown)]
-    /// URL of the remote peer for P2P connections.
-    ///
-    /// --remote-peer enode://abcd@192.168.0.1:30303
-    #[arg(long)]
-    pub remote_peer: Option<TrustedPeer>,
-
     /// Network args.
     #[clap(flatten)]
     pub network: RessNetworkArgs,
@@ -63,6 +57,12 @@ pub struct RessArgs {
     /// Debug args.
     #[clap(flatten)]
     pub debug: DebugArgs,
+
+    /// Enable Prometheus metrics.
+    ///
+    /// The metrics will be served at the given interface and port.
+    #[arg(long, value_name = "SOCKET", value_parser = parse_socket_address, help_heading = "Metrics")]
+    pub metrics: Option<SocketAddr>,
 }
 
 /// Ress networking args.
@@ -82,6 +82,13 @@ pub struct RessNetworkArgs {
     /// data dir for the chain being used.
     #[arg(long, value_name = "PATH")]
     pub p2p_secret_key: Option<PathBuf>,
+
+    #[allow(clippy::doc_markdown)]
+    /// URL of the remote peer for P2P connections.
+    ///
+    /// --remote-peer enode://abcd@192.168.0.1:30303
+    #[arg(long)]
+    pub remote_peer: Option<TrustedPeer>,
 }
 
 impl RessNetworkArgs {

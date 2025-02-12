@@ -1,5 +1,6 @@
 use alloy_primitives::keccak256;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
+use http::{header::CONTENT_TYPE, HeaderValue, Response};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
 use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
@@ -19,13 +20,14 @@ use reth_node_core::primitives::{Bytecode, RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
 };
+use reth_node_metrics::recorder::install_prometheus_recorder;
 use reth_payload_builder::{noop::NoopPayloadBuilderService, PayloadStore};
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_storage_api::noop::NoopProvider;
 use reth_tasks::TokioTaskExecutor;
 use reth_transaction_pool::noop::NoopTransactionPool;
-use std::sync::Arc;
+use std::{convert::Infallible, net::SocketAddr, sync::Arc};
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
@@ -64,6 +66,14 @@ impl NodeLauncher {
     pub async fn launch(self) -> eyre::Result<Node> {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
+        // Install the recorder to ensure that upkeep is run periodically and
+        // start the metrics server.
+        install_prometheus_recorder().spawn_upkeep();
+        if let Some(addr) = self.args.metrics {
+            info!(target: "ress", ?addr, "Starting metrics endpoint");
+            self.start_prometheus_server(addr).await?;
+        }
+
         // Open database.
         let db_path = data_dir.db();
         debug!(target: "ress", path = %db_path.display(), "Opening database");
@@ -93,7 +103,7 @@ impl NodeLauncher {
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
         let network_handle = self
-            .launch_network(provider.clone(), network_secret, self.args.remote_peer.clone())
+            .launch_network(provider.clone(), network_secret, self.args.network.remote_peer.clone())
             .await?;
         info!(target: "ress", peer_id = %network_handle.inner().peer_id(), addr = %network_handle.inner().local_addr(), "Network launched");
 
@@ -205,5 +215,37 @@ impl NodeLauncher {
         let auth_socket = self.args.rpc.auth_rpc_addr();
         let config = AuthServerConfig::builder(jwt_key).socket_addr(auth_socket).build();
         Ok(AuthRpcModule::new(engine_api).start_server(config).await?)
+    }
+
+    /// This launches the prometheus server.
+    pub async fn start_prometheus_server(&self, addr: SocketAddr) -> eyre::Result<()> {
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+        tokio::spawn(async move {
+            loop {
+                let io = match listener.accept().await {
+                    Ok((stream, _remote_addr)) => stream,
+                    Err(error) => {
+                        tracing::error!(target: "ress", %error, "failed to accept connection");
+                        continue;
+                    }
+                };
+
+                let handle = install_prometheus_recorder();
+                let service = tower::service_fn(move |_| {
+                    let metrics = handle.handle().render();
+                    let mut response = Response::new(metrics);
+                    let content_type = HeaderValue::from_static("text/plain");
+                    response.headers_mut().insert(CONTENT_TYPE, content_type);
+                    async move { Ok::<_, Infallible>(response) }
+                });
+
+                tokio::spawn(async move {
+                    let _ = jsonrpsee_server::serve(io, service).await.inspect_err(
+                        |error| tracing::debug!(target: "ress", %error, "failed to serve request"),
+                    );
+                });
+            }
+        });
+        Ok(())
     }
 }
