@@ -65,8 +65,8 @@ impl NodeLauncher {
 
         // Open database.
         let db_path = data_dir.db();
-        info!(target: "ress", path = %db_path.display(), "Database opened");
         let provider = RessProvider::new(self.args.chain.clone(), &db_path)?;
+        info!(target: "ress", path = %db_path.display(), "Provider initiated with database");
 
         // Insert genesis block.
         let genesis_hash = self.args.chain.genesis_hash();
