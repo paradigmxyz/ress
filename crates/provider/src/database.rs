@@ -20,7 +20,7 @@ pub struct RessDatabase {
 
 impl RessDatabase {
     /// Create new database at path.
-    pub(crate) fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
         Self::new_with_args(path, DatabaseArguments::default())
     }
 
@@ -33,17 +33,17 @@ impl RessDatabase {
 
     /// Check if bytecode exists in the database.
     /// NOTE: find a better way to check this.
-    pub(crate) fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
+    pub fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
         Ok(self.get_bytecode(code_hash)?.is_some())
     }
 
     /// Get bytecode by code hash.
-    pub(crate) fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
+    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
         self.database.tx()?.get::<tables::Bytecodes>(code_hash)
     }
 
     /// Insert bytecode into the database.
-    pub(crate) fn insert_bytecode(
+    pub fn insert_bytecode(
         &self,
         code_hash: B256,
         bytecode: Bytecode,
@@ -55,7 +55,7 @@ impl RessDatabase {
     }
 
     /// Filter the collection of code hashes for the ones that are missing from the database.
-    pub(crate) fn missing_code_hashes(
+    pub fn missing_code_hashes(
         &self,
         code_hashes: B256HashSet,
     ) -> Result<B256HashSet, DatabaseError> {
