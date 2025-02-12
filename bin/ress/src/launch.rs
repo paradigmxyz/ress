@@ -80,8 +80,8 @@ impl NodeLauncher {
         ));
         provider.insert_canonical_hash(0, genesis_hash);
         info!(target: "ress", %genesis_hash, "Inserted genesis block");
-        for (_, account) in self.args.chain.genesis().alloc.clone().into_iter() {
-            if let Some(code) = account.code {
+        for account in self.args.chain.genesis().alloc.values() {
+            if let Some(code) = account.code.clone() {
                 let code_hash = keccak256(&code);
                 provider.insert_bytecode(code_hash, Bytecode::new_raw(code))?;
             }
