@@ -176,7 +176,7 @@ impl NodeLauncher {
         let peer_request_stream = UnboundedReceiverStream::from(peer_requests_rx);
         if let Some(rpc_url) = self.args.debug.rpc_network_adapter_url.clone() {
             info!(target: "ress", url = %rpc_url, "Using RPC network adapter");
-            tokio::spawn(RpcNetworkAdapter::new(&rpc_url)?.run(peer_request_stream));
+            tokio::spawn(RpcNetworkAdapter::new(&rpc_url).await?.run(peer_request_stream));
         } else {
             // spawn ress network manager
             tokio::spawn(RessNetworkManager::new(

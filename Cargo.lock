@@ -5632,10 +5632,13 @@ dependencies = [
  "alloy-rpc-types-eth",
  "eyre",
  "futures",
+ "parking_lot",
  "ress-protocol",
  "reth-primitives",
+ "tokio",
  "tokio-stream",
  "tracing",
+ "tungstenite",
 ]
 
 [[package]]
