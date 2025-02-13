@@ -36,23 +36,23 @@ impl ChainState {
     /// to find an ancestor at the specified block number.
     pub fn block_hash(&self, number: &BlockNumber, current_block_hash: B256) -> Option<BlockHash> {
         let inner = self.0.read();
-        // First try to get canonical hash
-        if let Some(hash) = inner.canonical_hashes_by_number.get(number).cloned() {
-            return Some(hash);
-        }
-
-        // If not found, traverse parent hashes to find ancestor at given number
-        let mut current_hash = current_block_hash;
-        while let Some(block) = inner.blocks_by_hash.get(&current_hash) {
-            if &block.number == number {
-                return Some(block.hash());
+        // First check if current block hash is canonical
+        if self.is_hash_canonical(&current_block_hash) {
+            inner.canonical_hashes_by_number.get(number).cloned()
+        } else {
+            // If it's not canonical, traverse parent hashes to find ancestor at given number
+            let mut current_hash = current_block_hash;
+            while let Some(block) = inner.blocks_by_hash.get(&current_hash) {
+                if &block.number == number {
+                    return Some(block.hash());
+                }
+                if &block.number < number {
+                    return None;
+                }
+                current_hash = block.parent_hash;
             }
-            if &block.number < number {
-                return None;
-            }
-            current_hash = block.parent_hash;
+            None
         }
-        None
     }
 
     /// Inserts canonical hash for block number.
