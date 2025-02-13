@@ -286,14 +286,14 @@ impl FetchFullBlockFuture {
                 if header.hash() == self.block_hash {
                     self.header = Some(header);
                 } else {
-                    debug!(target: "ress::engine::downloader", expected = %self.block_hash, received = %header.hash(), "Received wrong header");
+                    trace!(target: "ress::engine::downloader", expected = %self.block_hash, received = %header.hash(), "Received wrong header");
                 }
             }
             Ok(None) => {
-                debug!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No header received");
+                trace!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No header received");
             }
             Err(error) => {
-                debug!(target: "ress::engine::downloader", %error, %self.block_hash, "Header download failed");
+                trace!(target: "ress::engine::downloader", %error, %self.block_hash, "Header download failed");
             }
         };
     }
@@ -304,10 +304,10 @@ impl FetchFullBlockFuture {
                 self.body = Some(body);
             }
             Ok(None) => {
-                debug!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No body received");
+                trace!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No body received");
             }
             Err(error) => {
-                debug!(target: "ress::engine::downloader", %error, %self.block_hash, "Body download failed");
+                trace!(target: "ress::engine::downloader", %error, %self.block_hash, "Body download failed");
             }
         }
     }
@@ -348,7 +348,7 @@ impl Future for FetchFullBlockFuture {
 
                 // ensure the block is valid, else retry
                 if let Err(error) = <EthBeaconConsensus<ChainSpec> as Consensus<Block>>::validate_body_against_header(&this.consensus, &body, &header) {
-                    debug!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
+                    trace!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
                     this.header = Some(header);
                     this.pending_body_request = Some(this.body_request(this.retry_delay));
                     continue
@@ -390,19 +390,19 @@ impl FetchHeadersRangeFuture {
         let headers = match response {
             Ok(headers) => headers,
             Err(error) => {
-                debug!(target: "ress::engine::downloader", %error, ?self.request, "Headers download failed");
+                trace!(target: "ress::engine::downloader", %error, ?self.request, "Headers download failed");
                 return None
             }
         };
 
         if headers.len() < self.request.limit as usize {
-            debug!(target: "ress::engine::downloader", len = headers.len(), request = ?self.request, "Invalid headers response length");
+            trace!(target: "ress::engine::downloader", len = headers.len(), request = ?self.request, "Invalid headers response length");
             return None
         }
 
         let headers_falling = headers.into_iter().map(SealedHeader::seal_slow).collect::<Vec<_>>();
         if headers_falling[0].hash() != self.request.start_hash {
-            debug!(target: "ress::engine::downloader", expected = %self.request.start_hash, received = %headers_falling[0].hash(), "Invalid start hash");
+            trace!(target: "ress::engine::downloader", expected = %self.request.start_hash, received = %headers_falling[0].hash(), "Invalid start hash");
             return None
         }
 
@@ -411,7 +411,7 @@ impl FetchHeadersRangeFuture {
         match self.consensus.validate_header_range(&headers_rising) {
             Ok(()) => Some(headers_falling),
             Err(error) => {
-                debug!(target: "ress::engine::downloader", %error, ?self.request, "Received bad header response");
+                trace!(target: "ress::engine::downloader", %error, ?self.request, "Received bad header response");
                 None
             }
         }
@@ -509,7 +509,7 @@ impl Future for FetchFullBlockRangeFuture {
                     let pending_bodies = match response {
                         Ok(pending) => {
                             if pending.is_empty() {
-                                debug!(target: "ress::engine::downloader", request = ?this.request, "Empty bodies response");
+                                trace!(target: "ress::engine::downloader", request = ?this.request, "Empty bodies response");
                                 state.fut = Self::request_bodies(
                                     this.network.clone(),
                                     state.missing(),
@@ -520,7 +520,7 @@ impl Future for FetchFullBlockRangeFuture {
                             pending
                         }
                         Err(error) => {
-                            debug!(target: "ress::engine::downloader", %error, ?this.request, "Bodies download failed");
+                            trace!(target: "ress::engine::downloader", %error, ?this.request, "Bodies download failed");
                             state.fut = Self::request_bodies(
                                 this.network.clone(),
                                 state.missing(),
@@ -538,7 +538,7 @@ impl Future for FetchFullBlockRangeFuture {
                             >>::validate_body_against_header(
                                 &this.consensus, &body, header
                             ) {
-                                debug!(target: "ress::engine::downloader", %error, ?this.request, "Invalid body response");
+                                trace!(target: "ress::engine::downloader", %error, ?this.request, "Invalid body response");
                                 state.fut = Self::request_bodies(
                                     this.network.clone(),
                                     state.missing(),
@@ -603,11 +603,11 @@ impl Future for FetchBytecodeFuture {
                     if code_hash == this.code_hash {
                         return Poll::Ready(bytecode)
                     } else {
-                        debug!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
+                        trace!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
                     }
                 }
                 Err(error) => {
-                    debug!(target: "ress::engine::downloader", %error, %this.code_hash, "Bytecode download failed");
+                    trace!(target: "ress::engine::downloader", %error, %this.code_hash, "Bytecode download failed");
                 }
             };
             this.pending = this.bytecode_request();
@@ -646,7 +646,7 @@ impl Future for FetchWitnessFuture {
             match ready!(this.pending.poll_unpin(cx)) {
                 Ok(witness) => {
                     if witness.0.is_empty() {
-                        debug!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
+                        trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
                         let mut state_witness = StateWitness::default();
                         let valid = 'witness: {
@@ -655,7 +655,7 @@ impl Future for FetchWitnessFuture {
                                 if hash == entry_hash {
                                     state_witness.insert(hash, bytes);
                                 } else {
-                                    debug!(target: "ress::engine::downloader", block_hash = %this.block_hash, expected = %entry_hash, received = %hash, "Invalid witness entry");
+                                    trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, expected = %entry_hash, received = %hash, "Invalid witness entry");
                                     break 'witness false
                                 }
                             }
@@ -667,7 +667,7 @@ impl Future for FetchWitnessFuture {
                     }
                 }
                 Err(error) => {
-                    debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Witness download failed");
+                    trace!(target: "ress::engine::downloader", %error, %this.block_hash, "Witness download failed");
                 }
             };
             this.pending = this.witness_request();
