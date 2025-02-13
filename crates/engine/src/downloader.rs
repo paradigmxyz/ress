@@ -395,7 +395,7 @@ impl FetchHeadersRangeFuture {
             }
         };
 
-        if headers.len() == self.request.limit as usize {
+        if headers.len() < self.request.limit as usize {
             debug!(target: "ress::engine::downloader", len = headers.len(), request = ?self.request, "Invalid headers response length");
             return None
         }

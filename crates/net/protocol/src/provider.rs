@@ -31,7 +31,10 @@ pub trait RessProtocolProvider: Send + Sync {
             block_hash = header.parent_hash;
             total_bytes += header.length();
             headers.push(header);
-            if headers.len() >= MAX_HEADERS_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
+            if headers.len() >= request.limit as usize ||
+                headers.len() >= MAX_HEADERS_SERVE ||
+                total_bytes > SOFT_RESPONSE_LIMIT
+            {
                 break
             }
         }
