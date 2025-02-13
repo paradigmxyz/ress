@@ -450,7 +450,7 @@ impl FullBlockRangeBodiesDownloadState {
         self.headers.iter().skip(self.bodies.len()).map(|h| h.hash())
     }
 
-    fn into_blocks(&mut self) -> impl Iterator<Item = SealedBlock> {
+    fn take_blocks(&mut self) -> impl Iterator<Item = SealedBlock> {
         std::mem::take(&mut self.headers)
             .into_iter()
             .zip(std::mem::take(&mut self.bodies))
@@ -561,7 +561,7 @@ impl Future for FetchFullBlockRangeFuture {
                         continue
                     }
 
-                    return Poll::Ready(state.into_blocks().collect())
+                    return Poll::Ready(state.take_blocks().collect())
                 }
             }
         }
