@@ -5621,6 +5621,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ress-reth"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "eyre",
+ "futures",
+ "parking_lot",
+ "ress-network",
+ "ress-protocol",
+ "reth",
+ "reth-chain-state",
+ "reth-evm",
+ "reth-network",
+ "reth-network-api",
+ "reth-node-builder",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-tasks",
+ "reth-tokio-util",
+ "reth-trie",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ress-testing"
 version = "0.1.0"
 dependencies = [
@@ -5639,32 +5665,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tungstenite",
-]
-
-[[package]]
-name = "reth"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "alloy-primitives",
- "eyre",
- "futures",
- "parking_lot",
- "ress-network",
- "ress-protocol",
- "reth 1.1.5",
- "reth-chain-state",
- "reth-evm",
- "reth-network",
- "reth-network-api",
- "reth-node-builder",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-tasks",
- "reth-tokio-util",
- "reth-trie",
- "tokio",
- "tracing",
 ]
 
 [[package]]
