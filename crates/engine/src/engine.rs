@@ -289,23 +289,23 @@ impl ConsensusEngine {
                     "Received forkchoice state"
                 );
 
-                let mut result = if self.tree.forkchoice_state_tracker.is_empty() {
+                let mut result = if self.tree.forkchoice_state_tracker.is_empty() &&
+                    !state.finalized_block_hash.is_zero()
+                {
                     // Download canonical headers from finalized block.
-                    // TODO: if not zero
-                    if state.finalized_block_hash.is_zero() {
-                        self.sync_state.finalized_downloaded = true;
-                        self.sync_state.canonical_block_hashes_downloaded = true;
-                    } else {
-                        info!(target: "ress::engine", finalized = %state.finalized_block_hash, "Initial FCU, downloading finalized block");
-                        self.sync_state.finalized_target = Some(state.finalized_block_hash);
-                        self.downloader.download_full_block(state.finalized_block_hash);
-                        self.downloader.download_headers_range(state.finalized_block_hash, 256);
-                    }
+                    info!(target: "ress::engine", finalized = %state.finalized_block_hash, "Initial FCU, downloading finalized block");
+                    self.sync_state.finalized_target = Some(state.finalized_block_hash);
+                    self.downloader.download_full_block(state.finalized_block_hash);
+                    self.downloader.download_headers_range(state.finalized_block_hash, 256);
                     if !state.safe_block_hash.is_zero() {
                         self.downloader.download_full_block(state.safe_block_hash);
                     }
                     Ok(TreeOutcome::new(OnForkChoiceUpdated::syncing()))
                 } else {
+                    if self.tree.forkchoice_state_tracker.is_empty() {
+                        self.sync_state.finalized_downloaded = true;
+                        self.sync_state.canonical_block_hashes_downloaded = true;
+                    }
                     self.tree.on_forkchoice_updated(state, payload_attrs, version)
                 };
 
