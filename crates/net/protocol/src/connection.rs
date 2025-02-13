@@ -1,5 +1,7 @@
-use crate::{NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, StateWitnessNet};
-use alloy_primitives::{bytes::BytesMut, keccak256, BlockHash, Bytes, B256};
+use crate::{
+    GetHeaders, NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, StateWitnessNet,
+};
+use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{Stream, StreamExt};
 use reth_eth_wire::multiplex::ProtocolConnection;
 use reth_primitives::{BlockBody, Header};
@@ -15,19 +17,19 @@ use tracing::*;
 /// Ress peer request.
 #[derive(Debug)]
 pub enum RessPeerRequest {
-    /// Get header for specific block hash.
-    GetHeader {
-        /// Target block hash that we want to get header for.
-        block_hash: BlockHash,
+    /// Get block headers.
+    GetHeaders {
+        /// The request for block headers.
+        request: GetHeaders,
         /// The sender for the response.
-        tx: oneshot::Sender<Header>,
+        tx: oneshot::Sender<Vec<Header>>,
     },
-    /// Get block body for specific block hash.
-    GetBlockBody {
-        /// Target block hash that we want to get block body for
-        block_hash: BlockHash,
+    /// Get block bodies.
+    GetBlockBodies {
+        /// The request for block bodies.
+        request: Vec<BlockHash>,
         /// The sender for the response.
-        tx: oneshot::Sender<BlockBody>,
+        tx: oneshot::Sender<Vec<BlockBody>>,
     },
     /// Get bytecode for specific code hash
     GetBytecode {
@@ -90,11 +92,11 @@ impl<P> RessProtocolConnection<P> {
     fn on_command(&mut self, command: RessPeerRequest) -> RessProtocolMessage {
         let next_id = self.next_id();
         let message = match &command {
-            RessPeerRequest::GetHeader { block_hash, .. } => {
-                RessProtocolMessage::get_header(next_id, *block_hash)
+            RessPeerRequest::GetHeaders { request, .. } => {
+                RessProtocolMessage::get_headers(next_id, *request)
             }
-            RessPeerRequest::GetBlockBody { block_hash, .. } => {
-                RessProtocolMessage::get_block_body(next_id, *block_hash)
+            RessPeerRequest::GetBlockBodies { request, .. } => {
+                RessProtocolMessage::get_block_bodies(next_id, request.clone())
             }
             RessPeerRequest::GetWitness { block_hash, .. } => {
                 RessProtocolMessage::get_witness(next_id, *block_hash)
@@ -109,29 +111,21 @@ impl<P> RessProtocolConnection<P> {
 }
 
 impl<P: RessProtocolProvider> RessProtocolConnection<P> {
-    fn on_header_request(&self, block_hash: B256) -> Header {
-        match self.provider.header(block_hash) {
-            Ok(Some(header)) => header,
-            Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "header not found");
-                Default::default()
-            }
+    fn on_headers_request(&self, request: GetHeaders) -> Vec<Header> {
+        match self.provider.headers(request) {
+            Ok(headers) => headers,
             Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving header");
+                trace!(target: "ress::net::connection", ?request, %error, "error retrieving headers");
                 Default::default()
             }
         }
     }
 
-    fn on_block_body_request(&self, block_hash: B256) -> BlockBody {
-        match self.provider.block_body(block_hash) {
-            Ok(Some(body)) => body,
-            Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "block body not found");
-                Default::default()
-            }
+    fn on_block_bodies_request(&self, request: Vec<B256>) -> Vec<BlockBody> {
+        match self.provider.block_bodies(request.clone()) {
+            Ok(bodies) => bodies,
             Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving block body");
+                trace!(target: "ress::net::connection", ?request, %error, "error retrieving block bodies");
                 Default::default()
             }
         }
@@ -206,18 +200,18 @@ where
                             return Poll::Ready(None);
                         }
                     }
-                    RessMessage::GetHeader(req) => {
-                        let block_hash = req.message;
-                        trace!(target: "ress::net::connection", %block_hash, "serving header");
-                        let header = this.on_header_request(block_hash);
-                        let response = RessProtocolMessage::header(req.request_id, header);
+                    RessMessage::GetHeaders(req) => {
+                        let request = req.message;
+                        trace!(target: "ress::net::connection", ?request, "serving headers");
+                        let header = this.on_headers_request(request);
+                        let response = RessProtocolMessage::headers(req.request_id, header);
                         return Poll::Ready(Some(response.encoded()));
                     }
-                    RessMessage::GetBlockBody(req) => {
-                        let block_hash = req.message;
-                        trace!(target: "ress::net::connection", %block_hash, "serving block body");
-                        let block_body = this.on_block_body_request(block_hash);
-                        let response = RessProtocolMessage::block_body(req.request_id, block_body);
+                    RessMessage::GetBlockBodies(req) => {
+                        let request = req.message;
+                        trace!(target: "ress::net::connection", ?request, "serving block bodies");
+                        let bodies = this.on_block_bodies_request(request);
+                        let response = RessProtocolMessage::block_bodies(req.request_id, bodies);
                         return Poll::Ready(Some(response.encoded()));
                     }
                     RessMessage::GetBytecode(req) => {
@@ -234,21 +228,17 @@ where
                         let response = RessProtocolMessage::witness(req.request_id, witness);
                         return Poll::Ready(Some(response.encoded()));
                     }
-                    RessMessage::Header(res) => {
-                        if let Some(RessPeerRequest::GetHeader { tx, .. }) =
+                    RessMessage::Headers(res) => {
+                        if let Some(RessPeerRequest::GetHeaders { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
-                            if res.message == Header::default() {
-                                warn!(target: "ress::net::connection", "header is default");
-                            }
-                            // TODO: validate the header.
                             let _ = tx.send(res.message);
                         } else {
                             // TODO: report bad message
                         }
                     }
-                    RessMessage::BlockBody(res) => {
-                        if let Some(RessPeerRequest::GetBlockBody { tx, .. }) =
+                    RessMessage::BlockBodies(res) => {
+                        if let Some(RessPeerRequest::GetBlockBodies { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             let _ = tx.send(res.message);
@@ -257,15 +247,9 @@ where
                         }
                     }
                     RessMessage::Bytecode(res) => {
-                        if let Some(RessPeerRequest::GetBytecode { tx, code_hash }) =
+                        if let Some(RessPeerRequest::GetBytecode { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
-                            if res.message == Bytes::default() {
-                                warn!(target: "ress::net::connection", "bytes is default");
-                            } else if keccak256(res.message.clone()) != code_hash {
-                                error!(target: "ress::net::connection", "invalid bytes");
-                            }
-                            // TODO: validate the bytecode.
                             let _ = tx.send(res.message);
                         } else {
                             // TODO: report bad message

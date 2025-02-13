@@ -19,6 +19,7 @@ reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
+alloy-rlp.workspace = true
 alloy-provider.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-debug.workspace = true

@@ -1,11 +1,15 @@
 use alloy_primitives::{Bytes, B256};
 use alloy_provider::{Provider, RootProvider};
+use alloy_rlp::Encodable;
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{Block, BlockNumberOrTag, BlockTransactionsKind};
 use futures::StreamExt;
-use ress_protocol::{RessPeerRequest, StateWitnessNet};
-use reth_primitives::{BlockBody, TransactionSigned};
+use ress_protocol::{
+    GetHeaders, RessPeerRequest, StateWitnessNet, MAX_BODIES_SERVE, MAX_HEADERS_SERVE,
+    SOFT_RESPONSE_LIMIT,
+};
+use reth_primitives::{BlockBody, Header, TransactionSigned};
 use std::collections::{hash_map, HashMap};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
@@ -23,9 +27,7 @@ impl RpcNetworkAdapter {
         let client = ClientBuilder::default().http(url.parse()?);
         Ok(Self { provider: RootProvider::new(client), bytecodes: Default::default() })
     }
-}
 
-impl RpcNetworkAdapter {
     async fn block(
         &self,
         block_hash: B256,
@@ -40,29 +42,58 @@ impl RpcNetworkAdapter {
         result.ok().flatten()
     }
 
+    async fn on_headers_request(&self, request: GetHeaders) -> Vec<Header> {
+        let mut total_bytes = 0;
+        let mut block_hash = request.start_hash;
+        let mut headers = Vec::new();
+        while let Some(block) = self.block(block_hash, BlockTransactionsKind::Hashes).await {
+            let header = block.header.into_consensus();
+            block_hash = header.parent_hash;
+            total_bytes += header.length();
+            headers.push(header);
+            if headers.len() >= MAX_HEADERS_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
+                break
+            }
+        }
+        headers
+    }
+
+    async fn on_block_bodies_request(&self, request: Vec<B256>) -> Vec<BlockBody> {
+        let mut total_bytes = 0;
+        let mut bodies = Vec::new();
+        for block_hash in request {
+            let Some(block) = self.block(block_hash, BlockTransactionsKind::Full).await else {
+                break;
+            };
+            let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
+            let body = BlockBody {
+                transactions: block.transactions.into_transactions().collect(),
+                withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
+                ommers: Default::default(),
+            };
+            total_bytes += body.length();
+            bodies.push(body);
+            if bodies.len() >= MAX_BODIES_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
+                break
+            }
+        }
+        bodies
+    }
+
     /// Run RPC network adapter to respond to peer requests.
     pub async fn run(mut self, mut request_stream: UnboundedReceiverStream<RessPeerRequest>) {
         while let Some(request) = request_stream.next().await {
             match request {
-                RessPeerRequest::GetHeader { block_hash, tx } => {
-                    let maybe_block = self.block(block_hash, BlockTransactionsKind::Hashes).await;
-                    let maybe_header = maybe_block.map(|block| block.header.into_consensus());
-                    if tx.send(maybe_header.unwrap_or_default()).is_err() {
-                        debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send header");
+                RessPeerRequest::GetHeaders { request, tx } => {
+                    let headers = self.on_headers_request(request).await;
+                    if tx.send(headers).is_err() {
+                        debug!(target: "ress::rpc_adapter", ?request, "Failed to send header");
                     }
                 }
-                RessPeerRequest::GetBlockBody { block_hash, tx } => {
-                    let maybe_block = self.block(block_hash, BlockTransactionsKind::Full).await;
-                    let maybe_body = maybe_block.map(|block| {
-                        let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
-                        BlockBody {
-                            transactions: block.transactions.into_transactions().collect(),
-                            withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
-                            ommers: Default::default(),
-                        }
-                    });
-                    if tx.send(maybe_body.unwrap_or_default()).is_err() {
-                        debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send block body");
+                RessPeerRequest::GetBlockBodies { request, tx } => {
+                    let bodies = self.on_block_bodies_request(request.clone()).await;
+                    if tx.send(bodies).is_err() {
+                        debug!(target: "ress::rpc_adapter", ?request, "Failed to send block body");
                     }
                 }
                 RessPeerRequest::GetBytecode { code_hash, tx } => {

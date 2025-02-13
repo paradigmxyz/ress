@@ -6,7 +6,7 @@ use alloy_primitives::{
 use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
-use reth_primitives::{Block, Bytecode, Header, RecoveredBlock, SealedHeader};
+use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
 use std::sync::Arc;
 
@@ -106,7 +106,7 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.chain_state.header(&block_hash))
     }
 
-    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<reth_primitives::BlockBody>> {
+    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
         Ok(self.chain_state.block_body(&block_hash))
     }
 

@@ -5626,6 +5626,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rlp",
  "alloy-rpc-client",
  "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",

@@ -1,5 +1,5 @@
 use alloy_primitives::{Bytes, B256};
-use ress_protocol::{RessPeerRequest, StateWitnessNet};
+use ress_protocol::{GetHeaders, RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
 use thiserror::Error;
@@ -35,23 +35,29 @@ impl RessNetworkHandle {
 }
 
 impl RessNetworkHandle {
-    /// Get header by block hash.
-    pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, PeerRequestError> {
-        trace!(target: "ress::net", %block_hash, "requesting header");
+    /// Get block headers.
+    pub async fn fetch_headers(
+        &self,
+        request: GetHeaders,
+    ) -> Result<Vec<Header>, PeerRequestError> {
+        trace!(target: "ress::net", ?request, "requesting header");
         let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetHeader { block_hash, tx })?;
+        self.send_request(RessPeerRequest::GetHeaders { request, tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
-        trace!(target: "ress::net", %block_hash, "header received");
+        trace!(target: "ress::net", ?request, "headers received");
         Ok(response)
     }
 
-    /// Get block body by block hash.
-    pub async fn fetch_block_body(&self, block_hash: B256) -> Result<BlockBody, PeerRequestError> {
-        trace!(target: "ress::net", %block_hash, "requesting block body");
+    /// Get block bodies.
+    pub async fn fetch_block_bodies(
+        &self,
+        request: Vec<B256>,
+    ) -> Result<Vec<BlockBody>, PeerRequestError> {
+        trace!(target: "ress::net", ?request, "requesting block bodies");
         let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetBlockBody { block_hash, tx })?;
+        self.send_request(RessPeerRequest::GetBlockBodies { request: request.clone(), tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
-        trace!(target: "ress::net", %block_hash, "block body received");
+        trace!(target: "ress::net", ?request, "block bodies received");
         Ok(response)
     }
 

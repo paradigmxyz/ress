@@ -63,7 +63,7 @@ impl ConsensusEngine {
     fn on_tree_event(&mut self, event: TreeEvent) {
         match event {
             TreeEvent::Download(DownloadRequest::Block { block_hash }) => {
-                self.downloader.download_block(block_hash);
+                self.downloader.download_full_block(block_hash);
                 if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
                     self.downloader.download_witness(block_hash);
                 }

@@ -10,7 +10,7 @@ mod message;
 pub use message::*;
 
 mod provider;
-pub use provider::RessProtocolProvider;
+pub use provider::*;
 
 mod handlers;
 pub use handlers::*;
