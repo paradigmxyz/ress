@@ -234,6 +234,7 @@ impl EngineTree {
             ))));
         }
 
+        // TODO: remove safe block hash logic
         // 4. we don't have the block to perform the update
         // we assume the FCU is valid and at least the head is missing,
         // so we need to start syncing to it
@@ -650,6 +651,46 @@ impl EngineTree {
         };
         Ok(outcome)
     }
+
+    // TODO:
+    //  /// Attempts to connect any buffered blocks that are connected to the given parent hash.
+    //  pub fn try_connect_buffered_blocks(
+    //      &mut self,
+    //      parent: BlockNumHash,
+    //  ) -> Result<(), InsertBlockFatalError> {
+    //      let blocks = self.block_buffer.remove_block_with_children(&parent.hash);
+
+    //      if blocks.is_empty() {
+    //          // nothing to append
+    //          return Ok(())
+    //      }
+
+    //      let now = Instant::now();
+    //      let block_count = blocks.len();
+    //      for child in blocks {
+    //          let child_num_hash = child.num_hash();
+    //          match self.insert_block(child) {
+    //              Ok(res) => {
+    //                  debug!(target: "engine::tree", child =?child_num_hash, ?res, "Connected
+    // buffered block");                  if self.is_sync_target_head(child_num_hash.hash) &&
+    //                      matches!(res, InsertPayloadOk::Inserted(BlockStatus::Valid))
+    //                  {
+    //                      self.make_canonical(child_num_hash.hash)?;
+    //                  }
+    //              }
+    //              Err(kind) => {
+    //                  debug!(target: "engine::tree", error = ?kind, "Failed to connect buffered
+    // block to tree");                  if let Err(fatal) = self.on_insert_block_error(err) {
+    //                      warn!(target: "engine::tree", %fatal, "Fatal error occurred while
+    // connecting buffered blocks");                      return Err(fatal)
+    //                  }
+    //              }
+    //          }
+    //      }
+
+    //      debug!(target: "engine::tree", elapsed = ?now.elapsed(), %block_count, "Connected
+    // buffered blocks");      Ok(())
+    //  }
 
     /// Insert block into the tree.
     pub fn insert_block(

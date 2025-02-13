@@ -1,10 +1,11 @@
 use crate::{
     downloader::{DownloadData, DownloadOutcome, EngineDownloader},
-    tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
+    tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent, TreeOutcome},
 };
 use alloy_primitives::B256;
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
+use itertools::Itertools;
 use ress_network::RessNetworkHandle;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
@@ -13,6 +14,7 @@ use reth_errors::ProviderError;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
 use reth_node_api::{
     BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload,
+    OnForkChoiceUpdated,
 };
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
 use std::{
@@ -28,12 +30,26 @@ use tokio::{
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 
+#[derive(Default, Debug)]
+struct SyncState {
+    finalized_target: Option<B256>,
+    finalized_downloaded: bool,
+    canonical_block_hashes_downloaded: bool,
+}
+
+impl SyncState {
+    fn is_synced(&self) -> bool {
+        self.finalized_downloaded && self.canonical_block_hashes_downloaded
+    }
+}
+
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
 pub struct ConsensusEngine {
     tree: EngineTree,
     downloader: EngineDownloader,
     from_beacon_engine: UnboundedReceiverStream<BeaconEngineMessage<EthEngineTypes>>,
+    sync_state: SyncState,
     parked_payload_timeout: Duration,
     parked_payload: Option<ParkedPayload>,
 }
@@ -57,6 +73,7 @@ impl ConsensusEngine {
             ),
             downloader: EngineDownloader::new(network, consensus),
             from_beacon_engine: UnboundedReceiverStream::from(from_beacon_engine),
+            sync_state: SyncState::default(),
             parked_payload_timeout: Duration::from_secs(3),
             parked_payload: None,
         }
@@ -77,7 +94,9 @@ impl ConsensusEngine {
                 }
             }
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
-                self.downloader.download_witness(block_hash);
+                if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
+                    self.downloader.download_witness(block_hash);
+                }
             }
             TreeEvent::TreeAction(TreeAction::MakeCanonical { sync_target_head }) => {
                 self.tree.make_canonical(sync_target_head);
@@ -92,12 +111,21 @@ impl ConsensusEngine {
         let elapsed = outcome.elapsed;
         let mut blocks = Vec::new();
         match outcome.data {
+            DownloadData::HeadersRange(headers) => {
+                // We only request headers for canonical blocks before finalized.
+                info!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), ?elapsed, "Downloaded canonical headers");
+                for header in headers {
+                    self.tree.provider.insert_canonical_hash(header.number, header.hash());
+                }
+                self.sync_state.canonical_block_hashes_downloaded = true;
+                if self.sync_state.is_synced() {
+                    blocks = self.tree.block_buffer.remove_block_with_children(
+                        self.sync_state.finalized_target.unwrap_or_default(),
+                    );
+                }
+            }
             DownloadData::FullBlocksRange(blocks) => {
                 trace!(target: "ress::engine", first = ?blocks.last().map(|b| b.num_hash()), last = ?blocks.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
-                // TODO:
-            }
-            DownloadData::HeadersRange(headers) => {
-                trace!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
                 // TODO:
             }
             DownloadData::FullBlock(block) => {
@@ -110,8 +138,39 @@ impl ConsensusEngine {
                         return Ok(())
                     }
                 };
-                self.tree.block_buffer.insert_block(recovered);
-                blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+
+                if Some(block_num_hash.hash) == self.sync_state.finalized_target {
+                    info!(target: "ress::engine", ?block_num_hash, "Downloaded finalized block");
+                    self.sync_state.finalized_downloaded = true;
+                    self.tree.provider.insert_canonical_hash(recovered.number, recovered.hash());
+                    self.tree.provider.insert_block(recovered);
+                } else {
+                    self.tree.block_buffer.insert_block(recovered);
+                }
+
+                if self.sync_state.is_synced() {
+                    blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+                }
+
+                // TODO: remove
+                info!(
+                    target: "ress::engine",
+                    sync_state = ?self.sync_state,
+                    buffered_blocks = ?self.tree.block_buffer.earliest_blocks.iter().map(
+                        |(block_number, block_hashes)|
+                            format!(
+                                "{block_number}: [{}]",
+                                block_hashes.iter().map(|block_hash|
+                                    format!(
+                                        "({block_hash}: w {} mb {})",
+                                        self.tree.block_buffer.witness(block_hash).is_some(),
+                                        self.tree.block_buffer.missing_bytecodes.get(block_hash).map_or(0, |b| b.len())
+                                    )
+                                ).join(", ")
+                            )
+                    ).collect::<Vec<_>>(),
+                    "Buffered blocks after download"
+                );
             }
             DownloadData::Witness(block_hash, witness) => {
                 let code_hashes = witness.bytecode_hashes().clone();
@@ -134,7 +193,9 @@ impl ConsensusEngine {
                     trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness");
                 }
                 if missing_code_hashes.is_empty() {
-                    blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
+                    if self.sync_state.is_synced() {
+                        blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
+                    }
                 } else {
                     for code_hash in missing_code_hashes {
                         self.downloader.download_bytecode(code_hash);
@@ -145,8 +206,12 @@ impl ConsensusEngine {
                 trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
                 match self.tree.provider.insert_bytecode(code_hash, bytecode) {
                     Ok(()) => {
-                        blocks =
-                            self.tree.block_buffer.remove_blocks_with_received_bytecode(code_hash);
+                        if self.sync_state.is_synced() {
+                            blocks = self
+                                .tree
+                                .block_buffer
+                                .remove_blocks_with_received_bytecode(code_hash);
+                        }
                     }
                     Err(error) => {
                         error!(target: "ress::engine", %error, "Failed to insert the bytecode");
@@ -221,9 +286,22 @@ impl ConsensusEngine {
                     head = %state.head_block_hash,
                     safe = %state.safe_block_hash,
                     finalized = %state.finalized_block_hash,
-                    "Updating forkchoice state"
+                    "Received forkchoice state"
                 );
-                let mut result = self.tree.on_forkchoice_updated(state, payload_attrs, version);
+
+                let mut result = if self.tree.forkchoice_state_tracker.is_empty() {
+                    // Download canonical headers from finalized block.
+                    // TODO: if not zero
+                    info!(target: "ress::engine", finalized = %state.finalized_block_hash, "Initial FCU, downloading finalized block");
+                    self.sync_state.finalized_target = Some(state.finalized_block_hash);
+                    self.downloader.download_full_block(state.finalized_block_hash);
+                    self.downloader.download_full_block(state.safe_block_hash);
+                    self.downloader.download_headers_range(state.finalized_block_hash, 256);
+                    Ok(TreeOutcome::new(OnForkChoiceUpdated::syncing()))
+                } else {
+                    self.tree.on_forkchoice_updated(state, payload_attrs, version)
+                };
+
                 if let Ok(outcome) = &mut result {
                     // track last received forkchoice state
                     let status = outcome.outcome.forkchoice_status();
@@ -232,6 +310,7 @@ impl ConsensusEngine {
                         .emit_event(BeaconConsensusEngineEvent::ForkchoiceUpdated(state, status));
                     self.on_maybe_tree_event(outcome.event.take());
                 }
+
                 let outcome_result = result.map(|o| o.outcome);
                 debug!(target: "ress::engine", ?state, result = ?outcome_result, "Returning forkchoice update result");
                 if let Err(error) = tx.send(outcome_result) {
