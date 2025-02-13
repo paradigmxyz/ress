@@ -5660,6 +5660,7 @@ dependencies = [
  "reth-node-builder",
  "reth-node-ethereum",
  "reth-primitives",
+ "reth-tasks",
  "reth-tokio-util",
  "reth-trie",
  "tokio",

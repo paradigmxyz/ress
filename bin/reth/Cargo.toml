@@ -26,6 +26,7 @@ reth-node-builder.workspace = true
 reth-node-ethereum.workspace = true
 reth-trie.workspace = true
 reth-tokio-util.workspace = true
+reth-tasks.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

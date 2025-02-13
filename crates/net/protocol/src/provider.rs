@@ -3,6 +3,7 @@ use alloy_primitives::{map::B256HashMap, Bytes, B256};
 use alloy_rlp::Encodable;
 use reth_primitives::{BlockBody, Header};
 use reth_storage_errors::provider::ProviderResult;
+use std::future::Future;
 
 /// Maximum number of block headers to serve.
 ///
@@ -66,5 +67,8 @@ pub trait RessProtocolProvider: Send + Sync {
     fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>>;
 
     /// Return witness by block hash.
-    fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>>;
+    fn witness(
+        &self,
+        block_hash: B256,
+    ) -> impl Future<Output = ProviderResult<Option<B256HashMap<Bytes>>>> + Send;
 }

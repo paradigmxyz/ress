@@ -115,7 +115,7 @@ impl RessProtocolProvider for RessProvider {
     }
 
     // TODO: implement
-    fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+    async fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         Ok(None)
     }
 }

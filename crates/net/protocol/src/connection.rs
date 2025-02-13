@@ -2,11 +2,12 @@ use crate::{
     GetHeaders, NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, StateWitnessNet,
 };
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
-use futures::{Stream, StreamExt};
-use reth_eth_wire::multiplex::ProtocolConnection;
+use futures::{stream::FuturesUnordered, Stream, StreamExt};
+use reth_eth_wire::{message::RequestPair, multiplex::ProtocolConnection};
 use reth_primitives::{BlockBody, Header};
 use std::{
     collections::HashMap,
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -47,6 +48,13 @@ pub enum RessPeerRequest {
     },
 }
 
+type WitnessFut = Pin<
+    Box<
+        dyn Future<Output = Result<(RequestPair<B256>, StateWitnessNet), oneshot::error::RecvError>>
+            + Send,
+    >,
+>;
+
 /// The connection handler for the custom RLPx protocol.
 #[derive(Debug)]
 pub struct RessProtocolConnection<P> {
@@ -62,6 +70,8 @@ pub struct RessProtocolConnection<P> {
     next_id: u64,
     /// Collection of inflight requests.
     inflight_requests: HashMap<u64, RessPeerRequest>,
+    /// Pending witness responses.
+    pending_witnesses: FuturesUnordered<WitnessFut>,
 }
 
 impl<P> RessProtocolConnection<P> {
@@ -79,6 +89,7 @@ impl<P> RessProtocolConnection<P> {
             node_type,
             next_id: 0,
             inflight_requests: HashMap::default(),
+            pending_witnesses: FuturesUnordered::new(),
         }
     }
 
@@ -110,7 +121,10 @@ impl<P> RessProtocolConnection<P> {
     }
 }
 
-impl<P: RessProtocolProvider> RessProtocolConnection<P> {
+impl<P> RessProtocolConnection<P>
+where
+    P: RessProtocolProvider + Clone + 'static,
+{
     fn on_headers_request(&self, request: GetHeaders) -> Vec<Header> {
         match self.provider.headers(request) {
             Ok(headers) => headers,
@@ -145,27 +159,34 @@ impl<P: RessProtocolProvider> RessProtocolConnection<P> {
         }
     }
 
-    fn on_witness_request(&self, block_hash: B256) -> StateWitnessNet {
-        match self.provider.witness(block_hash) {
-            Ok(Some(witness)) => {
-                trace!(target: "ress::net::connection", %block_hash, "witness found");
-                StateWitnessNet::from_iter(witness)
-            }
-            Ok(None) => {
-                trace!(target: "ress::net::connection", %block_hash, "witness not found");
-                Default::default()
-            }
-            Err(error) => {
-                trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
-                Default::default()
-            }
-        }
+    fn on_witness_request(&self, request: RequestPair<B256>) {
+        let provider = self.provider.clone();
+        let (tx, rx) = oneshot::channel();
+        tokio::spawn(async move {
+            let block_hash = request.message;
+            let witness = match provider.witness(block_hash).await {
+                Ok(Some(witness)) => {
+                    trace!(target: "ress::net::connection", %block_hash, "witness found");
+                    StateWitnessNet::from_iter(witness)
+                }
+                Ok(None) => {
+                    trace!(target: "ress::net::connection", %block_hash, "witness not found");
+                    Default::default()
+                }
+                Err(error) => {
+                    trace!(target: "ress::net::connection", %block_hash, %error, "error retrieving witness");
+                    Default::default()
+                }
+            };
+            let _ = tx.send((request, witness));
+        });
+        self.pending_witnesses.push(Box::pin(rx));
     }
 }
 
 impl<P> Stream for RessProtocolConnection<P>
 where
-    P: RessProtocolProvider + Unpin,
+    P: RessProtocolProvider + Clone + Unpin + 'static,
 {
     type Item = BytesMut;
 
@@ -178,6 +199,13 @@ where
                 let encoded = message.encoded();
                 trace!(target: "ress::net::connection", ?message, encoded = alloy_primitives::hex::encode(&encoded), "Sending peer command");
                 return Poll::Ready(Some(encoded));
+            }
+
+            if let Poll::Ready(Some(Ok((request, witness)))) =
+                this.pending_witnesses.poll_next_unpin(cx)
+            {
+                let response = RessProtocolMessage::witness(request.request_id, witness);
+                return Poll::Ready(Some(response.encoded()));
             }
 
             if let Poll::Ready(Some(next)) = this.conn.poll_next_unpin(cx) {
@@ -222,11 +250,8 @@ where
                         return Poll::Ready(Some(response.encoded()));
                     }
                     RessMessage::GetWitness(req) => {
-                        let block_hash = req.message;
-                        trace!(target: "ress::net::connection", %block_hash, "serving witness");
-                        let witness = this.on_witness_request(block_hash);
-                        let response = RessProtocolMessage::witness(req.request_id, witness);
-                        return Poll::Ready(Some(response.encoded()));
+                        trace!(target: "ress::net::connection", block_hash = %req.message, "serving witness");
+                        this.on_witness_request(req);
                     }
                     RessMessage::Headers(res) => {
                         if let Some(RessPeerRequest::GetHeaders { tx, .. }) =
