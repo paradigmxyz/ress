@@ -89,6 +89,12 @@ impl EngineTree {
         false
     }
 
+    /// Returns true if the block is either persisted or buffered.
+    fn is_block_persisted_or_buffered(&self, block_hash: &B256) -> bool {
+        self.provider.sealed_header(block_hash).is_some() ||
+            self.block_buffer.blocks.contains_key(block_hash)
+    }
+
     /// Handle forkchoice update.
     pub fn on_forkchoice_updated(
         &mut self,
@@ -218,13 +224,18 @@ impl EngineTree {
             state.head_block_hash
         };
 
-        let target = self.lowest_buffered_ancestor_or(target);
-        trace!(target: "ress::engine", %target, "downloading missing block");
-
-        Ok(TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+        let mut outcome = TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
             PayloadStatusEnum::Syncing,
-        )))
-        .with_event(TreeEvent::Download(DownloadRequest::Block { block_hash: target })))
+        )));
+
+        let target = self.lowest_buffered_ancestor_or(target);
+        if !self.is_block_persisted_or_buffered(&target) {
+            trace!(target: "ress::engine", %target, "downloading missing block");
+            outcome = outcome
+                .with_event(TreeEvent::Download(DownloadRequest::Block { block_hash: target }));
+        }
+
+        Ok(outcome)
     }
 
     /// Pre-validate forkchoice update and check whether it can be processed.
@@ -512,14 +523,18 @@ impl EngineTree {
                 sync_target_head: block_hash,
             }));
         } else if let Some(missing_ancestor) = missing_ancestor_hash {
-            let request = if missing_ancestor == block_hash {
+            let maybe_request = if missing_ancestor == block_hash {
                 // TODO: fix this
                 // we use `missing_ancestor == block_hash` for witness download
-                DownloadRequest::Witness { block_hash: missing_ancestor }
+                Some(DownloadRequest::Witness { block_hash: missing_ancestor })
+            } else if !self.is_block_persisted_or_buffered(&block_hash) {
+                Some(DownloadRequest::Block { block_hash: missing_ancestor })
             } else {
-                DownloadRequest::Block { block_hash: missing_ancestor }
+                None
             };
-            outcome = outcome.with_event(TreeEvent::Download(request));
+            if let Some(request) = maybe_request {
+                outcome = outcome.with_event(TreeEvent::Download(request));
+            }
         }
 
         Ok(outcome)
@@ -569,15 +584,22 @@ impl EngineTree {
             })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
+                let mut outcome =
+                    TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None));
+
                 // TODO: fix this
                 // we use `missing_ancestor == block_hash` for witness download
-                let request = if missing_ancestor.hash == block_hash {
-                    DownloadRequest::Witness { block_hash }
+                let maybe_request = if missing_ancestor.hash == block_hash {
+                    Some(DownloadRequest::Witness { block_hash })
+                } else if !self.is_block_persisted_or_buffered(&block_hash) {
+                    Some(DownloadRequest::Block { block_hash: missing_ancestor.hash })
                 } else {
-                    DownloadRequest::Block { block_hash: missing_ancestor.hash }
+                    None
                 };
-                TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
-                    .with_event(TreeEvent::Download(request))
+                if let Some(request) = maybe_request {
+                    outcome = outcome.with_event(TreeEvent::Download(request));
+                }
+                outcome
             }
             Ok(InsertPayloadOk::AlreadySeen(block_status)) => {
                 trace!(target: "ress::engine", "downloaded block already executed");
