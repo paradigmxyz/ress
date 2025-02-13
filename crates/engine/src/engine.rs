@@ -293,6 +293,8 @@ impl ConsensusEngine {
                     // Download canonical headers from finalized block.
                     // TODO: if not zero
                     if state.finalized_block_hash.is_zero() {
+                        self.sync_state.finalized_downloaded = true;
+                        self.sync_state.canonical_block_hashes_downloaded = true;
                     } else {
                         info!(target: "ress::engine", finalized = %state.finalized_block_hash, "Initial FCU, downloading finalized block");
                         self.sync_state.finalized_target = Some(state.finalized_block_hash);
