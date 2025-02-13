@@ -24,6 +24,7 @@ pub struct RessNetworkManager {
     protocol_events: UnboundedReceiverStream<ProtocolEvent>,
     peer_requests: UnboundedReceiverStream<RessPeerRequest>,
     connections: VecDeque<ConnectionHandle>,
+    pending_requests: VecDeque<RessPeerRequest>,
 }
 
 impl RessNetworkManager {
@@ -32,7 +33,12 @@ impl RessNetworkManager {
         protocol_events: UnboundedReceiverStream<ProtocolEvent>,
         peer_requests: UnboundedReceiverStream<RessPeerRequest>,
     ) -> Self {
-        Self { protocol_events, peer_requests, connections: VecDeque::new() }
+        Self {
+            protocol_events,
+            peer_requests,
+            connections: VecDeque::new(),
+            pending_requests: VecDeque::new(),
+        }
     }
 
     fn on_peer_request(&mut self, mut request: RessPeerRequest) {
@@ -50,8 +56,8 @@ impl RessNetworkManager {
                 }
             }
         }
-        // TODO: consider parking the requests
         trace!(target: "ress::net", ?request, "No connections are available");
+        self.pending_requests.push_back(request);
     }
 }
 
@@ -61,6 +67,12 @@ impl Future for RessNetworkManager {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
         loop {
+            if !this.connections.is_empty() && !this.pending_requests.is_empty() {
+                let request = this.pending_requests.pop_front().unwrap();
+                this.on_peer_request(request);
+                continue
+            }
+
             if let Poll::Ready(Some(event)) = this.protocol_events.poll_next_unpin(cx) {
                 let ProtocolEvent::Established { direction, peer_id, to_connection } = event;
                 debug!(target: "ress::net", %peer_id, %direction, "Peer connection established");
