@@ -15,20 +15,16 @@ use tracing::trace;
 /// EVM database implementation that uses a [`SparseStateTrie`] for account and storage data
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
 #[derive(Debug)]
-pub(crate) struct WitnessDatabase<'a> {
+pub struct WitnessDatabase<'a> {
     provider: RessProvider,
+    parent_hash: B256,
     trie: &'a SparseStateTrie,
-    current_block_hash: B256,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub(crate) fn new(
-        provider: RessProvider,
-        trie: &'a SparseStateTrie,
-        current_block_hash: B256,
-    ) -> Self {
-        Self { trie, provider, current_block_hash }
+    pub fn new(provider: RessProvider, parent_hash: B256, trie: &'a SparseStateTrie) -> Self {
+        Self { provider, parent_hash, trie }
     }
 }
 
@@ -80,9 +76,9 @@ impl Database for WitnessDatabase<'_> {
 
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
-        trace!(target: "ress::evm", block_number, "retrieving block hash");
+        trace!(target: "ress::evm", block_number, parent_hash = %self.parent_hash, "retrieving block hash");
         self.provider
-            .block_hash(&block_number, self.current_block_hash)
+            .block_hash(self.parent_hash, &block_number)
             .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

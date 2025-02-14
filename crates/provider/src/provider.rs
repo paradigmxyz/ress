@@ -38,8 +38,8 @@ impl RessProvider {
 
     /// Finds block hash in memory for the target block number.
     /// Includes both canonical and pending blocks.
-    pub fn block_hash(&self, number: &BlockNumber, current_block_hash: B256) -> Option<BlockHash> {
-        self.chain_state.block_hash(number, current_block_hash)
+    pub fn block_hash(&self, parent_hash: B256, number: &BlockNumber) -> Option<BlockHash> {
+        self.chain_state.block_hash(parent_hash, number)
     }
 
     /// Return sealed block header by hash.

@@ -34,22 +34,19 @@ impl ChainState {
     /// Returns block hash for a given block number.
     /// If no canonical hash is found, traverses parent hashes from the given block hash
     /// to find an ancestor at the specified block number.
-    pub fn block_hash(&self, number: &BlockNumber, current_block_hash: B256) -> Option<BlockHash> {
+    pub fn block_hash(&self, parent_hash: B256, number: &BlockNumber) -> Option<BlockHash> {
         let inner = self.0.read();
         // First check if current block hash is canonical
-        if self.is_hash_canonical(&current_block_hash) {
+        if self.is_hash_canonical(&parent_hash) {
             inner.canonical_hashes_by_number.get(number).cloned()
         } else {
-            // If it's not canonical, traverse parent hashes to find ancestor at given number
-            let mut current_hash = current_block_hash;
-            while let Some(block) = inner.blocks_by_hash.get(&current_hash) {
-                if &block.number == number {
-                    return Some(block.hash());
+            // If it's not canonical, traverse parent hashes to find ancestor at given number.
+            let mut ancestor_hash = parent_hash;
+            while let Some(block) = inner.blocks_by_hash.get(&ancestor_hash) {
+                if &block.number <= number {
+                    return Some(block.hash()).filter(|_| &block.number == number);
                 }
-                if &block.number < number {
-                    return None;
-                }
-                current_hash = block.parent_hash;
+                ancestor_hash = block.parent_hash;
             }
             None
         }
