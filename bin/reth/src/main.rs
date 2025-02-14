@@ -19,6 +19,7 @@ use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_node_builder::{BeaconConsensusEngineEvent, Block as _, NodeHandle, NodeTypesWithDB};
 use reth_node_ethereum::EthereumNode;
 use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, RecoveredBlock};
+use reth_tasks::pool::BlockingTaskPool;
 use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
 use std::{collections::HashMap, sync::Arc};
@@ -44,6 +45,9 @@ fn main() -> eyre::Result<()> {
             provider: node.provider,
             block_executor: node.block_executor,
             pending_state,
+            witness_task_pool: BlockingTaskPool::new(
+                BlockingTaskPool::builder().num_threads(5).build()?,
+            ),
         };
         let protocol_handler = RessProtocolHandler {
             provider,
@@ -57,17 +61,28 @@ fn main() -> eyre::Result<()> {
 }
 
 /// Reth provider implementing [`RessProtocolProvider`].
-#[derive(Clone)]
 struct RethBlockchainProvider<N: NodeTypesWithDB, E> {
     provider: BlockchainProvider<N>,
     block_executor: E,
     pending_state: PendingState,
+    witness_task_pool: BlockingTaskPool,
+}
+
+impl<N: NodeTypesWithDB, E: Clone> Clone for RethBlockchainProvider<N, E> {
+    fn clone(&self) -> Self {
+        Self {
+            provider: self.provider.clone(),
+            block_executor: self.block_executor.clone(),
+            pending_state: self.pending_state.clone(),
+            witness_task_pool: self.witness_task_pool.clone(),
+        }
+    }
 }
 
 impl<N, E> RethBlockchainProvider<N, E>
 where
     N: ProviderNodeTypes<Primitives = EthPrimitives>,
-    E: BlockExecutorProvider<Primitives = N::Primitives>,
+    E: BlockExecutorProvider<Primitives = N::Primitives> + Clone,
 {
     fn block_by_hash(
         &self,
@@ -88,38 +103,8 @@ where
         };
         Ok(maybe_block)
     }
-}
 
-impl<N, E> RessProtocolProvider for RethBlockchainProvider<N, E>
-where
-    N: ProviderNodeTypes<Primitives = EthPrimitives>,
-    E: BlockExecutorProvider<Primitives = N::Primitives>,
-{
-    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
-        trace!(target: "reth::ress_provider", %block_hash, "Serving header");
-        Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
-    }
-
-    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
-        trace!(target: "reth::ress_provider", %block_hash, "Serving block body");
-        Ok(self.block_by_hash(block_hash)?.map(|b| b.body().clone()))
-    }
-
-    fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
-        trace!(target: "reth::ress_provider", %code_hash, "Serving bytecode");
-        let maybe_bytecode = 'bytecode: {
-            if let Some(bytecode) = self.pending_state.find_bytecode(code_hash) {
-                break 'bytecode Some(bytecode);
-            }
-
-            self.provider.latest()?.bytecode_by_hash(&code_hash)?
-        };
-
-        Ok(maybe_bytecode.map(|bytecode| bytecode.original_bytes()))
-    }
-
-    fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
-        trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
+    fn generate_witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         let block =
             self.block_by_hash(block_hash)?.ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
@@ -193,6 +178,45 @@ where
             witness_state_provider.witness(trie_input, hashed_state)?
         };
         Ok(Some(witness))
+    }
+}
+
+impl<N, E> RessProtocolProvider for RethBlockchainProvider<N, E>
+where
+    N: ProviderNodeTypes<Primitives = EthPrimitives>,
+    E: BlockExecutorProvider<Primitives = N::Primitives> + Clone,
+{
+    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving header");
+        Ok(self.block_by_hash(block_hash)?.map(|b| b.header().clone()))
+    }
+
+    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving block body");
+        Ok(self.block_by_hash(block_hash)?.map(|b| b.body().clone()))
+    }
+
+    fn bytecode(&self, code_hash: B256) -> ProviderResult<Option<Bytes>> {
+        trace!(target: "reth::ress_provider", %code_hash, "Serving bytecode");
+        let maybe_bytecode = 'bytecode: {
+            if let Some(bytecode) = self.pending_state.find_bytecode(code_hash) {
+                break 'bytecode Some(bytecode);
+            }
+
+            self.provider.latest()?.bytecode_by_hash(&code_hash)?
+        };
+
+        Ok(maybe_bytecode.map(|bytecode| bytecode.original_bytes()))
+    }
+
+    async fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+        trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
+        let this = self.clone();
+        match self.witness_task_pool.spawn(move || this.generate_witness(block_hash)).await {
+            Ok(Ok(witness)) => Ok(witness),
+            Ok(Err(error)) => Err(error),
+            Err(_) => Err(ProviderError::TrieWitnessError("dropped".to_owned())),
+        }
     }
 }
 

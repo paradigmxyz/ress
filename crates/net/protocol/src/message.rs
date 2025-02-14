@@ -8,12 +8,12 @@ use alloy_primitives::{
     bytes::{Buf, BufMut},
     BlockHash, Bytes, B256,
 };
-use alloy_rlp::{BytesMut, Decodable, Encodable};
+use alloy_rlp::{BytesMut, Decodable, Encodable, RlpDecodable, RlpEncodable};
 use reth_eth_wire::{message::RequestPair, protocol::Protocol, Capability};
 use reth_primitives::{BlockBody, Header};
 
 /// An Ress protocol message, containing a message ID and payload.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct RessProtocolMessage {
     /// The unique identifier representing the type of the Ress message.
     pub message_type: RessMessageID,
@@ -45,26 +45,26 @@ impl RessProtocolMessage {
         RessMessage::NodeType(node_type).into_protocol_message()
     }
 
-    /// Header request.
-    pub fn get_header(request_id: u64, block_hash: BlockHash) -> Self {
-        RessMessage::GetHeader(RequestPair { request_id, message: block_hash })
+    /// Headers request.
+    pub fn get_headers(request_id: u64, request: GetHeaders) -> Self {
+        RessMessage::GetHeaders(RequestPair { request_id, message: request })
             .into_protocol_message()
     }
 
-    /// Header response.
-    pub fn header(request_id: u64, header: Header) -> Self {
-        RessMessage::Header(RequestPair { request_id, message: header }).into_protocol_message()
+    /// Headers response.
+    pub fn headers(request_id: u64, headers: Vec<Header>) -> Self {
+        RessMessage::Headers(RequestPair { request_id, message: headers }).into_protocol_message()
     }
 
-    /// Block body request.
-    pub fn get_block_body(request_id: u64, block_hash: B256) -> Self {
-        RessMessage::GetBlockBody(RequestPair { request_id, message: block_hash })
+    /// Block bodies request.
+    pub fn get_block_bodies(request_id: u64, block_hashes: Vec<B256>) -> Self {
+        RessMessage::GetBlockBodies(RequestPair { request_id, message: block_hashes })
             .into_protocol_message()
     }
 
-    /// Block body request.
-    pub fn block_body(request_id: u64, block_body: BlockBody) -> Self {
-        RessMessage::BlockBody(RequestPair { request_id, message: block_body })
+    /// Block bodies response.
+    pub fn block_bodies(request_id: u64, bodies: Vec<BlockBody>) -> Self {
+        RessMessage::BlockBodies(RequestPair { request_id, message: bodies })
             .into_protocol_message()
     }
 
@@ -102,10 +102,10 @@ impl RessProtocolMessage {
         let message_type = RessMessageID::decode(buf)?;
         let message = match message_type {
             RessMessageID::NodeType => RessMessage::NodeType(NodeType::decode(buf)?),
-            RessMessageID::GetHeader => RessMessage::GetHeader(RequestPair::decode(buf)?),
-            RessMessageID::Header => RessMessage::Header(RequestPair::decode(buf)?),
-            RessMessageID::GetBlockBody => RessMessage::GetBlockBody(RequestPair::decode(buf)?),
-            RessMessageID::BlockBody => RessMessage::BlockBody(RequestPair::decode(buf)?),
+            RessMessageID::GetHeaders => RessMessage::GetHeaders(RequestPair::decode(buf)?),
+            RessMessageID::Headers => RessMessage::Headers(RequestPair::decode(buf)?),
+            RessMessageID::GetBlockBodies => RessMessage::GetBlockBodies(RequestPair::decode(buf)?),
+            RessMessageID::BlockBodies => RessMessage::BlockBodies(RequestPair::decode(buf)?),
             RessMessageID::GetBytecode => RessMessage::GetBytecode(RequestPair::decode(buf)?),
             RessMessageID::Bytecode => RessMessage::Bytecode(RequestPair::decode(buf)?),
             RessMessageID::GetWitness => RessMessage::GetWitness(RequestPair::decode(buf)?),
@@ -128,22 +128,22 @@ impl Encodable for RessProtocolMessage {
 
 /// Represents message IDs for `ress` protocol messages.
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(strum_macros::EnumCount))]
 pub enum RessMessageID {
     /// Node type message.
     NodeType = 0x00,
 
-    /// Header request message.
-    GetHeader = 0x01,
-    /// Header response message.
-    Header = 0x02,
+    /// Headers request message.
+    GetHeaders = 0x01,
+    /// Headers response message.
+    Headers = 0x02,
 
-    /// Block body request message.
-    GetBlockBody = 0x03,
-    /// Block body response message.
-    BlockBody = 0x04,
+    /// Block bodies request message.
+    GetBlockBodies = 0x03,
+    /// Block bodies response message.
+    BlockBodies = 0x04,
 
     /// Bytecode request message.
     GetBytecode = 0x05,
@@ -170,10 +170,10 @@ impl Decodable for RessMessageID {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let id = match buf.first().ok_or(alloy_rlp::Error::InputTooShort)? {
             0x00 => Self::NodeType,
-            0x01 => Self::GetHeader,
-            0x02 => Self::Header,
-            0x03 => Self::GetBlockBody,
-            0x04 => Self::BlockBody,
+            0x01 => Self::GetHeaders,
+            0x02 => Self::Headers,
+            0x03 => Self::GetBlockBodies,
+            0x04 => Self::BlockBodies,
             0x05 => Self::GetBytecode,
             0x06 => Self::Bytecode,
             0x07 => Self::GetWitness,
@@ -186,21 +186,21 @@ impl Decodable for RessMessageID {
 }
 
 /// Represents a message in the ress protocol.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub enum RessMessage {
     /// Represents a node type message required for handshake.
     NodeType(NodeType),
 
-    /// Represents a header request message.
-    GetHeader(RequestPair<B256>),
-    /// Represents a header response message.
-    Header(RequestPair<Header>),
+    /// Represents a headers request message.
+    GetHeaders(RequestPair<GetHeaders>),
+    /// Represents a headers response message.
+    Headers(RequestPair<Vec<Header>>),
 
-    /// Represents a block body request message.
-    GetBlockBody(RequestPair<B256>),
-    /// Represents a block body response message.
-    BlockBody(RequestPair<BlockBody>),
+    /// Represents a block bodies request message.
+    GetBlockBodies(RequestPair<Vec<B256>>),
+    /// Represents a block bodies response message.
+    BlockBodies(RequestPair<Vec<BlockBody>>),
 
     /// Represents a bytecode request message.
     GetBytecode(RequestPair<B256>),
@@ -218,10 +218,10 @@ impl RessMessage {
     pub fn message_id(&self) -> RessMessageID {
         match self {
             Self::NodeType(_) => RessMessageID::NodeType,
-            Self::GetHeader(_) => RessMessageID::GetHeader,
-            Self::Header(_) => RessMessageID::Header,
-            Self::GetBlockBody(_) => RessMessageID::GetBlockBody,
-            Self::BlockBody(_) => RessMessageID::BlockBody,
+            Self::GetHeaders(_) => RessMessageID::GetHeaders,
+            Self::Headers(_) => RessMessageID::Headers,
+            Self::GetBlockBodies(_) => RessMessageID::GetBlockBodies,
+            Self::BlockBodies(_) => RessMessageID::BlockBodies,
             Self::GetBytecode(_) => RessMessageID::GetBytecode,
             Self::Bytecode(_) => RessMessageID::Bytecode,
             Self::GetWitness(_) => RessMessageID::GetWitness,
@@ -246,10 +246,10 @@ impl Encodable for RessMessage {
     fn encode(&self, out: &mut dyn BufMut) {
         match self {
             Self::NodeType(node_type) => node_type.encode(out),
-            Self::GetHeader(request) => request.encode(out),
-            Self::Header(header) => header.encode(out),
-            Self::GetBlockBody(request) => request.encode(out),
-            Self::BlockBody(body) => body.encode(out),
+            Self::GetHeaders(request) => request.encode(out),
+            Self::Headers(header) => header.encode(out),
+            Self::GetBlockBodies(request) => request.encode(out),
+            Self::BlockBodies(body) => body.encode(out),
             Self::GetBytecode(request) => request.encode(out),
             Self::Bytecode(bytecode) => bytecode.encode(out),
             Self::GetWitness(request) => request.encode(out),
@@ -260,16 +260,30 @@ impl Encodable for RessMessage {
     fn length(&self) -> usize {
         match self {
             Self::NodeType(node_type) => node_type.length(),
-            Self::GetHeader(request) => request.length(),
-            Self::Header(header) => header.length(),
-            Self::GetBlockBody(request) => request.length(),
-            Self::BlockBody(body) => body.length(),
+            Self::GetHeaders(request) => request.length(),
+            Self::Headers(header) => header.length(),
+            Self::GetBlockBodies(request) => request.length(),
+            Self::BlockBodies(body) => body.length(),
             Self::GetBytecode(request) => request.length(),
             Self::Bytecode(bytecode) => bytecode.length(),
             Self::GetWitness(request) => request.length(),
             Self::Witness(witness) => witness.length(),
         }
     }
+}
+
+/// A request for a peer to return block headers starting at the requested block.
+/// The peer must return at most [`limit`](#structfield.limit) headers.
+/// The headers will be returned starting at [`start_hash`](#structfield.start_hash), traversing
+/// towards the genesis block.
+#[derive(PartialEq, Eq, Clone, Copy, Debug, RlpEncodable, RlpDecodable)]
+#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct GetHeaders {
+    /// The block hash that the peer should start returning headers from.
+    pub start_hash: BlockHash,
+
+    /// The maximum number of headers to return.
+    pub limit: u64,
 }
 
 #[cfg(test)]

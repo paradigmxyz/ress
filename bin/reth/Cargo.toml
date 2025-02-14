@@ -1,5 +1,5 @@
 [package]
-name = "reth"
+name = "ress-reth"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,6 +26,7 @@ reth-node-builder.workspace = true
 reth-node-ethereum.workspace = true
 reth-trie.workspace = true
 reth-tokio-util.workspace = true
+reth-tasks.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

@@ -1,3 +1,4 @@
+use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
     BlockHash, BlockNumber, Bytes, B256,
@@ -5,11 +6,9 @@ use alloy_primitives::{
 use ress_protocol::RessProtocolProvider;
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
-use reth_primitives::{Block, Bytecode, Header, RecoveredBlock, SealedHeader};
+use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_storage_errors::provider::ProviderResult;
-use std::{path::Path, sync::Arc};
-
-use crate::{chain_state::ChainState, database::RessDatabase};
+use std::sync::Arc;
 
 /// Provider for retrieving blockchain data.
 ///
@@ -23,9 +22,8 @@ pub struct RessProvider {
 
 impl RessProvider {
     /// Instantiate new storage.
-    pub fn new<P: AsRef<Path>>(chain_spec: Arc<ChainSpec>, path: P) -> eyre::Result<Self> {
-        let database = RessDatabase::new(path)?;
-        Ok(Self { chain_spec, database, chain_state: ChainState::default() })
+    pub fn new(chain_spec: Arc<ChainSpec>, database: RessDatabase) -> Self {
+        Self { chain_spec, database, chain_state: ChainState::default() }
     }
 
     /// Get chain spec.
@@ -109,7 +107,7 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.chain_state.header(&block_hash))
     }
 
-    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<reth_primitives::BlockBody>> {
+    fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
         Ok(self.chain_state.block_body(&block_hash))
     }
 
@@ -118,7 +116,7 @@ impl RessProtocolProvider for RessProvider {
     }
 
     // TODO: implement
-    fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+    async fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         Ok(None)
     }
 }

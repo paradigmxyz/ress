@@ -2,9 +2,9 @@ use alloy_primitives::{keccak256, Bytes, B256};
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
-use ress_protocol::{StateWitnessEntry, StateWitnessNet};
+use ress_protocol::{GetHeaders, StateWitnessEntry, StateWitnessNet};
 use reth_chainspec::ChainSpec;
-use reth_consensus::Consensus;
+use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, SealedBlock, SealedHeader};
 use std::{
@@ -23,6 +23,8 @@ pub struct EngineDownloader {
 
     retry_delay: Duration,
 
+    inflight_headers_range_requests: Vec<FetchHeadersRangeFuture>,
+    inflight_full_blocks_range_requests: Vec<FetchFullBlockRangeFuture>,
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
     inflight_witness_requests: Vec<FetchWitnessFuture>,
@@ -36,6 +38,8 @@ impl EngineDownloader {
             network,
             consensus,
             retry_delay: Duration::from_millis(50),
+            inflight_headers_range_requests: Vec::new(),
+            inflight_full_blocks_range_requests: Vec::new(),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
             inflight_bytecode_requests: Vec::new(),
@@ -43,8 +47,55 @@ impl EngineDownloader {
         }
     }
 
+    /// Download headers range starting from start hash.
+    pub fn download_headers_range(&mut self, start_hash: B256, count: u64) {
+        let request = GetHeaders { start_hash, limit: count };
+        if self.inflight_headers_range_requests.iter().any(|req| req.request == request) {
+            return
+        }
+
+        trace!(target: "ress::engine::downloader", %start_hash, count, "Downloading headers range");
+        let network = self.network.clone();
+        let fut = FetchHeadersRangeFuture {
+            network: self.network.clone(),
+            consensus: self.consensus.clone(),
+            request,
+            retry_delay: self.retry_delay,
+            pending: Box::pin(async move { network.fetch_headers(request).await }),
+        };
+        self.inflight_headers_range_requests.push(fut);
+    }
+
+    /// Download full blocks range starting from start hash.
+    pub fn download_full_blocks_range(&mut self, start_hash: B256, count: u64) {
+        let request = GetHeaders { start_hash, limit: count };
+        if self.inflight_full_blocks_range_requests.iter().any(|req| req.request == request) {
+            return
+        }
+
+        trace!(target: "ress::engine::downloader", %start_hash, count, "Downloading full block range");
+        let network = self.network.clone();
+        let state = FullBlockRangeDownloadState::Headers {
+            fut: FetchHeadersRangeFuture {
+                network: self.network.clone(),
+                consensus: self.consensus.clone(),
+                request,
+                retry_delay: self.retry_delay,
+                pending: Box::pin(async move { network.fetch_headers(request).await }),
+            },
+        };
+        let fut = FetchFullBlockRangeFuture {
+            network: self.network.clone(),
+            consensus: self.consensus.clone(),
+            request,
+            retry_delay: self.retry_delay,
+            state,
+        };
+        self.inflight_full_blocks_range_requests.push(fut);
+    }
+
     /// Download full block by block hash.
-    pub fn download_block(&mut self, block_hash: B256) {
+    pub fn download_full_block(&mut self, block_hash: B256) {
         if self.inflight_full_block_requests.iter().any(|req| req.block_hash == block_hash) {
             return
         }
@@ -105,12 +156,34 @@ impl EngineDownloader {
             return Poll::Ready(outcome)
         }
 
+        // advance all headers range requests
+        for idx in (0..self.inflight_headers_range_requests.len()).rev() {
+            let mut request = self.inflight_headers_range_requests.swap_remove(idx);
+            if let Poll::Ready(headers) = request.poll_unpin(cx) {
+                trace!(target: "ress::engine::downloader", request = ?request.request, "Received headers range");
+                self.outcomes.push_back(DownloadOutcome::HeadersRange(headers));
+            } else {
+                self.inflight_headers_range_requests.push(request);
+            }
+        }
+
+        // advance all full block range requests
+        for idx in (0..self.inflight_full_blocks_range_requests.len()).rev() {
+            let mut request = self.inflight_full_blocks_range_requests.swap_remove(idx);
+            if let Poll::Ready(blocks) = request.poll_unpin(cx) {
+                trace!(target: "ress::engine::downloader", request = ?request.request, "Received full block range");
+                self.outcomes.push_back(DownloadOutcome::FullBlocksRange(blocks));
+            } else {
+                self.inflight_full_blocks_range_requests.push(request);
+            }
+        }
+
         // advance all full block requests
         for idx in (0..self.inflight_full_block_requests.len()).rev() {
             let mut request = self.inflight_full_block_requests.swap_remove(idx);
             if let Poll::Ready(block) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", block=?block.num_hash(), "Received single full block");
-                self.outcomes.push_back(DownloadOutcome::Block(block));
+                self.outcomes.push_back(DownloadOutcome::FullBlock(block));
             } else {
                 self.inflight_full_block_requests.push(request);
             }
@@ -150,8 +223,12 @@ impl EngineDownloader {
 
 #[derive(Debug)]
 pub enum DownloadOutcome {
-    /// Downloaded block.
-    Block(SealedBlock),
+    /// Downloaded headers range.
+    HeadersRange(Vec<SealedHeader>),
+    /// Downloaded full blocks range.
+    FullBlocksRange(Vec<SealedBlock>),
+    /// Downloaded full block.
+    FullBlock(SealedBlock),
     /// Downloaded bytecode.
     Bytecode(B256, Bytecode),
     /// Downloaded execution witness.
@@ -170,8 +247,8 @@ pub struct FetchFullBlockFuture {
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
     block_hash: B256,
-    pending_header_request: Option<DownloadFut<Header>>,
-    pending_body_request: Option<DownloadFut<BlockBody>>,
+    pending_header_request: Option<DownloadFut<Option<Header>>>,
+    pending_body_request: Option<DownloadFut<Option<BlockBody>>>,
     header: Option<SealedHeader>,
     body: Option<BlockBody>,
 }
@@ -182,22 +259,57 @@ impl FetchFullBlockFuture {
         &self.block_hash
     }
 
-    fn header_request(&self, delay: Duration) -> DownloadFut<Header> {
+    fn header_request(&self, delay: Duration) -> DownloadFut<Option<Header>> {
         let network = self.network.clone();
         let hash = self.block_hash;
         Box::pin(async move {
             tokio::time::sleep(delay).await;
-            network.fetch_header(hash).await
+            let request = GetHeaders { start_hash: hash, limit: 1 };
+            network.fetch_headers(request).await.map(|res| res.into_iter().next())
         })
     }
 
-    fn body_request(&self, delay: Duration) -> DownloadFut<BlockBody> {
+    fn body_request(&self, delay: Duration) -> DownloadFut<Option<BlockBody>> {
         let network = self.network.clone();
         let hash = self.block_hash;
         Box::pin(async move {
             tokio::time::sleep(delay).await;
-            network.fetch_block_body(hash).await
+            let request = Vec::from([hash]);
+            network.fetch_block_bodies(request).await.map(|res| res.into_iter().next())
         })
+    }
+
+    fn on_header_response(&mut self, response: Result<Option<Header>, PeerRequestError>) {
+        match response {
+            Ok(Some(header)) => {
+                let header = SealedHeader::seal_slow(header);
+                if header.hash() == self.block_hash {
+                    self.header = Some(header);
+                } else {
+                    trace!(target: "ress::engine::downloader", expected = %self.block_hash, received = %header.hash(), "Received wrong header");
+                }
+            }
+            Ok(None) => {
+                trace!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No header received");
+            }
+            Err(error) => {
+                trace!(target: "ress::engine::downloader", %error, %self.block_hash, "Header download failed");
+            }
+        };
+    }
+
+    fn on_body_response(&mut self, response: Result<Option<BlockBody>, PeerRequestError>) {
+        match response {
+            Ok(Some(body)) => {
+                self.body = Some(body);
+            }
+            Ok(None) => {
+                trace!(target: "ress::engine::downloader", block_hash = %self.block_hash, "No body received");
+            }
+            Err(error) => {
+                trace!(target: "ress::engine::downloader", %error, %self.block_hash, "Body download failed");
+            }
+        }
     }
 }
 
@@ -211,41 +323,22 @@ impl Future for FetchFullBlockFuture {
             if let Some(fut) = &mut this.pending_header_request {
                 if let Poll::Ready(response) = fut.poll_unpin(cx) {
                     this.pending_header_request.take();
-                    match response {
-                        Ok(header) => {
-                            let header = SealedHeader::seal_slow(header);
-                            if header.hash() == this.block_hash {
-                                this.header = Some(header);
-                            } else {
-                                debug!(target: "ress::engine::downloader", expected = %this.block_hash, received = %header.hash(), "Received wrong header");
-                                this.pending_header_request =
-                                    Some(this.header_request(this.retry_delay));
-                                continue
-                            }
-                        }
-                        Err(error) => {
-                            debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Header download failed");
-                            this.pending_header_request =
-                                Some(this.header_request(this.retry_delay));
-                            continue
-                        }
-                    };
+                    this.on_header_response(response);
+                    if this.header.is_none() {
+                        this.pending_header_request = Some(this.header_request(this.retry_delay));
+                        continue
+                    }
                 }
             }
 
             if let Some(fut) = &mut this.pending_body_request {
                 if let Poll::Ready(response) = fut.poll_unpin(cx) {
                     this.pending_body_request.take();
-                    match response {
-                        Ok(body) => {
-                            this.body = Some(body);
-                        }
-                        Err(error) => {
-                            debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Body download failed");
-                            this.pending_body_request = Some(this.body_request(this.retry_delay));
-                            continue
-                        }
-                    };
+                    this.on_body_response(response);
+                    if this.body.is_none() {
+                        this.pending_body_request = Some(this.body_request(this.retry_delay));
+                        continue
+                    }
                 }
             }
 
@@ -255,7 +348,7 @@ impl Future for FetchFullBlockFuture {
 
                 // ensure the block is valid, else retry
                 if let Err(error) = <EthBeaconConsensus<ChainSpec> as Consensus<Block>>::validate_body_against_header(&this.consensus, &body, &header) {
-                    debug!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
+                    trace!(target: "ress::engine::downloader", %error, hash = %header.hash(), "Received wrong body");
                     this.header = Some(header);
                     this.pending_body_request = Some(this.body_request(this.retry_delay));
                     continue
@@ -265,6 +358,212 @@ impl Future for FetchFullBlockFuture {
             }
 
             return Poll::Pending
+        }
+    }
+}
+
+/// A future that downloads headers range.
+#[must_use = "futures do nothing unless polled"]
+pub struct FetchHeadersRangeFuture {
+    network: RessNetworkHandle,
+    consensus: EthBeaconConsensus<ChainSpec>,
+    retry_delay: Duration,
+    request: GetHeaders,
+    pending: DownloadFut<Vec<Header>>,
+}
+
+impl FetchHeadersRangeFuture {
+    fn request_headers(&self) -> DownloadFut<Vec<Header>> {
+        let network = self.network.clone();
+        let request = self.request;
+        let delay = self.retry_delay;
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_headers(request).await
+        })
+    }
+
+    fn on_response(
+        &mut self,
+        response: Result<Vec<Header>, PeerRequestError>,
+    ) -> Option<Vec<SealedHeader>> {
+        let headers = match response {
+            Ok(headers) => headers,
+            Err(error) => {
+                trace!(target: "ress::engine::downloader", %error, ?self.request, "Headers download failed");
+                return None
+            }
+        };
+
+        if headers.len() < self.request.limit as usize {
+            trace!(target: "ress::engine::downloader", len = headers.len(), request = ?self.request, "Invalid headers response length");
+            return None
+        }
+
+        let headers_falling = headers.into_iter().map(SealedHeader::seal_slow).collect::<Vec<_>>();
+        if headers_falling[0].hash() != self.request.start_hash {
+            trace!(target: "ress::engine::downloader", expected = %self.request.start_hash, received = %headers_falling[0].hash(), "Invalid start hash");
+            return None
+        }
+
+        let headers_rising = headers_falling.iter().rev().cloned().collect::<Vec<_>>();
+        // check if the downloaded headers are valid
+        match self.consensus.validate_header_range(&headers_rising) {
+            Ok(()) => Some(headers_falling),
+            Err(error) => {
+                trace!(target: "ress::engine::downloader", %error, ?self.request, "Received bad header response");
+                None
+            }
+        }
+    }
+}
+
+impl Future for FetchHeadersRangeFuture {
+    type Output = Vec<SealedHeader>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+
+        loop {
+            let response = ready!(this.pending.poll_unpin(cx));
+            if let Some(headers) = this.on_response(response) {
+                return Poll::Ready(headers)
+            }
+            this.pending = this.request_headers();
+        }
+    }
+}
+
+enum FullBlockRangeDownloadState {
+    Headers { fut: FetchHeadersRangeFuture },
+    Bodies(FullBlockRangeBodiesDownloadState),
+}
+
+struct FullBlockRangeBodiesDownloadState {
+    headers: Vec<SealedHeader>,
+    fut: DownloadFut<Vec<BlockBody>>,
+    bodies: Vec<BlockBody>,
+}
+
+impl FullBlockRangeBodiesDownloadState {
+    fn missing(&self) -> impl Iterator<Item = B256> + '_ {
+        self.headers.iter().skip(self.bodies.len()).map(|h| h.hash())
+    }
+
+    fn take_blocks(&mut self) -> impl Iterator<Item = SealedBlock> {
+        std::mem::take(&mut self.headers)
+            .into_iter()
+            .zip(std::mem::take(&mut self.bodies))
+            .map(|(header, body)| SealedBlock::from_sealed_parts(header, body))
+    }
+}
+
+/// A future that downloads full block range.
+#[must_use = "futures do nothing unless polled"]
+pub struct FetchFullBlockRangeFuture {
+    network: RessNetworkHandle,
+    consensus: EthBeaconConsensus<ChainSpec>,
+    retry_delay: Duration,
+    request: GetHeaders,
+    state: FullBlockRangeDownloadState,
+}
+
+impl FetchFullBlockRangeFuture {
+    fn request_bodies(
+        network: RessNetworkHandle,
+        request: impl IntoIterator<Item = B256>,
+        delay: Duration,
+    ) -> DownloadFut<Vec<BlockBody>> {
+        let request = request.into_iter().collect();
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_block_bodies(request).await
+        })
+    }
+}
+
+impl Future for FetchFullBlockRangeFuture {
+    type Output = Vec<SealedBlock>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+
+        loop {
+            match &mut this.state {
+                FullBlockRangeDownloadState::Headers { fut } => {
+                    let headers = ready!(fut.poll_unpin(cx));
+                    let fut = Self::request_bodies(
+                        this.network.clone(),
+                        headers.iter().map(|h| h.hash()),
+                        Default::default(),
+                    );
+                    this.state =
+                        FullBlockRangeDownloadState::Bodies(FullBlockRangeBodiesDownloadState {
+                            headers,
+                            fut,
+                            bodies: Vec::new(),
+                        });
+                }
+                FullBlockRangeDownloadState::Bodies(state) => {
+                    let response = ready!(state.fut.poll_unpin(cx));
+                    let pending_bodies = match response {
+                        Ok(pending) => {
+                            if pending.is_empty() {
+                                trace!(target: "ress::engine::downloader", request = ?this.request, "Empty bodies response");
+                                state.fut = Self::request_bodies(
+                                    this.network.clone(),
+                                    state.missing(),
+                                    this.retry_delay,
+                                );
+                                continue
+                            }
+                            pending
+                        }
+                        Err(error) => {
+                            trace!(target: "ress::engine::downloader", %error, ?this.request, "Bodies download failed");
+                            state.fut = Self::request_bodies(
+                                this.network.clone(),
+                                state.missing(),
+                                this.retry_delay,
+                            );
+                            continue
+                        }
+                    };
+
+                    let mut pending_bodies = pending_bodies.into_iter();
+                    for header in &state.headers[state.bodies.len()..] {
+                        if let Some(body) = pending_bodies.next() {
+                            if let Err(error) = <EthBeaconConsensus<ChainSpec> as Consensus<
+                                Block,
+                            >>::validate_body_against_header(
+                                &this.consensus, &body, header
+                            ) {
+                                trace!(target: "ress::engine::downloader", %error, ?this.request, "Invalid body response");
+                                state.fut = Self::request_bodies(
+                                    this.network.clone(),
+                                    state.missing(),
+                                    this.retry_delay,
+                                );
+                                continue
+                            }
+
+                            state.bodies.push(body);
+                        }
+                    }
+
+                    let remaining_hashes = state.missing().collect::<Vec<_>>();
+                    if !remaining_hashes.is_empty() {
+                        state.fut = Self::request_bodies(
+                            this.network.clone(),
+                            remaining_hashes,
+                            Default::default(),
+                        );
+                        continue
+                    }
+
+                    return Poll::Ready(state.take_blocks().collect())
+                }
+            }
         }
     }
 }
@@ -304,11 +603,11 @@ impl Future for FetchBytecodeFuture {
                     if code_hash == this.code_hash {
                         return Poll::Ready(bytecode)
                     } else {
-                        debug!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
+                        trace!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
                     }
                 }
                 Err(error) => {
-                    debug!(target: "ress::engine::downloader", %error, %this.code_hash, "Bytecode download failed");
+                    trace!(target: "ress::engine::downloader", %error, %this.code_hash, "Bytecode download failed");
                 }
             };
             this.pending = this.bytecode_request();
@@ -347,7 +646,7 @@ impl Future for FetchWitnessFuture {
             match ready!(this.pending.poll_unpin(cx)) {
                 Ok(witness) => {
                     if witness.0.is_empty() {
-                        debug!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
+                        trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
                         let mut state_witness = StateWitness::default();
                         let valid = 'witness: {
@@ -356,7 +655,7 @@ impl Future for FetchWitnessFuture {
                                 if hash == entry_hash {
                                     state_witness.insert(hash, bytes);
                                 } else {
-                                    debug!(target: "ress::engine::downloader", block_hash = %this.block_hash, expected = %entry_hash, received = %hash, "Invalid witness entry");
+                                    trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, expected = %entry_hash, received = %hash, "Invalid witness entry");
                                     break 'witness false
                                 }
                             }
@@ -368,7 +667,7 @@ impl Future for FetchWitnessFuture {
                     }
                 }
                 Err(error) => {
-                    debug!(target: "ress::engine::downloader", %error, %this.block_hash, "Witness download failed");
+                    trace!(target: "ress::engine::downloader", %error, %this.block_hash, "Witness download failed");
                 }
             };
             this.pending = this.witness_request();

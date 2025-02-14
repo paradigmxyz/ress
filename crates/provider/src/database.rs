@@ -25,7 +25,7 @@ impl RessDatabase {
     }
 
     /// Create new database at path with arguments.
-    fn new_with_args<P: AsRef<Path>>(path: P, args: DatabaseArguments) -> eyre::Result<Self> {
+    pub fn new_with_args<P: AsRef<Path>>(path: P, args: DatabaseArguments) -> eyre::Result<Self> {
         let database = create_db(path, args)?;
         database.create_tables_for::<Tables>()?;
         Ok(Self { database: Arc::new(database) })

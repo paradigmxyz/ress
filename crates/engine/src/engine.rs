@@ -63,7 +63,7 @@ impl ConsensusEngine {
     fn on_tree_event(&mut self, event: TreeEvent) {
         match event {
             TreeEvent::Download(DownloadRequest::Block { block_hash }) => {
-                self.downloader.download_block(block_hash);
+                self.downloader.download_full_block(block_hash);
                 if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
                     self.downloader.download_witness(block_hash);
                 }
@@ -83,7 +83,15 @@ impl ConsensusEngine {
     ) -> Result<(), InsertBlockFatalError> {
         let mut blocks = Vec::new();
         match outcome {
-            DownloadOutcome::Block(block) => {
+            DownloadOutcome::FullBlocksRange(blocks) => {
+                trace!(target: "ress::engine", first = ?blocks.last().map(|b| b.num_hash()), last = ?blocks.first().map(|b| b.num_hash()), "Downloaded block range");
+                // TODO:
+            }
+            DownloadOutcome::HeadersRange(headers) => {
+                trace!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), "Downloaded block range");
+                // TODO:
+            }
+            DownloadOutcome::FullBlock(block) => {
                 let block_num_hash = block.num_hash();
                 trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
                 let recovered = match block.try_recover() {

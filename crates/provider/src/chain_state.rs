@@ -1,7 +1,7 @@
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
+use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedBlock, SealedHeader};
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::Arc,
@@ -83,6 +83,16 @@ impl ChainState {
     /// Returns block body by hash.
     pub fn block_body(&self, hash: &BlockHash) -> Option<BlockBody> {
         self.map_recovered_block(hash, |b| b.body().clone())
+    }
+
+    /// Returns sealed block by hash.
+    pub fn sealed_block(&self, hash: &BlockHash) -> Option<SealedBlock> {
+        self.map_recovered_block(hash, RecoveredBlock::clone_sealed_block)
+    }
+
+    /// Returns recovered block by hash.
+    pub fn recovered_block(&self, hash: &BlockHash) -> Option<RecoveredBlock<Block>> {
+        self.map_recovered_block(hash, Clone::clone)
     }
 
     /// Insert recovered block.

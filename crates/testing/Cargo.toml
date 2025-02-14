@@ -15,17 +15,21 @@ workspace = true
 ress-protocol.workspace = true
 
 # reth
-reth-storage-errors.workspace = true
 reth-primitives.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
+alloy-rlp.workspace = true
 alloy-provider.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-debug.workspace = true
 alloy-rpc-client.workspace = true
 
 # misc
+futures.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 parking_lot.workspace = true
 eyre.workspace = true
+tracing.workspace = true
+tungstenite = "0.26.1"
