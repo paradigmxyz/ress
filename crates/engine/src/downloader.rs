@@ -28,7 +28,7 @@ pub struct EngineDownloader {
     inflight_full_blocks_range_requests: Vec<FetchFullBlockRangeFuture>,
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
-    inflight_witness_requests: Vec<FetchWitnessFuture>,
+    pub(crate) inflight_witness_requests: Vec<FetchWitnessFuture>,
     outcomes: VecDeque<DownloadOutcome>,
 }
 
@@ -661,7 +661,7 @@ impl Future for FetchBytecodeFuture {
 #[must_use = "futures do nothing unless polled"]
 pub struct FetchWitnessFuture {
     network: RessNetworkHandle,
-    block_hash: B256,
+    pub(crate) block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
     pending: DownloadFut<StateWitnessNet>,

@@ -143,6 +143,7 @@ impl ConsensusEngine {
                 if Some(block_num_hash.hash) == self.sync_state.finalized_target {
                     info!(target: "ress::engine", ?block_num_hash, "Downloaded finalized block");
                     self.sync_state.finalized_downloaded = true;
+                    self.tree.canonical_head = recovered.num_hash();
                     self.tree.provider.insert_canonical_hash(recovered.number, recovered.hash());
                     self.tree.provider.insert_block(recovered);
                 } else {
@@ -265,7 +266,8 @@ impl ConsensusEngine {
                 let block_hash = payload.block_hash();
                 let block_number = payload.block_number();
                 let maybe_witness = self.tree.block_buffer.remove_witness(&payload.block_hash());
-                debug!(target: "ress::engine", block_number, %block_hash, has_witness = maybe_witness.is_some(), "Inserting new payload");
+                let has_witness = maybe_witness.is_some();
+                debug!(target: "ress::engine", block_number, %block_hash, has_witness, "Inserting new payload");
                 let mut result = self
                     .tree
                     .on_new_payload(payload, maybe_witness)
@@ -286,6 +288,11 @@ impl ConsensusEngine {
                         }
                     }
                     self.on_maybe_tree_event(outcome.event.take());
+                    if !has_witness {
+                        self.on_tree_event(TreeEvent::Download(DownloadRequest::Witness {
+                            block_hash,
+                        }));
+                    }
                 }
                 let outcome_result = result.map(|o| o.outcome);
                 debug!(target: "ress::engine", block_number, %block_hash, result = ?outcome_result, "Returning payload result");
@@ -294,6 +301,7 @@ impl ConsensusEngine {
                 }
 
                 // TODO: remove
+
                 info!(
                     target: "ress::engine",
                     sync_state = ?self.sync_state,
@@ -311,6 +319,7 @@ impl ConsensusEngine {
                             )
                     ).collect::<Vec<_>>(),
                     executed_blocks = ?self.tree.provider.chain_state.block_hashes_by_number(),
+                    infligh_witness_downloads = ?self.downloader.inflight_witness_requests.iter().map(|r| r.block_hash).collect::<Vec<_>>(),
                     "Buffered after new payload"
                 );
             }
@@ -333,6 +342,7 @@ impl ConsensusEngine {
                     self.downloader.download_headers_range(state.finalized_block_hash, 256);
                     if !state.safe_block_hash.is_zero() {
                         self.downloader.download_full_block(state.safe_block_hash);
+                        self.downloader.download_witness(state.safe_block_hash);
                     }
                     Ok(TreeOutcome::new(OnForkChoiceUpdated::syncing()))
                 } else {
