@@ -176,9 +176,9 @@ impl ConsensusEngine {
                                 "{block_number}: [{}]",
                                 block_hashes.iter().map(|block_hash|
                                     format!(
-                                        "({block_hash}: w {} mb {})",
+                                        "({block_hash}: w {} mb [{}])",
                                         self.tree.block_buffer.witness(block_hash).is_some(),
-                                        self.tree.block_buffer.missing_bytecodes.get(block_hash).map_or(0, |b| b.len())
+                                        self.tree.block_buffer.missing_bytecodes.get(block_hash).map_or(String::new(), |b| b.iter().map(|b| format!("{b}")).join(","))
                                     )
                                 ).join(", ")
                         ),
