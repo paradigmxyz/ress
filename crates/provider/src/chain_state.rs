@@ -32,6 +32,11 @@ impl ChainState {
         self.0.read().canonical_hashes_by_number.values().contains(hash)
     }
 
+    // TODO: remove
+    pub fn block_hashes_by_number(&self) -> BTreeMap<BlockNumber, B256HashSet> {
+        self.0.read().block_hashes_by_number.clone()
+    }
+
     /// Returns block hash for a given block number.
     /// If no canonical hash is found, traverses parent hashes from the given block hash
     /// to find an ancestor at the specified block number.

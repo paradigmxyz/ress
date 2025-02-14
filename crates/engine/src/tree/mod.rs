@@ -99,7 +99,7 @@ impl EngineTree {
     }
 
     /// Returns true if the block is either persisted or buffered.
-    fn is_block_persisted_or_buffered(&self, block_hash: &B256) -> bool {
+    pub fn is_block_persisted_or_buffered(&self, block_hash: &B256) -> bool {
         self.provider.sealed_header(block_hash).is_some() ||
             self.block_buffer.blocks.contains_key(block_hash)
     }

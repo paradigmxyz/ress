@@ -18,7 +18,7 @@ use std::sync::Arc;
 pub struct RessProvider {
     chain_spec: Arc<ChainSpec>,
     database: RessDatabase,
-    chain_state: ChainState,
+    pub chain_state: ChainState,
 }
 
 impl RessProvider {

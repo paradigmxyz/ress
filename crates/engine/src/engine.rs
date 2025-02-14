@@ -130,7 +130,8 @@ impl ConsensusEngine {
             }
             DownloadData::FullBlock(block) => {
                 let block_num_hash = block.num_hash();
-                trace!(target: "ress::engine", ?block_num_hash, ?elapsed, "Downloaded block");
+                let parent_hash = block.parent_hash;
+                trace!(target: "ress::engine", ?block_num_hash, %parent_hash, ?elapsed, "Downloaded block");
                 let recovered = match block.try_recover() {
                     Ok(block) => block,
                     Err(_error) => {
@@ -149,7 +150,19 @@ impl ConsensusEngine {
                 }
 
                 if self.sync_state.is_synced() {
-                    blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+                    if self.tree.provider.sealed_header(&parent_hash).is_some() &&
+                        self.tree.block_buffer.witness(&block_num_hash.hash).is_some()
+                    {
+                        blocks =
+                            self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+                    } else if !self.tree.is_block_persisted_or_buffered(&parent_hash) &&
+                        Some(block_num_hash.hash) != self.sync_state.finalized_target
+                    {
+                        self.downloader.download_full_block(parent_hash);
+                        if self.tree.block_buffer.witness(&parent_hash).is_none() {
+                            self.downloader.download_witness(parent_hash);
+                        }
+                    }
                 }
 
                 // TODO: remove
@@ -167,7 +180,7 @@ impl ConsensusEngine {
                                         self.tree.block_buffer.missing_bytecodes.get(block_hash).map_or(0, |b| b.len())
                                     )
                                 ).join(", ")
-                            )
+                        ),
                     ).collect::<Vec<_>>(),
                     "Buffered blocks after download"
                 );
@@ -279,6 +292,27 @@ impl ConsensusEngine {
                 if let Err(error) = tx.send(outcome_result) {
                     error!(target: "ress::engine", ?error, "Failed to send payload status");
                 }
+
+                // TODO: remove
+                info!(
+                    target: "ress::engine",
+                    sync_state = ?self.sync_state,
+                    buffered_blocks = ?self.tree.block_buffer.earliest_blocks.iter().map(
+                        |(block_number, block_hashes)|
+                            format!(
+                                "{block_number}: [{}]",
+                                block_hashes.iter().map(|block_hash|
+                                    format!(
+                                        "({block_hash}: w {} mb {})",
+                                        self.tree.block_buffer.witness(block_hash).is_some(),
+                                        self.tree.block_buffer.missing_bytecodes.get(block_hash).map_or(0, |b| b.len())
+                                    )
+                                ).join(", ")
+                            )
+                    ).collect::<Vec<_>>(),
+                    executed_blocks = ?self.tree.provider.chain_state.block_hashes_by_number(),
+                    "Buffered after new payload"
+                );
             }
             BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
                 debug!(
