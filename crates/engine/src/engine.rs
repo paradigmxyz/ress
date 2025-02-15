@@ -119,17 +119,20 @@ impl ConsensusEngine {
                     self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
                         InsertBlockFatalError::Provider(ProviderError::Database(error))
                     })?;
+                let missing_bytecodes_len = missing_code_hashes.len();
+                let network_size =
+                    humansize::format_size(witness.network_size_bytes(), humansize::DECIMAL);
                 self.tree.block_buffer.insert_witness(
                     block_hash,
                     witness,
                     missing_code_hashes.clone(),
                 );
-                let missing_bytecodes_len = missing_code_hashes.len();
+
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, network_size, ?elapsed, "Downloaded for parked payload");
                 } else {
-                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, ?elapsed, "Downloaded witness");
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, network_size, ?elapsed, "Downloaded witness");
                 }
                 if missing_code_hashes.is_empty() {
                     blocks = self.tree.block_buffer.remove_block_with_children(block_hash);

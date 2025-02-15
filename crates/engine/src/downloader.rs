@@ -1,4 +1,5 @@
 use alloy_primitives::{keccak256, Bytes, B256};
+use alloy_rlp::Encodable;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
@@ -690,6 +691,7 @@ impl Future for FetchWitnessFuture {
                     if witness.0.is_empty() {
                         trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
+                        let network_size_bytes = witness.length();
                         let mut state_witness = StateWitness::default();
                         let valid = 'witness: {
                             for StateWitnessEntry { hash, bytes } in witness.0 {
@@ -704,7 +706,10 @@ impl Future for FetchWitnessFuture {
                             true
                         };
                         if valid {
-                            return Poll::Ready(ExecutionWitness::new(state_witness))
+                            return Poll::Ready(ExecutionWitness::new(
+                                state_witness,
+                                network_size_bytes,
+                            ))
                         }
                     }
                 }

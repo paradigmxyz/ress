@@ -137,14 +137,6 @@ impl EngineTree {
         payload_attrs: Option<PayloadAttributes>,
         version: EngineApiMessageVersion,
     ) -> RethResult<TreeOutcome<OnForkChoiceUpdated>> {
-        info!(
-            target: "ress::engine",
-            head = %state.head_block_hash,
-            safe = %state.safe_block_hash,
-            finalized = %state.finalized_block_hash,
-            "👋 new fork choice"
-        );
-
         // ===================== Validation =====================
         if let Some(on_updated) = self.pre_validate_forkchoice_update(state) {
             return Ok(TreeOutcome::new(on_updated));
@@ -473,10 +465,7 @@ impl EngineTree {
         payload: ExecutionData,
         maybe_witness: Option<ExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
-        let block_number = payload.payload.block_number();
-        let block_hash = payload.payload.block_hash();
         let parent_hash = payload.payload.parent_hash();
-        info!(target: "ress::engine", %block_hash, block_number, %parent_hash, "👋 new payload");
 
         // Ensures that the given payload does not violate any consensus rules.
         let block = match self.engine_validator.ensure_well_formed_payload(payload) {
@@ -709,7 +698,7 @@ impl EngineTree {
         // ===================== Witness =====================
         let Some(execution_witness) = maybe_witness else {
             self.block_buffer.insert_block(block);
-            trace!(target: "ress::engine", block=?block_num_hash, "Block has missing witness");
+            trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 head: self.canonical_head,
                 missing_ancestor: block_num_hash,
@@ -727,7 +716,7 @@ impl EngineTree {
         let mut block_executor =
             BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
         let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
-        info!(target: "ress::engine", elapsed = ?start_time.elapsed(), "🎉 executed new payload");
+        debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 
         // ===================== Post Execution Validation =====================
         <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(

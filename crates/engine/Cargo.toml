@@ -50,6 +50,7 @@ rayon.workspace = true
 itertools.workspace = true
 metrics.workspace = true
 schnellru = "0.2"
+humansize = "2.0"
 
 [dev-dependencies]
 reth-testing-utils.workspace = true
