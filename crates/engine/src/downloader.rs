@@ -12,7 +12,7 @@ use std::{
     future::Future,
     pin::Pin,
     task::{ready, Context, Poll},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tracing::*;
 
@@ -61,6 +61,7 @@ impl EngineDownloader {
             consensus: self.consensus.clone(),
             request,
             retry_delay: self.retry_delay,
+            started_at: Instant::now(),
             pending: Box::pin(async move { network.fetch_headers(request).await }),
         };
         self.inflight_headers_range_requests.push(fut);
@@ -74,6 +75,7 @@ impl EngineDownloader {
         }
 
         trace!(target: "ress::engine::downloader", %start_hash, count, "Downloading full block range");
+        let started_at = Instant::now();
         let network = self.network.clone();
         let state = FullBlockRangeDownloadState::Headers {
             fut: FetchHeadersRangeFuture {
@@ -81,6 +83,7 @@ impl EngineDownloader {
                 consensus: self.consensus.clone(),
                 request,
                 retry_delay: self.retry_delay,
+                started_at,
                 pending: Box::pin(async move { network.fetch_headers(request).await }),
             },
         };
@@ -89,6 +92,7 @@ impl EngineDownloader {
             consensus: self.consensus.clone(),
             request,
             retry_delay: self.retry_delay,
+            started_at: Instant::now(),
             state,
         };
         self.inflight_full_blocks_range_requests.push(fut);
@@ -106,6 +110,7 @@ impl EngineDownloader {
             consensus: self.consensus.clone(),
             block_hash,
             retry_delay: self.retry_delay,
+            started_at: Instant::now(),
             pending_header_request: None,
             pending_body_request: None,
             header: None,
@@ -128,6 +133,7 @@ impl EngineDownloader {
             network: self.network.clone(),
             code_hash,
             retry_delay: self.retry_delay,
+            started_at: Instant::now(),
             pending: Box::pin(async move { network.fetch_bytecode(code_hash).await }),
         };
         self.inflight_bytecode_requests.push(fut);
@@ -145,6 +151,7 @@ impl EngineDownloader {
             network: self.network.clone(),
             block_hash,
             retry_delay: self.retry_delay,
+            started_at: Instant::now(),
             pending: Box::pin(async move { network.fetch_witness(block_hash).await }),
         };
         self.inflight_witness_requests.push(fut);
@@ -161,7 +168,10 @@ impl EngineDownloader {
             let mut request = self.inflight_headers_range_requests.swap_remove(idx);
             if let Poll::Ready(headers) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", request = ?request.request, "Received headers range");
-                self.outcomes.push_back(DownloadOutcome::HeadersRange(headers));
+                self.outcomes.push_back(DownloadOutcome::new(
+                    DownloadData::HeadersRange(headers),
+                    request.started_at.elapsed(),
+                ));
             } else {
                 self.inflight_headers_range_requests.push(request);
             }
@@ -172,7 +182,10 @@ impl EngineDownloader {
             let mut request = self.inflight_full_blocks_range_requests.swap_remove(idx);
             if let Poll::Ready(blocks) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", request = ?request.request, "Received full block range");
-                self.outcomes.push_back(DownloadOutcome::FullBlocksRange(blocks));
+                self.outcomes.push_back(DownloadOutcome::new(
+                    DownloadData::FullBlocksRange(blocks),
+                    request.started_at.elapsed(),
+                ));
             } else {
                 self.inflight_full_blocks_range_requests.push(request);
             }
@@ -183,7 +196,10 @@ impl EngineDownloader {
             let mut request = self.inflight_full_block_requests.swap_remove(idx);
             if let Poll::Ready(block) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", block=?block.num_hash(), "Received single full block");
-                self.outcomes.push_back(DownloadOutcome::FullBlock(block));
+                self.outcomes.push_back(DownloadOutcome::new(
+                    DownloadData::FullBlock(block),
+                    request.started_at.elapsed(),
+                ));
             } else {
                 self.inflight_full_block_requests.push(request);
             }
@@ -194,7 +210,10 @@ impl EngineDownloader {
             let mut request = self.inflight_witness_requests.swap_remove(idx);
             if let Poll::Ready(witness) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", block_hash = %request.block_hash, "Received witness");
-                self.outcomes.push_back(DownloadOutcome::Witness(request.block_hash, witness));
+                self.outcomes.push_back(DownloadOutcome::new(
+                    DownloadData::Witness(request.block_hash, witness),
+                    request.started_at.elapsed(),
+                ));
             } else {
                 self.inflight_witness_requests.push(request);
             }
@@ -205,7 +224,10 @@ impl EngineDownloader {
             let mut request = self.inflight_bytecode_requests.swap_remove(idx);
             if let Poll::Ready(bytecode) = request.poll_unpin(cx) {
                 trace!(target: "ress::engine::downloader", code_hash = %request.code_hash, "Received bytecode");
-                self.outcomes.push_back(DownloadOutcome::Bytecode(request.code_hash, bytecode));
+                self.outcomes.push_back(DownloadOutcome::new(
+                    DownloadData::Bytecode(request.code_hash, bytecode),
+                    request.started_at.elapsed(),
+                ));
             } else {
                 self.inflight_bytecode_requests.push(request);
             }
@@ -220,9 +242,24 @@ impl EngineDownloader {
 }
 
 /// Download outcome.
-
 #[derive(Debug)]
-pub enum DownloadOutcome {
+pub struct DownloadOutcome {
+    /// Downloaded data.
+    pub data: DownloadData,
+    /// Time elapsed since download started.
+    pub elapsed: Duration,
+}
+
+impl DownloadOutcome {
+    /// Create new download outcome.
+    pub fn new(data: DownloadData, elapsed: Duration) -> Self {
+        Self { data, elapsed }
+    }
+}
+
+/// Download data.
+#[derive(Debug)]
+pub enum DownloadData {
     /// Downloaded headers range.
     HeadersRange(Vec<SealedHeader>),
     /// Downloaded full blocks range.
@@ -247,6 +284,7 @@ pub struct FetchFullBlockFuture {
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
     block_hash: B256,
+    started_at: Instant,
     pending_header_request: Option<DownloadFut<Option<Header>>>,
     pending_body_request: Option<DownloadFut<Option<BlockBody>>>,
     header: Option<SealedHeader>,
@@ -369,6 +407,7 @@ pub struct FetchHeadersRangeFuture {
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
     request: GetHeaders,
+    started_at: Instant,
     pending: DownloadFut<Vec<Header>>,
 }
 
@@ -465,6 +504,7 @@ pub struct FetchFullBlockRangeFuture {
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
     request: GetHeaders,
+    started_at: Instant,
     state: FullBlockRangeDownloadState,
 }
 
@@ -574,6 +614,7 @@ pub struct FetchBytecodeFuture {
     network: RessNetworkHandle,
     code_hash: B256,
     retry_delay: Duration,
+    started_at: Instant,
     pending: DownloadFut<Bytes>,
 }
 
@@ -621,6 +662,7 @@ pub struct FetchWitnessFuture {
     network: RessNetworkHandle,
     block_hash: B256,
     retry_delay: Duration,
+    started_at: Instant,
     pending: DownloadFut<StateWitnessNet>,
 }
 

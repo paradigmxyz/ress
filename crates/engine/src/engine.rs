@@ -1,5 +1,5 @@
 use crate::{
-    downloader::{DownloadOutcome, EngineDownloader},
+    downloader::{DownloadData, DownloadOutcome, EngineDownloader},
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
 use alloy_primitives::B256;
@@ -57,7 +57,7 @@ impl ConsensusEngine {
             ),
             downloader: EngineDownloader::new(network, consensus),
             from_beacon_engine: UnboundedReceiverStream::from(from_beacon_engine),
-            parked_payload_timeout: Duration::from_secs(1),
+            parked_payload_timeout: Duration::from_secs(3),
             parked_payload: None,
         }
     }
@@ -89,19 +89,20 @@ impl ConsensusEngine {
         &mut self,
         outcome: DownloadOutcome,
     ) -> Result<(), InsertBlockFatalError> {
+        let elapsed = outcome.elapsed;
         let mut blocks = Vec::new();
-        match outcome {
-            DownloadOutcome::FullBlocksRange(blocks) => {
-                trace!(target: "ress::engine", first = ?blocks.last().map(|b| b.num_hash()), last = ?blocks.first().map(|b| b.num_hash()), "Downloaded block range");
+        match outcome.data {
+            DownloadData::FullBlocksRange(blocks) => {
+                trace!(target: "ress::engine", first = ?blocks.last().map(|b| b.num_hash()), last = ?blocks.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
                 // TODO:
             }
-            DownloadOutcome::HeadersRange(headers) => {
-                trace!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), "Downloaded block range");
+            DownloadData::HeadersRange(headers) => {
+                trace!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
                 // TODO:
             }
-            DownloadOutcome::FullBlock(block) => {
+            DownloadData::FullBlock(block) => {
                 let block_num_hash = block.num_hash();
-                trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
+                trace!(target: "ress::engine", ?block_num_hash, ?elapsed, "Downloaded block");
                 let recovered = match block.try_recover() {
                     Ok(block) => block,
                     Err(_error) => {
@@ -112,7 +113,7 @@ impl ConsensusEngine {
                 self.tree.block_buffer.insert_block(recovered);
                 blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
             }
-            DownloadOutcome::Witness(block_hash, witness) => {
+            DownloadData::Witness(block_hash, witness) => {
                 let code_hashes = witness.bytecode_hashes().clone();
                 let missing_code_hashes =
                     self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
@@ -123,7 +124,13 @@ impl ConsensusEngine {
                     witness,
                     missing_code_hashes.clone(),
                 );
-                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = missing_code_hashes.len(), "Downloaded witness");
+                let missing_bytecodes_len = missing_code_hashes.len();
+                if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
+                {
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, ?elapsed, "Downloaded for parked payload");
+                } else {
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, ?elapsed, "Downloaded witness");
+                }
                 if missing_code_hashes.is_empty() {
                     blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
                 } else {
@@ -132,8 +139,8 @@ impl ConsensusEngine {
                     }
                 }
             }
-            DownloadOutcome::Bytecode(code_hash, bytecode) => {
-                trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
+            DownloadData::Bytecode(code_hash, bytecode) => {
+                trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
                 match self.tree.provider.insert_bytecode(code_hash, bytecode) {
                     Ok(()) => {
                         blocks =
