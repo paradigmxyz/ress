@@ -1,5 +1,6 @@
 use alloy_primitives::keccak256;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
+use futures::StreamExt;
 use http::{header::CONTENT_TYPE, HeaderValue, Response};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
@@ -8,7 +9,6 @@ use ress_provider::{RessDatabase, RessProvider};
 use ress_testing::rpc_adapter::RpcNetworkAdapter;
 use reth_chainspec::ChainSpec;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
-use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_ethereum_primitives::EthPrimitives;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
@@ -20,6 +20,7 @@ use reth_node_core::primitives::{Bytecode, RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
 };
+use reth_node_events::node::handle_events;
 use reth_node_metrics::recorder::install_prometheus_recorder;
 use reth_payload_builder::{noop::NoopPayloadBuilderService, PayloadStore};
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
@@ -28,24 +29,11 @@ use reth_storage_api::noop::NoopProvider;
 use reth_tasks::TokioTaskExecutor;
 use reth_transaction_pool::noop::NoopTransactionPool;
 use std::{convert::Infallible, net::SocketAddr, sync::Arc};
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 
 use crate::cli::RessArgs;
-
-/// Ress node components.
-#[derive(Debug)]
-pub struct Node {
-    /// Ress data provider.
-    pub provider: RessProvider,
-    /// P2P handle.
-    pub network_handle: RessNetworkHandle,
-    /// Auth RPC server handle.
-    pub auth_server_handle: AuthServerHandle,
-    /// Consensus engine handle.
-    pub consensus_engine_handle: JoinHandle<Result<(), InsertBlockFatalError>>,
-}
 
 /// Ress node launcher
 #[derive(Debug)]
@@ -63,7 +51,7 @@ impl NodeLauncher {
 
 impl NodeLauncher {
     /// Launch ress node.
-    pub async fn launch(self) -> eyre::Result<Node> {
+    pub async fn launch(self) -> eyre::Result<()> {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
         // Install the recorder to ensure that upkeep is run periodically and
@@ -110,14 +98,16 @@ impl NodeLauncher {
         // Spawn consensus engine.
         let (to_engine, from_auth_rpc) = mpsc::unbounded_channel();
         let engine_validator = EthereumEngineValidator::new(self.args.chain.clone());
+        let (engine_events_tx, engine_events_rx) = mpsc::unbounded_channel();
         let consensus_engine = ConsensusEngine::new(
             provider.clone(),
             EthBeaconConsensus::new(self.args.chain.clone()),
             engine_validator.clone(),
             network_handle.clone(),
             from_auth_rpc,
+            engine_events_tx,
         );
-        let consensus_engine_handle = tokio::spawn(consensus_engine);
+        let _consensus_engine_handle = tokio::spawn(consensus_engine);
         info!(target: "ress", "Consensus engine spawned");
 
         // Start auth RPC server.
@@ -136,7 +126,14 @@ impl NodeLauncher {
             info!(target: "ress", %url, "Debug consensus started");
         }
 
-        Ok(Node { provider, network_handle, auth_server_handle, consensus_engine_handle })
+        handle_events::<_, EthPrimitives>(
+            Some(Box::new(network_handle.inner().clone())),
+            None,
+            UnboundedReceiverStream::from(engine_events_rx).map(Into::into),
+        )
+        .await;
+
+        Ok(())
     }
 
     async fn launch_network<P>(

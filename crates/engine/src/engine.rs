@@ -11,7 +11,9 @@ use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_errors::ProviderError;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
-use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload};
+use reth_node_api::{
+    BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload,
+};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
 use std::{
     future::Future,
@@ -20,7 +22,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    sync::{mpsc::UnboundedReceiver, oneshot},
+    sync::{mpsc, oneshot},
     time::Sleep,
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -43,10 +45,16 @@ impl ConsensusEngine {
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         network: RessNetworkHandle,
-        from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        from_beacon_engine: mpsc::UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        engine_events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     ) -> Self {
         Self {
-            tree: EngineTree::new(provider, consensus.clone(), engine_validator),
+            tree: EngineTree::new(
+                provider,
+                consensus.clone(),
+                engine_validator,
+                engine_events_sender,
+            ),
             downloader: EngineDownloader::new(network, consensus),
             from_beacon_engine: UnboundedReceiverStream::from(from_beacon_engine),
             parked_payload_timeout: Duration::from_secs(1),
@@ -209,9 +217,10 @@ impl ConsensusEngine {
                 let mut result = self.tree.on_forkchoice_updated(state, payload_attrs, version);
                 if let Ok(outcome) = &mut result {
                     // track last received forkchoice state
+                    let status = outcome.outcome.forkchoice_status();
+                    self.tree.forkchoice_state_tracker.set_latest(state, status);
                     self.tree
-                        .forkchoice_state_tracker
-                        .set_latest(state, outcome.outcome.forkchoice_status());
+                        .emit_event(BeaconConsensusEngineEvent::ForkchoiceUpdated(state, status));
                     self.on_maybe_tree_event(outcome.event.take());
                 }
                 let outcome_result = result.map(|o| o.outcome);

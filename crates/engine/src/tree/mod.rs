@@ -7,6 +7,7 @@ use rayon::iter::IntoParallelRefIterator;
 use ress_evm::BlockExecutor;
 use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
+use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{
     Consensus, ConsensusError, FullConsensus, HeaderValidator, PostExecutionInput,
@@ -20,14 +21,17 @@ use reth_ethereum_engine_primitives::{
     EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
 };
 use reth_node_api::{
-    EngineApiMessageVersion, EngineValidator, ExecutionData, ForkchoiceStateTracker,
-    OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
+    BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ExecutionData,
+    ForkchoiceStateTracker, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
+use reth_provider::ExecutionOutcome;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::SparseStateTrie;
+use std::{sync::Arc, time::Instant};
+use tokio::sync::mpsc;
 use tracing::*;
 
 mod outcome;
@@ -58,6 +62,9 @@ pub struct EngineTree {
     pub(crate) block_buffer: BlockBuffer<Block>,
     /// Invalid headers.
     pub(crate) invalid_headers: InvalidHeaderCache,
+
+    /// Outgoing events that are emitted to the handler.
+    pub(crate) events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
 }
 
 impl EngineTree {
@@ -66,6 +73,7 @@ impl EngineTree {
         provider: RessProvider,
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
+        events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     ) -> Self {
         let canonical_head = provider.chain_spec().genesis_header().num_hash_slow();
         Self {
@@ -76,6 +84,7 @@ impl EngineTree {
             forkchoice_state_tracker: ForkchoiceStateTracker::default(),
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
+            events_sender,
         }
     }
 
@@ -93,6 +102,32 @@ impl EngineTree {
     fn is_block_persisted_or_buffered(&self, block_hash: &B256) -> bool {
         self.provider.sealed_header(block_hash).is_some() ||
             self.block_buffer.blocks.contains_key(block_hash)
+    }
+
+    /// Determines if the given block is part of a fork.
+    fn is_fork(&self, target_hash: B256) -> bool {
+        // verify that the given hash is not part of an extension of the canon chain.
+        let canonical_head = self.canonical_head;
+        let mut current_hash = target_hash;
+        while let Some(current_block) = self.provider.sealed_header(&current_hash) {
+            if current_block.hash() == canonical_head.hash {
+                return false
+            }
+            // We already passed the canonical head
+            if current_block.number <= canonical_head.number {
+                break
+            }
+            current_hash = current_block.parent_hash;
+        }
+
+        true
+    }
+
+    /// Emits an outgoing event to the engine.
+    pub fn emit_event(&mut self, event: BeaconConsensusEngineEvent) {
+        let _ = self.events_sender.send(event).inspect_err(
+            |err| error!(target: "engine::tree", ?err, "Failed to send internal event"),
+        );
     }
 
     /// Handle forkchoice update.
@@ -418,12 +453,18 @@ impl EngineTree {
     /// This is invoked on a valid forkchoice update, or if we can make the target block canonical.
     fn on_canonical_chain_update(&mut self, update: NewCanonicalChain) {
         trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
-        self.canonical_head = update.tip().num_hash();
+        let start = Instant::now();
+        let tip = update.tip().clone();
+        self.canonical_head = tip.num_hash();
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
         };
         self.provider.on_chain_update(new, old);
+        self.emit_event(BeaconConsensusEngineEvent::CanonicalChainCommitted(
+            Box::new(tip),
+            start.elapsed(),
+        ));
     }
 
     /// Handler for new payload message.
@@ -627,6 +668,7 @@ impl EngineTree {
         block: RecoveredBlock<Block>,
         maybe_witness: Option<ExecutionWitness>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
+        let start = Instant::now();
         let block_num_hash = block.num_hash();
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
 
@@ -708,9 +750,24 @@ impl EngineTree {
         }
 
         // ===================== Update Node State =====================
-        self.provider.insert_block(block);
+        self.provider.insert_block(block.clone());
 
-        debug!(target: "ress::engine", block=?block_num_hash, "Finished inserting block");
+        // Emit event.
+        let executed = ExecutedBlockWithTrieUpdates::new(
+            Arc::new(block),
+            Arc::new(ExecutionOutcome::from((output, block_num_hash.number))),
+            Default::default(), // not needed
+            Default::default(), // not needed
+        );
+        let elapsed = start.elapsed();
+        let event = if self.is_fork(block_num_hash.hash) {
+            BeaconConsensusEngineEvent::ForkBlockAdded(executed, elapsed)
+        } else {
+            BeaconConsensusEngineEvent::CanonicalBlockAdded(executed, elapsed)
+        };
+        self.emit_event(event);
+
+        debug!(target: "ress::engine", block=?block_num_hash, ?elapsed, "Finished inserting block");
         Ok(InsertPayloadOk::Inserted(BlockStatus::Valid))
     }
 

@@ -137,6 +137,7 @@ reth-node-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-core = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
+reth-node-events = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237", features = [
     "test-utils",

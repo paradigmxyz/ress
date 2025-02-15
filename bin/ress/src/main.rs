@@ -1,10 +1,8 @@
 //! Main ress executable.
 
 use clap::Parser;
-use futures::StreamExt;
 use ress::{cli::RessArgs, launch::NodeLauncher};
-use reth_network::NetworkEventListenerProvider;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -21,11 +19,6 @@ async fn main() -> eyre::Result<()> {
         )
         .init();
 
-    let node = NodeLauncher::new(RessArgs::parse()).launch().await?;
-    let mut events = node.network_handle.inner().event_listener();
-    while let Some(event) = events.next().await {
-        info!(target: "ress", ?event, "Received network event");
-    }
-
+    NodeLauncher::new(RessArgs::parse()).launch().await?;
     Ok(())
 }
