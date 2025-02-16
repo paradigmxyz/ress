@@ -14,7 +14,7 @@ use reth_consensus::{
 };
 use reth_engine_tree::tree::{
     error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError},
-    BlockStatus, InsertPayloadOk, InvalidHeaderCache,
+    InvalidHeaderCache,
 };
 use reth_errors::{ProviderError, RethResult};
 use reth_ethereum_engine_primitives::{
@@ -516,64 +516,40 @@ impl EngineTree {
             }
         };
 
-        let mut missing_ancestor_hash = None;
-        let mut latest_valid_hash = None;
+        let mut maybe_tree_event = None;
         let status = match self.insert_block(recovered, maybe_witness) {
-            Ok(status) => {
-                let status = match status {
-                    InsertPayloadOk::Inserted(BlockStatus::Valid) => {
-                        latest_valid_hash = Some(block_hash);
-                        // TODO: self.try_connect_buffered_blocks(num_hash)?;
-                        PayloadStatusEnum::Valid
-                    }
-                    InsertPayloadOk::AlreadySeen(BlockStatus::Valid) => {
-                        latest_valid_hash = Some(block_hash);
-                        PayloadStatusEnum::Valid
-                    }
-                    InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                        missing_ancestor,
-                        ..
-                    }) |
-                    InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected {
-                        missing_ancestor,
-                        ..
-                    }) => {
-                        // not known to be invalid, but we don't know anything else
-                        missing_ancestor_hash = Some(missing_ancestor.hash);
-                        PayloadStatusEnum::Syncing
-                    }
-                };
-
-                PayloadStatus::new(status, latest_valid_hash)
+            Ok(InsertPayloadOk::Inserted(BlockStatus::Valid) | InsertPayloadOk::AlreadySeen) => {
+                // if the block is valid and it is the sync target head, make it canonical
+                if self.is_sync_target_head(block_hash) {
+                    maybe_tree_event = Some(TreeEvent::TreeAction(TreeAction::MakeCanonical {
+                        sync_target_head: block_hash,
+                    }))
+                }
+                // TODO: self.try_connect_buffered_blocks(num_hash)?;
+                PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
             }
-            Err(kind) => {
-                return Ok(TreeOutcome::new(
-                    self.on_insert_block_error(InsertBlockError::new(block, kind))?,
-                ))
+            Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                missing_ancestor, ..
+            })) => {
+                // not known to be invalid, but we don't know anything else
+                maybe_tree_event = Some(TreeEvent::Download(DownloadRequest::Block {
+                    block_hash: missing_ancestor.hash,
+                }));
+                PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
+            Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness)) => {
+                // we don't have a witness to validate the payload
+                maybe_tree_event =
+                    Some(TreeEvent::Download(DownloadRequest::Witness { block_hash }));
+                PayloadStatus::new(PayloadStatusEnum::Syncing, None)
+            }
+            Err(kind) => self.on_insert_block_error(InsertBlockError::new(block, kind))?,
         };
 
         let mut outcome = TreeOutcome::new(status);
-        if outcome.outcome.is_valid() && self.is_sync_target_head(block_hash) {
-            // if the block is valid and it is the sync target head, make it canonical
-            outcome = outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
-                sync_target_head: block_hash,
-            }));
-        } else if let Some(missing_ancestor) = missing_ancestor_hash {
-            let maybe_request = if missing_ancestor == block_hash {
-                // TODO: fix this
-                // we use `missing_ancestor == block_hash` for witness download
-                Some(DownloadRequest::Witness { block_hash: missing_ancestor })
-            } else if !self.is_block_persisted_or_buffered(&block_hash) {
-                Some(DownloadRequest::Block { block_hash: missing_ancestor })
-            } else {
-                None
-            };
-            if let Some(request) = maybe_request {
-                outcome = outcome.with_event(TreeEvent::Download(request));
-            }
+        if let Some(event) = maybe_tree_event {
+            outcome = outcome.with_event(event);
         }
-
         Ok(outcome)
     }
 
@@ -597,64 +573,51 @@ impl EngineTree {
 
         // try to append the block
         let block_hash = block.hash();
-        let outcome = match self.insert_block(block.clone(), Some(witness)) {
+        let mut maybe_tree_event = None;
+        let status = match self.insert_block(block.clone(), Some(witness)) {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Valid)) => {
-                let mut outcome = TreeOutcome::new(PayloadStatus::new(
-                    PayloadStatusEnum::Valid,
-                    Some(block_hash),
-                ));
                 if self.is_sync_target_head(block_num_hash.hash) {
-                    trace!(target: "ress::engine", "appended downloaded sync target block");
+                    trace!(target: "ress::engine", block = ?block_num_hash, "appended downloaded sync target block");
                     // we just inserted the current sync target block, we can try to make it
                     // canonical
-                    outcome =
-                        outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
-                            sync_target_head: block_num_hash.hash,
-                        }));
+                    maybe_tree_event = Some(TreeEvent::TreeAction(TreeAction::MakeCanonical {
+                        sync_target_head: block_num_hash.hash,
+                    }));
                 }
-                trace!(target: "ress::engine", "appended downloaded block");
+                trace!(target: "ress::engine", block = ?block_num_hash, "appended downloaded block");
                 // TODO: self.try_connect_buffered_blocks(block_num_hash)?;
-                outcome
+                PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
+            }
+            Ok(InsertPayloadOk::AlreadySeen) => {
+                trace!(target: "ress::engine", "Downloaded block already executed");
+                PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 missing_ancestor, ..
             })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                let mut outcome =
-                    TreeOutcome::new(PayloadStatus::new(PayloadStatusEnum::Syncing, None));
-
-                // TODO: fix this
-                // we use `missing_ancestor == block_hash` for witness download
-                let maybe_request = if missing_ancestor.hash == block_hash {
-                    Some(DownloadRequest::Witness { block_hash })
-                } else if !self.is_block_persisted_or_buffered(&block_hash) {
-                    Some(DownloadRequest::Block { block_hash: missing_ancestor.hash })
-                } else {
-                    None
-                };
-                if let Some(request) = maybe_request {
-                    outcome = outcome.with_event(TreeEvent::Download(request));
-                }
-                outcome
+                maybe_tree_event = Some(TreeEvent::Download(DownloadRequest::Block {
+                    block_hash: missing_ancestor.hash,
+                }));
+                PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
-            Ok(InsertPayloadOk::AlreadySeen(block_status)) => {
-                trace!(target: "ress::engine", "downloaded block already executed");
-                let status = if matches!(block_status, BlockStatus::Valid) {
-                    PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
-                } else {
-                    PayloadStatus::new(PayloadStatusEnum::Syncing, None)
-                };
-                TreeOutcome::new(status)
+            Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness)) => {
+                // we don't have a witness to validate the payload
+                maybe_tree_event =
+                    Some(TreeEvent::Download(DownloadRequest::Witness { block_hash }));
+                PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
             Err(kind) => {
-                debug!(target: "ress::engine", error = %kind, "failed to insert downloaded block");
-                TreeOutcome::new(self.on_insert_block_error(InsertBlockError::new(
-                    block.into_sealed_block(),
-                    kind,
-                ))?)
+                debug!(target: "ress::engine", error = %kind, "Failed to insert downloaded block");
+                self.on_insert_block_error(InsertBlockError::new(block.into_sealed_block(), kind))?
             }
         };
+
+        let mut outcome = TreeOutcome::new(status);
+        if let Some(event) = maybe_tree_event {
+            outcome = outcome.with_event(event);
+        }
         Ok(outcome)
     }
 
@@ -669,7 +632,7 @@ impl EngineTree {
         debug!(target: "ress::engine", block=?block_num_hash, parent_hash = %block.parent_hash, state_root = %block.state_root, "Inserting new block into tree");
 
         if self.provider.sealed_header(block.hash_ref()).is_some() {
-            return Ok(InsertPayloadOk::AlreadySeen(BlockStatus::Valid));
+            return Ok(InsertPayloadOk::AlreadySeen);
         }
 
         trace!(target: "ress::engine", block=?block_num_hash, "Validating block consensus");
@@ -909,6 +872,38 @@ impl EngineTree {
             latest_valid_hash,
         ))
     }
+}
+
+/// Block inclusion can be valid, accepted, or invalid. Invalid blocks are returned as an error
+/// variant.
+///
+/// If we don't know the block's parent, we return `Disconnected`, as we can't claim that the block
+/// is valid or not.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BlockStatus {
+    /// The block is valid and block extends canonical chain.
+    Valid,
+    /// The block may be valid and has an unknown missing ancestor.
+    Disconnected {
+        /// Current canonical head.
+        head: BlockNumHash,
+        /// The lowest ancestor block that is not connected to the canonical chain.
+        missing_ancestor: BlockNumHash,
+    },
+    /// The block has no witness.
+    NoWitness,
+}
+
+/// How a payload was inserted if it was valid.
+///
+/// If the payload was valid, but has already been seen, [`InsertPayloadOk::AlreadySeen`] is
+/// returned, otherwise [`InsertPayloadOk::Inserted`] is returned.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InsertPayloadOk {
+    /// The payload was valid, but we have already seen it.
+    AlreadySeen,
+    /// The payload was valid and inserted into the tree.
+    Inserted(BlockStatus),
 }
 
 /// Non-empty chain of blocks.
