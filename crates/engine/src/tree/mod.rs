@@ -1,11 +1,14 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{BlockHash, B256, U256};
+use alloy_rlp::{Decodable, Encodable};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
+use metrics::Gauge;
 use rayon::iter::IntoParallelRefIterator;
 use ress_evm::BlockExecutor;
-use ress_primitives::witness::ExecutionWitness;
+use ress_primitives::witness::{ExecutionWitness, StateWitness};
+use ress_protocol::StateWitnessNet;
 use ress_provider::RessProvider;
 use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
@@ -20,6 +23,7 @@ use reth_errors::{ProviderError, RethResult};
 use reth_ethereum_engine_primitives::{
     EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
 };
+use reth_metrics::Metrics;
 use reth_node_api::{
     BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ExecutionData,
     ForkchoiceStateTracker, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
@@ -28,9 +32,11 @@ use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::ExecutionOutcome;
-use reth_trie::{HashedPostState, KeccakKeyHasher};
+use reth_trie::{
+    HashedPostState, KeccakKeyHasher, Nibbles, RlpNode, TrieAccount, TrieNode, EMPTY_ROOT_HASH,
+};
 use reth_trie_sparse::SparseStateTrie;
-use std::{sync::Arc, time::Instant};
+use std::{collections::VecDeque, sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::*;
 
@@ -56,6 +62,8 @@ pub struct EngineTree {
 
     /// Current canonical head.
     pub(crate) canonical_head: BlockNumHash,
+    /// Pending sparse trie.
+    pub(crate) pending_sparse_trie: Option<(BlockHash, SparseStateTrie)>,
     /// Tracks the forkchoice state updates received by the CL.
     pub(crate) forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Pending block buffer.
@@ -65,6 +73,19 @@ pub struct EngineTree {
 
     /// Outgoing events that are emitted to the handler.
     pub(crate) events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
+
+    witness_metrics: WitnessMetrics,
+}
+
+#[derive(Metrics)]
+#[metrics(scope = "ress.witness")]
+struct WitnessMetrics {
+    /// Original witness size in bytes.
+    original_size_bytes: Gauge,
+    /// Reduced witness size in bytes.
+    reduced_size_bytes: Gauge,
+    /// Percentage size of the reduced witness.
+    reduced_size_pct: Gauge,
 }
 
 impl EngineTree {
@@ -81,10 +102,12 @@ impl EngineTree {
             consensus,
             engine_validator,
             canonical_head,
+            pending_sparse_trie: None,
             forkchoice_state_tracker: ForkchoiceStateTracker::default(),
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
             events_sender,
+            witness_metrics: Default::default(),
         }
     }
 
@@ -449,6 +472,9 @@ impl EngineTree {
         let start = Instant::now();
         let tip = update.tip().clone();
         self.canonical_head = tip.num_hash();
+        if Some(self.canonical_head.hash) != self.pending_sparse_trie.as_ref().map(|p| p.0) {
+            self.pending_sparse_trie.take();
+        }
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
@@ -752,6 +778,43 @@ impl EngineTree {
             },
         )?;
 
+        // Calculate RLP encoded size of reduced witness.
+        if let Some((_, previous_trie)) = self
+            .pending_sparse_trie
+            .as_ref()
+            .filter(|(block_hash, _)| block_hash == &block.parent_hash)
+        {
+            let reduced_witness_net = StateWitnessNet::from_iter(
+                reduce_witness(
+                    parent.state_root,
+                    execution_witness.state_witness(),
+                    &previous_trie,
+                )
+                .map_err(|error| InsertBlockErrorKind::Provider(ProviderError::Rlp(error)))?,
+            );
+            let reduced_rlp_size_bytes = reduced_witness_net.length();
+            let reduced_rlp_size =
+                humansize::format_size(reduced_rlp_size_bytes, humansize::DECIMAL);
+            let reduced_rlp_size_diff = humansize::format_size(
+                execution_witness.rlp_size_bytes().saturating_sub(reduced_rlp_size_bytes),
+                humansize::DECIMAL,
+            );
+            let reduced_rlp_size_pct =
+                reduced_rlp_size_bytes as f64 * 100. / execution_witness.rlp_size_bytes() as f64;
+            info!(
+                target: "ress::engine",
+                block = ?block_num_hash,
+                original_rlp_size = %humansize::format_size(execution_witness.rlp_size_bytes(), humansize::DECIMAL),
+                %reduced_rlp_size,
+                reduced_rlp_size_pct = %format!("{reduced_rlp_size_pct:.2}%"),
+                %reduced_rlp_size_diff,
+                "Calculated reduced RLP witness size"
+            );
+            self.witness_metrics.original_size_bytes.set(execution_witness.rlp_size_bytes() as f64);
+            self.witness_metrics.reduced_size_bytes.set(reduced_rlp_size_bytes as f64);
+            self.witness_metrics.reduced_size_pct.set(reduced_rlp_size_pct);
+        }
+
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
         let mut block_executor =
@@ -781,6 +844,12 @@ impl EngineTree {
 
         // ===================== Update Node State =====================
         self.provider.insert_block(block.clone());
+
+        // If the block extends the canonical hash, keep the sparse trie.
+        if self.canonical_head.hash == block.parent_hash {
+            debug!(target: "ress::engine", block = ?block_num_hash, "Block extends the canonical chain, retaining sparse trie");
+            self.pending_sparse_trie = Some((block.hash(), trie));
+        }
 
         // Emit event.
         let executed = ExecutedBlockWithTrieUpdates::new(
@@ -988,4 +1057,72 @@ impl NewCanonicalChain {
             Self::Reorg { old, .. } => old.len(),
         }
     }
+}
+
+// TODO:
+fn reduce_witness(
+    state_root: B256,
+    state_witness: &StateWitness,
+    trie: &SparseStateTrie,
+) -> alloy_rlp::Result<StateWitness> {
+    let mut reduced = StateWitness::default();
+
+    // Create a `(hash, path, maybe_account)` queue for traversing witness trie nodes
+    // starting from the root node.
+    let mut queue = VecDeque::from([(state_root, Nibbles::default(), None)]);
+
+    while let Some((hash, path, maybe_account)) = queue.pop_front() {
+        // Retrieve the trie node and decode it.
+        let Some(trie_node_bytes) = state_witness.get(&hash) else { continue };
+        let trie_node = TrieNode::decode(&mut &trie_node_bytes[..])?;
+
+        // Push children nodes into the queue.
+        match &trie_node {
+            TrieNode::Branch(branch) => {
+                for (idx, maybe_child) in branch.as_ref().children() {
+                    if let Some(child_hash) = maybe_child.and_then(RlpNode::as_hash) {
+                        let mut child_path = path.clone();
+                        child_path.push_unchecked(idx);
+                        queue.push_back((child_hash, child_path, maybe_account));
+                    }
+                }
+            }
+            TrieNode::Extension(ext) => {
+                if let Some(child_hash) = ext.child.as_hash() {
+                    let mut child_path = path.clone();
+                    child_path.extend_from_slice_unchecked(&ext.key);
+                    queue.push_back((child_hash, child_path, maybe_account));
+                }
+            }
+            TrieNode::Leaf(leaf) => {
+                let mut full_path = path.clone();
+                full_path.extend_from_slice_unchecked(&leaf.key);
+                if maybe_account.is_none() {
+                    let hashed_address = B256::from_slice(&full_path.pack());
+                    let account = TrieAccount::decode(&mut &leaf.value[..])?;
+                    if account.storage_root != EMPTY_ROOT_HASH {
+                        queue.push_back((
+                            account.storage_root,
+                            Nibbles::default(),
+                            Some(hashed_address),
+                        ));
+                    }
+                }
+            }
+            TrieNode::EmptyRoot => {} // nothing to do here
+        };
+
+        if let Some(account) = maybe_account {
+            if trie
+                .storage_trie_ref(&account)
+                .is_none_or(|storage_trie| !storage_trie.nodes_ref().contains_key(&path))
+            {
+                reduced.insert(hash, trie_node_bytes.clone());
+            }
+        } else if trie.state_trie_ref().is_none_or(|trie| trie.nodes_ref().contains_key(&path)) {
+            reduced.insert(hash, trie_node_bytes.clone());
+        }
+    }
+
+    Ok(reduced)
 }
