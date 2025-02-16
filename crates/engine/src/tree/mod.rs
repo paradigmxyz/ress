@@ -253,7 +253,6 @@ impl EngineTree {
                 block_hash: state.finalized_block_hash,
             }));
         } else {
-            // TODO: check correctness of this logic
             let target = if !state.safe_block_hash.is_zero() &&
                 !self.is_block_persisted_or_buffered(&state.safe_block_hash)
             {
