@@ -691,7 +691,7 @@ impl Future for FetchWitnessFuture {
                     if witness.0.is_empty() {
                         trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
-                        let network_size_bytes = witness.length();
+                        let rlp_size_bytes = witness.length();
                         let mut state_witness = StateWitness::default();
                         let valid = 'witness: {
                             for StateWitnessEntry { hash, bytes } in witness.0 {
@@ -706,10 +706,7 @@ impl Future for FetchWitnessFuture {
                             true
                         };
                         if valid {
-                            return Poll::Ready(ExecutionWitness::new(
-                                state_witness,
-                                network_size_bytes,
-                            ))
+                            return Poll::Ready(ExecutionWitness::new(state_witness, rlp_size_bytes))
                         }
                     }
                 }

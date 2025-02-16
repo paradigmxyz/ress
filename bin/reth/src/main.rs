@@ -29,6 +29,7 @@ use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, Trie
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
+    time::Instant,
 };
 use tokio::sync::mpsc;
 use tracing::*;
@@ -218,9 +219,13 @@ where
 
     async fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
         trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
+        let started_at = Instant::now();
         let this = self.clone();
         match self.witness_task_pool.spawn(move || this.generate_witness(block_hash)).await {
-            Ok(Ok(witness)) => Ok(witness),
+            Ok(Ok(witness)) => {
+                trace!(target: "reth::ress_provider", %block_hash, elapsed = ?started_at.elapsed(), "Computed witness");
+                Ok(witness)
+            }
             Ok(Err(error)) => Err(error),
             Err(_) => Err(ProviderError::TrieWitnessError("dropped".to_owned())),
         }
