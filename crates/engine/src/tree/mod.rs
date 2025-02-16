@@ -669,10 +669,7 @@ impl EngineTree {
         let Some(execution_witness) = maybe_witness else {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
-            return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                head: self.canonical_head,
-                missing_ancestor: block_num_hash,
-            }))
+            return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
         };
         let mut trie = SparseStateTrie::default();
         trie.reveal_witness(parent.state_root, execution_witness.state_witness()).map_err(
