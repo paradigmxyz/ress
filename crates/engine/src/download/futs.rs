@@ -273,6 +273,76 @@ impl Future for FetchHeadersRangeFuture {
     }
 }
 
+enum FullBlockWithAncestorsDownloadState {
+    FullBlock(FetchFullBlockFuture),
+    Ancestors(SealedBlock, FetchHeadersRangeFuture),
+}
+
+/// A future that downloads full block and the headers of its ancestors.
+#[must_use = "futures do nothing unless polled"]
+pub struct FetchFullBlockWithAncestorsFuture {
+    block_hash: B256,
+    ancestor_count: u64,
+    state: FullBlockWithAncestorsDownloadState,
+    started_at: Instant,
+}
+
+impl FetchFullBlockWithAncestorsFuture {
+    /// Create new fetch full block with ancestors future.
+    pub fn new(
+        network: RessNetworkHandle,
+        consensus: EthBeaconConsensus<ChainSpec>,
+        retry_delay: Duration,
+        block_hash: B256,
+        ancestor_count: u64,
+    ) -> Self {
+        let state = FullBlockWithAncestorsDownloadState::FullBlock(FetchFullBlockFuture::new(
+            network,
+            consensus,
+            retry_delay,
+            block_hash,
+        ));
+        Self { block_hash, ancestor_count, state, started_at: Instant::now() }
+    }
+
+    /// Returns the hash of the block being requested.
+    pub const fn block_hash(&self) -> B256 {
+        self.block_hash
+    }
+
+    /// The duration elapsed since request was started.
+    pub fn elapsed(&self) -> Duration {
+        self.started_at.elapsed()
+    }
+}
+
+impl Future for FetchFullBlockWithAncestorsFuture {
+    type Output = (SealedBlock, Vec<SealedHeader>);
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        loop {
+            match &mut this.state {
+                FullBlockWithAncestorsDownloadState::FullBlock(fut) => {
+                    let block = ready!(fut.poll_unpin(cx));
+                    let ancestors_fut = FetchHeadersRangeFuture::new(
+                        fut.network.clone(),
+                        fut.consensus.clone(),
+                        fut.retry_delay,
+                        GetHeaders { start_hash: block.parent_hash, limit: this.ancestor_count },
+                    );
+                    this.state =
+                        FullBlockWithAncestorsDownloadState::Ancestors(block, ancestors_fut);
+                }
+                FullBlockWithAncestorsDownloadState::Ancestors(block, fut) => {
+                    let ancestors = ready!(fut.poll_unpin(cx));
+                    return Poll::Ready((std::mem::take(block), ancestors))
+                }
+            }
+        }
+    }
+}
+
 enum FullBlockRangeDownloadState {
     Headers { fut: FetchHeadersRangeFuture },
     Bodies(FullBlockRangeBodiesDownloadState),

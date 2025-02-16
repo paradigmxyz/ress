@@ -1,5 +1,5 @@
 use crate::{
-    downloader::{DownloadData, DownloadOutcome, EngineDownloader},
+    download::{DownloadData, DownloadOutcome, EngineDownloader},
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
 use alloy_primitives::B256;
@@ -79,6 +79,9 @@ impl ConsensusEngine {
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
                 self.downloader.download_witness(block_hash);
             }
+            TreeEvent::Download(DownloadRequest::Finalized { block_hash }) => {
+                self.downloader.download_finalized_with_ancestors(block_hash);
+            }
             TreeEvent::TreeAction(TreeAction::MakeCanonical { sync_target_head }) => {
                 self.tree.make_canonical(sync_target_head);
             }
@@ -92,13 +95,19 @@ impl ConsensusEngine {
         let elapsed = outcome.elapsed;
         let mut blocks = Vec::new();
         match outcome.data {
-            DownloadData::FullBlocksRange(blocks) => {
-                trace!(target: "ress::engine", first = ?blocks.last().map(|b| b.num_hash()), last = ?blocks.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
-                // TODO:
-            }
-            DownloadData::HeadersRange(headers) => {
-                trace!(target: "ress::engine", first = ?headers.last().map(|b| b.num_hash()), last = ?headers.first().map(|b| b.num_hash()), ?elapsed, "Downloaded block range");
-                // TODO:
+            DownloadData::FinalizedBlock(block, ancestors) => {
+                let block_num_hash = block.num_hash();
+                info!(target: "ress::engine", ?block_num_hash, ancestors_len = ancestors.len(), "Downloaded finalized block");
+
+                let recovered = block.try_recover().map_err(|_| {
+                    InsertBlockFatalError::Provider(ProviderError::SenderRecoveryError)
+                })?;
+                self.tree.canonical_head = block_num_hash;
+                self.tree.provider.insert_canonical_hash(recovered.number, recovered.hash());
+                self.tree.provider.insert_block(recovered);
+                for header in ancestors {
+                    self.tree.provider.insert_canonical_hash(header.number, header.hash());
+                }
             }
             DownloadData::FullBlock(block) => {
                 let block_num_hash = block.num_hash();
@@ -216,13 +225,7 @@ impl ConsensusEngine {
                 }
             }
             BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
-                debug!(
-                    target: "ress::engine",
-                    head = %state.head_block_hash,
-                    safe = %state.safe_block_hash,
-                    finalized = %state.finalized_block_hash,
-                    "Updating forkchoice state"
-                );
+                debug!(target: "ress::engine", head = %state.head_block_hash, safe = %state.safe_block_hash, finalized = %state.finalized_block_hash, "Updating forkchoice state");
                 let mut result = self.tree.on_forkchoice_updated(state, payload_attrs, version);
                 if let Ok(outcome) = &mut result {
                     // track last received forkchoice state

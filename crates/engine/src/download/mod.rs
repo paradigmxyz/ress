@@ -2,7 +2,6 @@ use alloy_primitives::B256;
 use futures::FutureExt;
 use ress_network::RessNetworkHandle;
 use ress_primitives::witness::ExecutionWitness;
-use ress_protocol::GetHeaders;
 use reth_chainspec::ChainSpec;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Bytecode, SealedBlock, SealedHeader};
@@ -25,11 +24,10 @@ pub struct EngineDownloader {
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
 
-    inflight_headers_range_requests: Vec<FetchHeadersRangeFuture>,
-    inflight_full_blocks_range_requests: Vec<FetchFullBlockRangeFuture>,
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
     inflight_bytecode_requests: Vec<FetchBytecodeFuture>,
     inflight_witness_requests: Vec<FetchWitnessFuture>,
+    inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture>,
     outcomes: VecDeque<DownloadOutcome>,
 }
 
@@ -40,47 +38,12 @@ impl EngineDownloader {
             network,
             consensus,
             retry_delay: Duration::from_millis(50),
-            inflight_headers_range_requests: Vec::new(),
-            inflight_full_blocks_range_requests: Vec::new(),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
             inflight_bytecode_requests: Vec::new(),
+            inflight_finalized_block_requests: Vec::new(),
             outcomes: VecDeque::new(),
         }
-    }
-
-    /// Download headers range starting from start hash.
-    pub fn download_headers_range(&mut self, start_hash: B256, count: u64) {
-        let request = GetHeaders { start_hash, limit: count };
-        if self.inflight_headers_range_requests.iter().any(|req| req.request() == request) {
-            return
-        }
-
-        trace!(target: "ress::engine::downloader", %start_hash, count, "Downloading headers range");
-        let fut = FetchHeadersRangeFuture::new(
-            self.network.clone(),
-            self.consensus.clone(),
-            self.retry_delay,
-            request,
-        );
-        self.inflight_headers_range_requests.push(fut);
-    }
-
-    /// Download full blocks range starting from start hash.
-    pub fn download_full_blocks_range(&mut self, start_hash: B256, count: u64) {
-        let request = GetHeaders { start_hash, limit: count };
-        if self.inflight_full_blocks_range_requests.iter().any(|req| req.request() == request) {
-            return
-        }
-
-        trace!(target: "ress::engine::downloader", %start_hash, count, "Downloading full block range");
-        let fut = FetchFullBlockRangeFuture::new(
-            self.network.clone(),
-            self.consensus.clone(),
-            self.retry_delay,
-            request,
-        );
-        self.inflight_full_blocks_range_requests.push(fut);
     }
 
     /// Download full block by block hash.
@@ -121,37 +84,40 @@ impl EngineDownloader {
         self.inflight_witness_requests.push(fut);
     }
 
+    /// Download finalized block with 256 ancestors.
+    pub fn download_finalized_with_ancestors(&mut self, block_hash: B256) {
+        if self.inflight_finalized_block_requests.iter().any(|req| req.block_hash() == block_hash) {
+            return
+        }
+
+        trace!(target: "ress::engine::downloader", %block_hash, "Downloading finalized");
+        let fut = FetchFullBlockWithAncestorsFuture::new(
+            self.network.clone(),
+            self.consensus.clone(),
+            self.retry_delay,
+            block_hash,
+            256,
+        );
+        self.inflight_finalized_block_requests.push(fut);
+    }
+
     /// Poll downloader.
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome> {
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
         }
 
-        // advance all headers range requests
-        for idx in (0..self.inflight_headers_range_requests.len()).rev() {
-            let mut request = self.inflight_headers_range_requests.swap_remove(idx);
-            if let Poll::Ready(headers) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", request = ?request.request(), "Received headers range");
-                self.outcomes.push_back(DownloadOutcome::new(
-                    DownloadData::HeadersRange(headers),
-                    request.elapsed(),
-                ));
-            } else {
-                self.inflight_headers_range_requests.push(request);
-            }
-        }
-
         // advance all full block range requests
-        for idx in (0..self.inflight_full_blocks_range_requests.len()).rev() {
-            let mut request = self.inflight_full_blocks_range_requests.swap_remove(idx);
-            if let Poll::Ready(blocks) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", request = ?request.request(), "Received full block range");
+        for idx in (0..self.inflight_finalized_block_requests.len()).rev() {
+            let mut request = self.inflight_finalized_block_requests.swap_remove(idx);
+            if let Poll::Ready((block, ancestors)) = request.poll_unpin(cx) {
+                trace!(target: "ress::engine::downloader", block=?block.num_hash(), ancestors_len = ancestors.len(), "Received finalized block");
                 self.outcomes.push_back(DownloadOutcome::new(
-                    DownloadData::FullBlocksRange(blocks),
+                    DownloadData::FinalizedBlock(block, ancestors),
                     request.elapsed(),
                 ));
             } else {
-                self.inflight_full_blocks_range_requests.push(request);
+                self.inflight_finalized_block_requests.push(request);
             }
         }
 
@@ -159,7 +125,7 @@ impl EngineDownloader {
         for idx in (0..self.inflight_full_block_requests.len()).rev() {
             let mut request = self.inflight_full_block_requests.swap_remove(idx);
             if let Poll::Ready(block) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", block=?block.num_hash(), "Received single full block");
+                trace!(target: "ress::engine::downloader", block = ?block.num_hash(), "Received single full block");
                 self.outcomes.push_back(DownloadOutcome::new(
                     DownloadData::FullBlock(block),
                     request.elapsed(),
@@ -224,14 +190,12 @@ impl DownloadOutcome {
 /// Download data.
 #[derive(Debug)]
 pub enum DownloadData {
-    /// Downloaded headers range.
-    HeadersRange(Vec<SealedHeader>),
-    /// Downloaded full blocks range.
-    FullBlocksRange(Vec<SealedBlock>),
     /// Downloaded full block.
     FullBlock(SealedBlock),
     /// Downloaded bytecode.
     Bytecode(B256, Bytecode),
     /// Downloaded execution witness.
     Witness(B256, ExecutionWitness),
+    /// Downloaded full block with ancestors.
+    FinalizedBlock(SealedBlock, Vec<SealedHeader>),
 }

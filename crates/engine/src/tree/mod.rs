@@ -240,26 +240,34 @@ impl EngineTree {
         //
         // find the appropriate target to sync to, if we don't have the safe block hash then we
         // start syncing to the safe block via backfill first
-        let target = if self.forkchoice_state_tracker.is_empty() &&
-            // check that safe block is valid and missing
-            !state.safe_block_hash.is_zero() &&
-            self.provider.sealed_header(&state.safe_block_hash).is_none()
-        {
-            debug!(target: "ress::engine", "missing safe block on initial FCU, downloading safe block");
-            state.safe_block_hash
-        } else {
-            state.head_block_hash
-        };
-
         let mut outcome = TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
             PayloadStatusEnum::Syncing,
         )));
 
-        let target = self.lowest_buffered_ancestor_or(target);
-        if !self.is_block_persisted_or_buffered(&target) {
-            trace!(target: "ress::engine", %target, "downloading missing block");
-            outcome = outcome
-                .with_event(TreeEvent::Download(DownloadRequest::Block { block_hash: target }));
+        // Find the appropriate target to sync to.
+        if !state.finalized_block_hash.is_zero() &&
+            !self.is_block_persisted_or_buffered(&state.finalized_block_hash)
+        {
+            debug!(target: "ress::engine", finalized = %state.finalized_block_hash, "Missing finalized block on FCU, downloading");
+            outcome = outcome.with_event(TreeEvent::Download(DownloadRequest::Finalized {
+                block_hash: state.finalized_block_hash,
+            }));
+        } else {
+            // TODO: check correctness of this logic
+            let target = if !state.safe_block_hash.is_zero() &&
+                !self.is_block_persisted_or_buffered(&state.safe_block_hash)
+            {
+                state.safe_block_hash
+            } else {
+                state.head_block_hash
+            };
+            let target = self.lowest_buffered_ancestor_or(target);
+            if target != state.finalized_block_hash && !self.is_block_persisted_or_buffered(&target)
+            {
+                debug!(target: "ress::engine", %target, "Downloading missing ancestor on FCU");
+                outcome = outcome
+                    .with_event(TreeEvent::Download(DownloadRequest::Block { block_hash: target }));
+            }
         }
 
         Ok(outcome)
