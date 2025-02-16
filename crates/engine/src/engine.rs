@@ -202,8 +202,7 @@ impl ConsensusEngine {
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    // info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size,
-                    // ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness for parked payload");
                 } else {
                     trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness");
                 }
