@@ -120,7 +120,7 @@ impl ChainState {
             while this
                 .block_hashes_by_number
                 .first_key_value()
-                .is_some_and(|(number, _)| number <= &finalized_number)
+                .is_some_and(|(number, _)| number < &finalized_number)
             {
                 let (_, block_hashes) = this.block_hashes_by_number.pop_first().unwrap();
                 for block_hash in block_hashes {
