@@ -5,10 +5,7 @@ use rayon::prelude::*;
 use reth_trie::{
     HashedPostState, Nibbles, TrieAccount, EMPTY_ROOT_HASH, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
-use reth_trie_sparse::{
-    errors::{SparseStateTrieResult, SparseTrieErrorKind},
-    SparseStateTrie, SparseTrie,
-};
+use reth_trie_sparse::{errors::SparseStateTrieResult, SparseStateTrie, SparseTrie};
 use std::sync::mpsc;
 
 /// Compute the state root given a revealed sparse trie and hashed state update.
@@ -81,5 +78,5 @@ pub fn calculate_state_root(
         }
     }
 
-    trie.root().ok_or_else(|| SparseTrieErrorKind::Blind.into())
+    trie.root()
 }

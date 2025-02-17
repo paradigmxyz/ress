@@ -721,7 +721,7 @@ impl EngineTree {
 
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
-        let mut block_executor =
+        let block_executor =
             BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
         let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
         debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
