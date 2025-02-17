@@ -11,16 +11,15 @@ repository.workspace = true
 # alloy
 alloy-rpc-types-engine = { workspace = true, features = ["serde"] }
 
-# todo: update hyper to version 1
-hyper = { version = "0.14", features = [
-    "client",
-    "server",
-    "http1",
-    "runtime",
-] }
-tokio = { workspace = true, features = ["full"] }
+bytes = "1.2"
+hyper = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+hyper-rustls = { version = "0.26", features = ["webpki-roots"] }
+http-body-util = "0.1"
+hyper-util = { version = "0.1", features = ["full"] }
 serde_json.workspace = true
 serde.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 futures-util = "*"
+form_urlencoded = "1"
