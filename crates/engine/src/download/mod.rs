@@ -1,8 +1,10 @@
-use alloy_primitives::B256;
+use alloy_primitives::{map::HashMap, B256};
 use futures::FutureExt;
+use metrics::{Counter, Gauge, Histogram};
 use ress_network::RessNetworkHandle;
 use ress_primitives::witness::ExecutionWitness;
 use reth_chainspec::ChainSpec;
+use reth_metrics::Metrics;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Bytecode, SealedBlock, SealedHeader};
 use std::{
@@ -29,6 +31,8 @@ pub struct EngineDownloader {
     inflight_witness_requests: Vec<FetchWitnessFuture>,
     inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture>,
     outcomes: VecDeque<DownloadOutcome>,
+
+    metrics: EngineDownloaderMetrics,
 }
 
 impl EngineDownloader {
@@ -43,6 +47,7 @@ impl EngineDownloader {
             inflight_bytecode_requests: Vec::new(),
             inflight_finalized_block_requests: Vec::new(),
             outcomes: VecDeque::new(),
+            metrics: EngineDownloaderMetrics::default(),
         }
     }
 
@@ -60,6 +65,8 @@ impl EngineDownloader {
             block_hash,
         );
         self.inflight_full_block_requests.push(fut);
+        self.metrics.inc_total(RequestMetricTy::FullBlock);
+        self.metrics.set_inflight(RequestMetricTy::FullBlock, self.inflight_witness_requests.len());
     }
 
     /// Download bytecode by code hash.
@@ -71,6 +78,8 @@ impl EngineDownloader {
         debug!(target: "ress::engine::downloader", %code_hash, "Downloading bytecode");
         let fut = FetchBytecodeFuture::new(self.network.clone(), self.retry_delay, code_hash);
         self.inflight_bytecode_requests.push(fut);
+        self.metrics.inc_total(RequestMetricTy::Bytecode);
+        self.metrics.set_inflight(RequestMetricTy::Bytecode, self.inflight_bytecode_requests.len());
     }
 
     /// Download witness by block hash.
@@ -82,6 +91,8 @@ impl EngineDownloader {
         debug!(target: "ress::engine::downloader", %block_hash, "Downloading witness");
         let fut = FetchWitnessFuture::new(self.network.clone(), self.retry_delay, block_hash);
         self.inflight_witness_requests.push(fut);
+        self.metrics.inc_total(RequestMetricTy::Witness);
+        self.metrics.set_inflight(RequestMetricTy::Witness, self.inflight_witness_requests.len());
     }
 
     /// Download finalized block with 256 ancestors.
@@ -99,6 +110,9 @@ impl EngineDownloader {
             256,
         );
         self.inflight_finalized_block_requests.push(fut);
+        self.metrics.inc_total(RequestMetricTy::Finalized);
+        self.metrics
+            .set_inflight(RequestMetricTy::Finalized, self.inflight_finalized_block_requests.len());
     }
 
     /// Poll downloader.
@@ -111,57 +125,69 @@ impl EngineDownloader {
         for idx in (0..self.inflight_finalized_block_requests.len()).rev() {
             let mut request = self.inflight_finalized_block_requests.swap_remove(idx);
             if let Poll::Ready((block, ancestors)) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", block=?block.num_hash(), ancestors_len = ancestors.len(), "Received finalized block");
+                let elapsed = request.elapsed();
+                self.metrics.record_elapsed(RequestMetricTy::Finalized, elapsed);
+                trace!(target: "ress::engine::downloader", block=?block.num_hash(), ancestors_len = ancestors.len(), ?elapsed, "Received finalized block");
                 self.outcomes.push_back(DownloadOutcome::new(
                     DownloadData::FinalizedBlock(block, ancestors),
-                    request.elapsed(),
+                    elapsed,
                 ));
             } else {
                 self.inflight_finalized_block_requests.push(request);
             }
         }
+        self.metrics
+            .set_inflight(RequestMetricTy::Finalized, self.inflight_finalized_block_requests.len());
 
         // advance all full block requests
         for idx in (0..self.inflight_full_block_requests.len()).rev() {
             let mut request = self.inflight_full_block_requests.swap_remove(idx);
             if let Poll::Ready(block) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", block = ?block.num_hash(), "Received single full block");
-                self.outcomes.push_back(DownloadOutcome::new(
-                    DownloadData::FullBlock(block),
-                    request.elapsed(),
-                ));
+                let elapsed = request.elapsed();
+                self.metrics.record_elapsed(RequestMetricTy::FullBlock, elapsed);
+                trace!(target: "ress::engine::downloader", block = ?block.num_hash(), ?elapsed, "Received single full block");
+                self.outcomes
+                    .push_back(DownloadOutcome::new(DownloadData::FullBlock(block), elapsed));
             } else {
                 self.inflight_full_block_requests.push(request);
             }
         }
+        self.metrics
+            .set_inflight(RequestMetricTy::FullBlock, self.inflight_full_block_requests.len());
 
         // advance all witness requests
         for idx in (0..self.inflight_witness_requests.len()).rev() {
             let mut request = self.inflight_witness_requests.swap_remove(idx);
             if let Poll::Ready(witness) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", block_hash = %request.block_hash(), "Received witness");
+                let elapsed = request.elapsed();
+                self.metrics.record_elapsed(RequestMetricTy::Witness, elapsed);
+                trace!(target: "ress::engine::downloader", block_hash = %request.block_hash(), ?elapsed, "Received witness");
                 self.outcomes.push_back(DownloadOutcome::new(
                     DownloadData::Witness(request.block_hash(), witness),
-                    request.elapsed(),
+                    elapsed,
                 ));
             } else {
                 self.inflight_witness_requests.push(request);
             }
         }
+        self.metrics.set_inflight(RequestMetricTy::Witness, self.inflight_witness_requests.len());
 
         // advance all bytecode requests
         for idx in (0..self.inflight_bytecode_requests.len()).rev() {
             let mut request = self.inflight_bytecode_requests.swap_remove(idx);
             if let Poll::Ready(bytecode) = request.poll_unpin(cx) {
-                trace!(target: "ress::engine::downloader", code_hash = %request.code_hash(), "Received bytecode");
+                let elapsed = request.elapsed();
+                self.metrics.record_elapsed(RequestMetricTy::Bytecode, elapsed);
+                trace!(target: "ress::engine::downloader", code_hash = %request.code_hash(), ?elapsed, "Received bytecode");
                 self.outcomes.push_back(DownloadOutcome::new(
                     DownloadData::Bytecode(request.code_hash(), bytecode),
-                    request.elapsed(),
+                    elapsed,
                 ));
             } else {
                 self.inflight_bytecode_requests.push(request);
             }
         }
+        self.metrics.set_inflight(RequestMetricTy::Bytecode, self.inflight_bytecode_requests.len());
 
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
@@ -198,4 +224,49 @@ pub enum DownloadData {
     Witness(B256, ExecutionWitness),
     /// Downloaded full block with ancestors.
     FinalizedBlock(SealedBlock, Vec<SealedHeader>),
+}
+
+#[derive(Default, Debug)]
+struct EngineDownloaderMetrics {
+    by_type: HashMap<RequestMetricTy, DownloadRequestTypeMetrics>,
+}
+
+impl EngineDownloaderMetrics {
+    fn for_type(&mut self, ty: RequestMetricTy) -> &DownloadRequestTypeMetrics {
+        self.by_type.entry(ty).or_insert_with(|| {
+            DownloadRequestTypeMetrics::new_with_labels(&[("type", ty.to_string())])
+        })
+    }
+
+    fn inc_total(&mut self, ty: RequestMetricTy) {
+        self.for_type(ty).total.increment(1);
+    }
+
+    fn set_inflight(&mut self, ty: RequestMetricTy, count: usize) {
+        self.for_type(ty).inflight.set(count as f64);
+    }
+
+    fn record_elapsed(&mut self, ty: RequestMetricTy, elapsed: Duration) {
+        self.for_type(ty).elapsed.record(elapsed.as_secs_f64());
+    }
+}
+
+#[derive(Metrics)]
+#[metrics(scope = "engine.downloader")]
+struct DownloadRequestTypeMetrics {
+    /// The total number of requests.
+    total: Counter,
+    /// The number of inflight requests.
+    inflight: Gauge,
+    /// The number of seconds request took to complete.
+    elapsed: Histogram,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, strum_macros::Display)]
+#[strum(serialize_all = "snake_case")]
+enum RequestMetricTy {
+    FullBlock,
+    Bytecode,
+    Witness,
+    Finalized,
 }

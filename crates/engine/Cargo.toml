@@ -49,6 +49,7 @@ tracing.workspace = true
 rayon.workspace = true
 itertools.workspace = true
 metrics.workspace = true
+strum_macros.workspace = true
 schnellru = "0.2"
 humansize = "2.0"
 

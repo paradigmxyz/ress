@@ -3,6 +3,7 @@ use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
+use metrics::Gauge;
 use rayon::iter::IntoParallelRefIterator;
 use ress_evm::BlockExecutor;
 use ress_primitives::witness::ExecutionWitness;
@@ -20,6 +21,7 @@ use reth_errors::{ProviderError, RethResult};
 use reth_ethereum_engine_primitives::{
     EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
 };
+use reth_metrics::Metrics;
 use reth_node_api::{
     BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ExecutionData,
     ForkchoiceStateTracker, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
@@ -64,7 +66,9 @@ pub struct EngineTree {
     pub(crate) invalid_headers: InvalidHeaderCache,
 
     /// Outgoing events that are emitted to the handler.
-    pub(crate) events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
+    events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
+    /// Metrics.
+    metrics: EngineTreeMetrics,
 }
 
 impl EngineTree {
@@ -85,6 +89,7 @@ impl EngineTree {
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
             events_sender,
+            metrics: EngineTreeMetrics::default(),
         }
     }
 
@@ -128,6 +133,12 @@ impl EngineTree {
         let _ = self.events_sender.send(event).inspect_err(
             |err| error!(target: "engine::tree", ?err, "Failed to send internal event"),
         );
+    }
+
+    /// Set canonical head.
+    pub fn set_canonical_head(&mut self, head: BlockNumHash) {
+        self.canonical_head = head;
+        self.metrics.head.set(head.number as f64);
     }
 
     /// Handle forkchoice update.
@@ -452,7 +463,7 @@ impl EngineTree {
         trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
         let start = Instant::now();
         let tip = update.tip().clone();
-        self.canonical_head = tip.num_hash();
+        self.set_canonical_head(tip.num_hash());
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
@@ -976,4 +987,11 @@ impl NewCanonicalChain {
             Self::Reorg { old, .. } => old.len(),
         }
     }
+}
+
+#[derive(Metrics)]
+#[metrics(scope = "engine.tree")]
+struct EngineTreeMetrics {
+    /// Canonical head block number.
+    head: Gauge,
 }
