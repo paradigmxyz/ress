@@ -52,7 +52,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %block_hash, "Downloading full block");
+        debug!(target: "ress::engine::downloader", %block_hash, "Downloading full block");
         let fut = FetchFullBlockFuture::new(
             self.network.clone(),
             self.consensus.clone(),
@@ -68,7 +68,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %code_hash, "Downloading bytecode");
+        debug!(target: "ress::engine::downloader", %code_hash, "Downloading bytecode");
         let fut = FetchBytecodeFuture::new(self.network.clone(), self.retry_delay, code_hash);
         self.inflight_bytecode_requests.push(fut);
     }
@@ -79,7 +79,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %block_hash, "Downloading witness");
+        debug!(target: "ress::engine::downloader", %block_hash, "Downloading witness");
         let fut = FetchWitnessFuture::new(self.network.clone(), self.retry_delay, block_hash);
         self.inflight_witness_requests.push(fut);
     }
@@ -90,7 +90,7 @@ impl EngineDownloader {
             return
         }
 
-        trace!(target: "ress::engine::downloader", %block_hash, "Downloading finalized");
+        debug!(target: "ress::engine::downloader", %block_hash, "Downloading finalized");
         let fut = FetchFullBlockWithAncestorsFuture::new(
             self.network.clone(),
             self.consensus.clone(),
