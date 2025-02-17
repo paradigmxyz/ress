@@ -37,11 +37,18 @@ async fn forward_request(
     let whole_body = req.collect().await?.to_bytes();
     let params =
         form_urlencoded::parse(&whole_body).into_owned().collect::<HashMap<String, String>>();
+
+    // `is_engine_method` as true if:
+    //  1) method starts with "engine"
+    //  2) method does NOT start with "engine_get"
     let is_engine_method = params
         .get("method")
         .map(|method| method.starts_with("engine") && !method.starts_with("engine_get"))
         .unwrap_or(false);
 
+    let https =
+        HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
+    let client = Client::builder(TokioExecutor::new()).build(https);
     let build_request = |uri: &str| {
         let mut builder = Request::builder().method(req_method.clone()).uri(uri);
         for (key, value) in req_headers.iter() {
@@ -50,11 +57,8 @@ async fn forward_request(
         builder.body(Full::new(whole_body.clone()).boxed()).unwrap()
     };
 
+    info!(target: "adapter", "Sending request to reth");
     let reth_req = build_request(reth_uri);
-    let https =
-        HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build();
-    let client = Client::builder(TokioExecutor::new()).build(https);
-    info!(target: "adapter", "Sending requeset to reth");
     let reth_res = client.request(reth_req).await.unwrap();
     let (parts, body) = reth_res.into_parts();
     // if it's not engine method, return reth response
@@ -65,7 +69,7 @@ async fn forward_request(
     }
 
     let reth_body_bytes = body.collect().await?.to_bytes();
-    info!(target: "adapter", "Sending requeset to ress");
+    info!(target: "adapter", "Sending request to ress");
     let ress_req = build_request(RESS_AUTH);
     let ress_res = client.request(ress_req).await.unwrap();
     let (mut ress_parts, ress_body) = ress_res.into_parts();
