@@ -197,11 +197,12 @@ impl EngineTree {
                 return Ok(TreeOutcome::new(outcome));
             }
 
-            // TODO: figure out why this causes 2 additional hive failures
-            // self.provider
-            //     .storage
-            //     .on_finalized(state.finalized_block_hash)
-            //     .map_err(RethError::other)?;
+            // clean up blocks from in-memory state and buffer
+            self.provider.on_finalized(&state.finalized_block_hash);
+            if let Some(finalized_number) = self.provider.block_number(&state.finalized_block_hash)
+            {
+                self.block_buffer.evict_old_blocks(finalized_number);
+            }
 
             if let Some(attr) = payload_attrs {
                 if let Some(status) = self.validate_payload_attributes(attr, &tip, state, version) {

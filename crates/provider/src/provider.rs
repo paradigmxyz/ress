@@ -43,6 +43,11 @@ impl RessProvider {
         self.chain_state.block_hash(parent, number)
     }
 
+    /// Return block number by hash.
+    pub fn block_number(&self, hash: &B256) -> Option<BlockNumber> {
+        self.chain_state.block_number(hash)
+    }
+
     /// Return sealed block header by hash.
     pub fn sealed_header(&self, hash: &B256) -> Option<SealedHeader> {
         self.chain_state.sealed_header(hash)

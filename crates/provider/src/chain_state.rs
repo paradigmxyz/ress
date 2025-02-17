@@ -72,6 +72,11 @@ impl ChainState {
         }
     }
 
+    /// Return block number by hash.
+    pub fn block_number(&self, hash: &B256) -> Option<BlockNumber> {
+        self.map_recovered_block(hash, |b| b.number)
+    }
+
     /// Returns header by hash.
     pub fn header(&self, hash: &BlockHash) -> Option<Header> {
         self.map_recovered_block(hash, RecoveredBlock::clone_header)
