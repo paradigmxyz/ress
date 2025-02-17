@@ -126,11 +126,13 @@ reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237
 reth-chain-state = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 
 ## rpc
+reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
+reth-rpc = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
 
 ## node
 reth-node-api = { git = "https://github.com/paradigmxyz/reth", rev = "fe32237" }
@@ -172,6 +174,7 @@ alloy-provider = { version = "0.11.0", default-features = false, features = [
 alloy-transport-http = { version = "0.11.0", default-features = false }
 alloy-serde = { version = "0.11.0", default-features = false }
 alloy-consensus = { version = "0.11.0", default-features = false }
+alloy-network = { version = "0.11.0", default-features = false }
 
 # misc
 clap = { version = "4.4", features = ["derive"] }

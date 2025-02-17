@@ -19,9 +19,12 @@ ress-engine.workspace = true
 ress-testing.workspace = true
 
 # alloy
+alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-rpc-types-engine.workspace = true
-alloy-primitives.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-network.workspace = true
+alloy-serde.workspace = true
 
 # reth
 reth-ethereum-primitives.workspace = true
@@ -37,8 +40,11 @@ reth-node-ethereum.workspace = true
 reth-node-events.workspace = true
 reth-node-metrics.workspace = true
 reth-engine-tree.workspace = true
+reth-rpc-eth-types.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-rpc-api.workspace = true
 reth-rpc-builder.workspace = true
+reth-rpc.workspace = true
 reth-consensus-debug-client.workspace = true
 reth-payload-builder.workspace = true
 reth-transaction-pool.workspace = true
@@ -60,5 +66,6 @@ dirs-next = "2.0"
 shellexpand = "3.0"
 http = "1.0"
 tower = "0.4"
+jsonrpsee = "0.24"
 jsonrpsee-server = "0.24"
-
+async-trait = "0.1.68"

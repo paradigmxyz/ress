@@ -24,6 +24,7 @@ use reth_node_ethereum::{
 use reth_node_events::node::handle_events;
 use reth_node_metrics::recorder::install_prometheus_recorder;
 use reth_payload_builder::{noop::NoopPayloadBuilderService, PayloadStore};
+use reth_rpc_api::EngineEthApiServer;
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_storage_api::noop::NoopProvider;
@@ -34,7 +35,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 
-use crate::cli::RessArgs;
+use crate::{cli::RessArgs, rpc::RessEthRpc};
 
 /// Ress node launcher
 #[derive(Debug)]
@@ -114,7 +115,7 @@ impl NodeLauncher {
         // Start auth RPC server.
         let jwt_key = self.args.rpc.auth_jwt_secret(data_dir.jwt())?;
         let auth_server_handle =
-            self.start_auth_server(jwt_key, engine_validator, to_engine).await?;
+            self.start_auth_server(jwt_key, provider, engine_validator, to_engine).await?;
         info!(target: "ress", addr = %auth_server_handle.local_addr(), "Auth RPC server started");
 
         // Start debug consensus.
@@ -189,6 +190,7 @@ impl NodeLauncher {
     async fn start_auth_server(
         &self,
         jwt_key: JwtSecret,
+        provider: RessProvider,
         engine_validator: EthereumEngineValidator,
         to_engine: mpsc::UnboundedSender<BeaconEngineMessage<EthEngineTypes>>,
     ) -> eyre::Result<AuthServerHandle> {
@@ -212,7 +214,10 @@ impl NodeLauncher {
         );
         let auth_socket = self.args.rpc.auth_rpc_addr();
         let config = AuthServerConfig::builder(jwt_key).socket_addr(auth_socket).build();
-        Ok(AuthRpcModule::new(engine_api).start_server(config).await?)
+
+        let mut module = AuthRpcModule::new(engine_api);
+        module.merge_auth_methods(RessEthRpc::new(provider).into_rpc())?;
+        Ok(module.start_server(config).await?)
     }
 
     /// This launches the prometheus server.
