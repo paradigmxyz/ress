@@ -6,7 +6,7 @@ use reth_evm::execute::{BlockExecutionError, BlockExecutionStrategy, ExecuteOutp
 use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
-use reth_revm::StateBuilder;
+use reth_revm::{db::states::bundle_state::BundleRetention, StateBuilder};
 use reth_trie_sparse::SparseStateTrie;
 
 use crate::db::WitnessDatabase;
@@ -39,6 +39,7 @@ impl<'a> BlockExecutor<'a> {
         let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
         let requests = self.strategy.apply_post_execution_changes(block, &receipts)?;
         let mut state = self.strategy.into_state();
+        state.merge_transitions(BundleRetention::PlainState);
         Ok(BlockExecutionOutput { state: state.take_bundle(), receipts, requests, gas_used })
     }
 }
