@@ -1,5 +1,5 @@
-use crate::GetHeaders;
-use alloy_primitives::{map::B256HashMap, Bytes, B256};
+use crate::{GetHeaders, StateWitnessNet};
+use alloy_primitives::{Bytes, B256};
 use alloy_rlp::Encodable;
 use reth_primitives::{BlockBody, Header};
 use reth_storage_errors::provider::ProviderResult;
@@ -70,5 +70,5 @@ pub trait RessProtocolProvider: Send + Sync {
     fn witness(
         &self,
         block_hash: B256,
-    ) -> impl Future<Output = ProviderResult<Option<B256HashMap<Bytes>>>> + Send;
+    ) -> impl Future<Output = ProviderResult<Option<StateWitnessNet>>> + Send;
 }

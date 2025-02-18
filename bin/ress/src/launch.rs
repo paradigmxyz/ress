@@ -9,6 +9,7 @@ use ress_provider::{RessDatabase, RessProvider};
 use ress_testing::rpc_adapter::RpcNetworkAdapter;
 use reth_chainspec::ChainSpec;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
+use reth_db_api::database_metrics::DatabaseMetrics;
 use reth_ethereum_primitives::EthPrimitives;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
@@ -23,6 +24,7 @@ use reth_node_ethereum::{
 use reth_node_events::node::handle_events;
 use reth_node_metrics::recorder::install_prometheus_recorder;
 use reth_payload_builder::{noop::NoopPayloadBuilderService, PayloadStore};
+use reth_rpc_api::EngineEthApiServer;
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_storage_api::noop::NoopProvider;
@@ -33,7 +35,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 
-use crate::cli::RessArgs;
+use crate::{cli::RessArgs, rpc::RessEthRpc};
 
 /// Ress node launcher
 #[derive(Debug)]
@@ -54,20 +56,20 @@ impl NodeLauncher {
     pub async fn launch(self) -> eyre::Result<()> {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
-        // Install the recorder to ensure that upkeep is run periodically and
-        // start the metrics server.
-        install_prometheus_recorder().spawn_upkeep();
-        if let Some(addr) = self.args.metrics {
-            info!(target: "ress", ?addr, "Starting metrics endpoint");
-            self.start_prometheus_server(addr).await?;
-        }
-
         // Open database.
         let db_path = data_dir.db();
         debug!(target: "ress", path = %db_path.display(), "Opening database");
         let database = RessDatabase::new(&db_path)?;
         info!(target: "ress", path = %db_path.display(), "Database opened");
-        let provider = RessProvider::new(self.args.chain.clone(), database);
+        let provider = RessProvider::new(self.args.chain.clone(), database.clone());
+
+        // Install the recorder to ensure that upkeep is run periodically and
+        // start the metrics server.
+        install_prometheus_recorder().spawn_upkeep();
+        if let Some(addr) = self.args.metrics {
+            info!(target: "ress", ?addr, "Starting metrics endpoint");
+            self.start_prometheus_server(addr, database).await?;
+        }
 
         // Insert genesis block.
         let genesis_hash = self.args.chain.genesis_hash();
@@ -113,7 +115,7 @@ impl NodeLauncher {
         // Start auth RPC server.
         let jwt_key = self.args.rpc.auth_jwt_secret(data_dir.jwt())?;
         let auth_server_handle =
-            self.start_auth_server(jwt_key, engine_validator, to_engine).await?;
+            self.start_auth_server(jwt_key, provider, engine_validator, to_engine).await?;
         info!(target: "ress", addr = %auth_server_handle.local_addr(), "Auth RPC server started");
 
         // Start debug consensus.
@@ -188,6 +190,7 @@ impl NodeLauncher {
     async fn start_auth_server(
         &self,
         jwt_key: JwtSecret,
+        provider: RessProvider,
         engine_validator: EthereumEngineValidator,
         to_engine: mpsc::UnboundedSender<BeaconEngineMessage<EthEngineTypes>>,
     ) -> eyre::Result<AuthServerHandle> {
@@ -211,11 +214,21 @@ impl NodeLauncher {
         );
         let auth_socket = self.args.rpc.auth_rpc_addr();
         let config = AuthServerConfig::builder(jwt_key).socket_addr(auth_socket).build();
-        Ok(AuthRpcModule::new(engine_api).start_server(config).await?)
+
+        let mut module = AuthRpcModule::new(engine_api);
+        module.merge_auth_methods(RessEthRpc::new(provider).into_rpc())?;
+        Ok(module.start_server(config).await?)
     }
 
     /// This launches the prometheus server.
-    pub async fn start_prometheus_server(&self, addr: SocketAddr) -> eyre::Result<()> {
+    pub async fn start_prometheus_server(
+        &self,
+        addr: SocketAddr,
+        database: RessDatabase,
+    ) -> eyre::Result<()> {
+        // Register version.
+        let _gauge = metrics::gauge!("info", &[("version", env!("CARGO_PKG_VERSION"))]);
+
         let listener = tokio::net::TcpListener::bind(addr).await?;
         tokio::spawn(async move {
             loop {
@@ -227,8 +240,10 @@ impl NodeLauncher {
                     }
                 };
 
+                let database_ = database.clone();
                 let handle = install_prometheus_recorder();
                 let service = tower::service_fn(move |_| {
+                    database_.report_metrics();
                     let metrics = handle.handle().render();
                     let mut response = Response::new(metrics);
                     let content_type = HeaderValue::from_static("text/plain");

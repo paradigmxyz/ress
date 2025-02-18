@@ -32,6 +32,26 @@ pub enum TreeEvent {
 }
 
 impl TreeEvent {
+    /// Create download witness tree event.
+    pub fn download_witness(block_hash: B256) -> Self {
+        Self::Download(DownloadRequest::Witness { block_hash })
+    }
+
+    /// Crate download block tree event.
+    pub fn download_block(block_hash: B256) -> Self {
+        Self::Download(DownloadRequest::Block { block_hash })
+    }
+
+    /// Crate download finalized tree event.
+    pub fn download_finalized(block_hash: B256) -> Self {
+        Self::Download(DownloadRequest::Finalized { block_hash })
+    }
+
+    /// Crate make canonical tree event.
+    pub fn make_canonical(sync_target_head: B256) -> Self {
+        Self::TreeAction(TreeAction::MakeCanonical { sync_target_head })
+    }
+
     /// Return witness download target hash if event is [`DownloadRequest::Witness`] of
     /// [`TreeEvent::Download`] variant.
     pub fn as_witness_download(&self) -> Option<B256> {

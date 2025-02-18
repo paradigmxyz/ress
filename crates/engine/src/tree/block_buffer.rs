@@ -194,7 +194,10 @@ impl<B: Block> BlockBuffer<B> {
     /// This method will only remove the block if it's present inside `self.blocks`.
     /// The block might be missing from other collections, the method will only ensure that it has
     /// been removed.
-    fn remove_block(&mut self, hash: &BlockHash) -> Option<(RecoveredBlock<B>, ExecutionWitness)> {
+    pub fn remove_block(
+        &mut self,
+        hash: &BlockHash,
+    ) -> Option<(RecoveredBlock<B>, ExecutionWitness)> {
         if !self.blocks.contains_key(hash) {
             return None
         }
@@ -271,10 +274,7 @@ impl<B: Block> BlockBuffer<B> {
 
     /// Update missing bytecodes on bytecode received.
     /// Returns block hashes that are ready for insertion.
-    pub fn remove_blocks_with_received_bytecode(
-        &mut self,
-        code_hash: B256,
-    ) -> Vec<(RecoveredBlock<B>, ExecutionWitness)> {
+    pub fn on_bytecode_received(&mut self, code_hash: B256) -> B256HashSet {
         let mut block_hashes = B256HashSet::default();
         self.missing_bytecodes.retain(|block_hash, missing| {
             missing.remove(&code_hash);
@@ -286,9 +286,6 @@ impl<B: Block> BlockBuffer<B> {
             }
         });
         block_hashes
-            .into_iter()
-            .flat_map(|block_hash| self.remove_block_with_children(block_hash))
-            .collect()
     }
 }
 

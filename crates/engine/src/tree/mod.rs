@@ -3,6 +3,7 @@ use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
 };
+use metrics::Gauge;
 use rayon::iter::IntoParallelRefIterator;
 use ress_evm::BlockExecutor;
 use ress_primitives::witness::ExecutionWitness;
@@ -20,6 +21,7 @@ use reth_errors::{ProviderError, RethResult};
 use reth_ethereum_engine_primitives::{
     EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
 };
+use reth_metrics::Metrics;
 use reth_node_api::{
     BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ExecutionData,
     ForkchoiceStateTracker, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
@@ -64,7 +66,9 @@ pub struct EngineTree {
     pub(crate) invalid_headers: InvalidHeaderCache,
 
     /// Outgoing events that are emitted to the handler.
-    pub(crate) events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
+    events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
+    /// Metrics.
+    metrics: EngineTreeMetrics,
 }
 
 impl EngineTree {
@@ -85,6 +89,7 @@ impl EngineTree {
             block_buffer: BlockBuffer::new(256),
             invalid_headers: InvalidHeaderCache::new(256),
             events_sender,
+            metrics: EngineTreeMetrics::default(),
         }
     }
 
@@ -128,6 +133,12 @@ impl EngineTree {
         let _ = self.events_sender.send(event).inspect_err(
             |err| error!(target: "engine::tree", ?err, "Failed to send internal event"),
         );
+    }
+
+    /// Set canonical head.
+    pub fn set_canonical_head(&mut self, head: BlockNumHash) {
+        self.canonical_head = head;
+        self.metrics.head.set(head.number as f64);
     }
 
     /// Handle forkchoice update.
@@ -197,11 +208,12 @@ impl EngineTree {
                 return Ok(TreeOutcome::new(outcome));
             }
 
-            // TODO: figure out why this causes 2 additional hive failures
-            // self.provider
-            //     .storage
-            //     .on_finalized(state.finalized_block_hash)
-            //     .map_err(RethError::other)?;
+            // clean up blocks from in-memory state and buffer
+            self.provider.on_finalized(&state.finalized_block_hash);
+            if let Some(finalized_number) = self.provider.block_number(&state.finalized_block_hash)
+            {
+                self.block_buffer.evict_old_blocks(finalized_number);
+            }
 
             if let Some(attr) = payload_attrs {
                 if let Some(status) = self.validate_payload_attributes(attr, &tip, state, version) {
@@ -249,9 +261,7 @@ impl EngineTree {
             !self.is_block_persisted_or_buffered(&state.finalized_block_hash)
         {
             debug!(target: "ress::engine", finalized = %state.finalized_block_hash, "Missing finalized block on FCU, downloading");
-            outcome = outcome.with_event(TreeEvent::Download(DownloadRequest::Finalized {
-                block_hash: state.finalized_block_hash,
-            }));
+            outcome = outcome.with_event(TreeEvent::download_finalized(state.finalized_block_hash));
         } else {
             let target = if !state.safe_block_hash.is_zero() &&
                 !self.is_block_persisted_or_buffered(&state.safe_block_hash)
@@ -264,8 +274,7 @@ impl EngineTree {
             if target != state.finalized_block_hash && !self.is_block_persisted_or_buffered(&target)
             {
                 debug!(target: "ress::engine", %target, "Downloading missing ancestor on FCU");
-                outcome = outcome
-                    .with_event(TreeEvent::Download(DownloadRequest::Block { block_hash: target }));
+                outcome = outcome.with_event(TreeEvent::download_block(target));
             }
         }
 
@@ -454,7 +463,7 @@ impl EngineTree {
         trace!(target: "ress::engine", new_blocks = %update.new_block_count(), reorged_blocks = %update.reorged_block_count(), "applying new chain update");
         let start = Instant::now();
         let tip = update.tip().clone();
-        self.canonical_head = tip.num_hash();
+        self.set_canonical_head(tip.num_hash());
         let (new, old) = match update {
             NewCanonicalChain::Commit { new } => (new, Vec::new()),
             NewCanonicalChain::Reorg { new, old } => (new, old),
@@ -519,28 +528,23 @@ impl EngineTree {
         let mut maybe_tree_event = None;
         let status = match self.insert_block(recovered, maybe_witness) {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Valid) | InsertPayloadOk::AlreadySeen) => {
+                self.try_connect_buffered_blocks(block_hash)?;
                 // if the block is valid and it is the sync target head, make it canonical
                 if self.is_sync_target_head(block_hash) {
-                    maybe_tree_event = Some(TreeEvent::TreeAction(TreeAction::MakeCanonical {
-                        sync_target_head: block_hash,
-                    }))
+                    maybe_tree_event = Some(TreeEvent::make_canonical(block_hash));
                 }
-                // TODO: self.try_connect_buffered_blocks(num_hash)?;
                 PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
                 missing_ancestor, ..
             })) => {
                 // not known to be invalid, but we don't know anything else
-                maybe_tree_event = Some(TreeEvent::Download(DownloadRequest::Block {
-                    block_hash: missing_ancestor.hash,
-                }));
+                maybe_tree_event = Some(TreeEvent::download_block(missing_ancestor.hash));
                 PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness)) => {
                 // we don't have a witness to validate the payload
-                maybe_tree_event =
-                    Some(TreeEvent::Download(DownloadRequest::Witness { block_hash }));
+                maybe_tree_event = Some(TreeEvent::download_witness(block_hash));
                 PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
             Err(kind) => self.on_insert_block_error(InsertBlockError::new(block, kind))?,
@@ -580,12 +584,10 @@ impl EngineTree {
                     trace!(target: "ress::engine", block = ?block_num_hash, "appended downloaded sync target block");
                     // we just inserted the current sync target block, we can try to make it
                     // canonical
-                    maybe_tree_event = Some(TreeEvent::TreeAction(TreeAction::MakeCanonical {
-                        sync_target_head: block_num_hash.hash,
-                    }));
+                    maybe_tree_event = Some(TreeEvent::make_canonical(block_num_hash.hash));
                 }
                 trace!(target: "ress::engine", block = ?block_num_hash, "appended downloaded block");
-                // TODO: self.try_connect_buffered_blocks(block_num_hash)?;
+                self.try_connect_buffered_blocks(block_num_hash.hash)?;
                 PayloadStatus::new(PayloadStatusEnum::Valid, Some(block_hash))
             }
             Ok(InsertPayloadOk::AlreadySeen) => {
@@ -597,15 +599,12 @@ impl EngineTree {
             })) => {
                 // block is not connected to the canonical head, we need to download
                 // its missing branch first
-                maybe_tree_event = Some(TreeEvent::Download(DownloadRequest::Block {
-                    block_hash: missing_ancestor.hash,
-                }));
+                maybe_tree_event = Some(TreeEvent::download_block(missing_ancestor.hash));
                 PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
             Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness)) => {
                 // we don't have a witness to validate the payload
-                maybe_tree_event =
-                    Some(TreeEvent::Download(DownloadRequest::Witness { block_hash }));
+                maybe_tree_event = Some(TreeEvent::download_witness(block_hash));
                 PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
             Err(kind) => {
@@ -619,6 +618,48 @@ impl EngineTree {
             outcome = outcome.with_event(event);
         }
         Ok(outcome)
+    }
+
+    /// Attempts to connect any buffered blocks that are connected to the given parent hash.
+    fn try_connect_buffered_blocks(
+        &mut self,
+        parent_hash: B256,
+    ) -> Result<(), InsertBlockFatalError> {
+        let blocks = self.block_buffer.remove_block_with_children(parent_hash);
+
+        if blocks.is_empty() {
+            // nothing to append
+            return Ok(())
+        }
+
+        let now = Instant::now();
+        let block_count = blocks.len();
+        for (child, witness) in blocks {
+            let child_num_hash = child.num_hash();
+            match self.insert_block(child.clone(), Some(witness)) {
+                Ok(result) => {
+                    debug!(target: "engine::tree", child = ?child_num_hash, ?result, "connected buffered block");
+                    if self.is_sync_target_head(child_num_hash.hash) &&
+                        matches!(result, InsertPayloadOk::Inserted(BlockStatus::Valid))
+                    {
+                        self.make_canonical(child_num_hash.hash);
+                    }
+                }
+                Err(kind) => {
+                    debug!(target: "engine::tree", error = ?kind, "failed to connect buffered block to tree");
+                    if let Err(fatal) = self.on_insert_block_error(InsertBlockError::new(
+                        child.into_sealed_block(),
+                        kind,
+                    )) {
+                        warn!(target: "engine::tree", %fatal, "Fatal error occurred while connecting buffered blocks");
+                        return Err(fatal)
+                    }
+                }
+            }
+        }
+
+        debug!(target: "engine::tree", elapsed = ?now.elapsed(), %block_count, "connected buffered blocks");
+        Ok(())
     }
 
     /// Insert block into the tree.
@@ -680,7 +721,7 @@ impl EngineTree {
 
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
-        let mut block_executor =
+        let block_executor =
             BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
         let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
         debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
@@ -946,4 +987,11 @@ impl NewCanonicalChain {
             Self::Reorg { old, .. } => old.len(),
         }
     }
+}
+
+#[derive(Metrics)]
+#[metrics(scope = "engine.tree")]
+struct EngineTreeMetrics {
+    /// Canonical head block number.
+    head: Gauge,
 }

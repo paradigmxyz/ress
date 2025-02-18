@@ -1,16 +1,34 @@
 use alloy_primitives::{map::B256HashSet, B256};
 use itertools::Itertools;
+use metrics::Label;
 use reth_db::{
-    create_db, mdbx::DatabaseArguments, tables, Database, DatabaseEnv, DatabaseError, TableSet,
-    TableType, TableViewer,
+    create_db, database_metrics::DatabaseMetrics, mdbx::DatabaseArguments, Database, DatabaseEnv,
+    DatabaseError,
 };
 use reth_db_api::{
     cursor::DbCursorRO,
-    table::TableInfo,
     transaction::{DbTx, DbTxMut},
 };
 use reth_primitives::Bytecode;
-use std::{fmt, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
+use tracing::*;
+
+mod tables {
+    use alloy_primitives::B256;
+    use reth_db::{tables, TableSet, TableType, TableViewer};
+    use reth_db_api::table::TableInfo;
+    use reth_primitives::Bytecode;
+    use std::fmt;
+
+    tables! {
+        /// Stores all contract bytecodes.
+        table Bytecodes {
+            type Key = B256;
+            type Value = Bytecode;
+        }
+    }
+}
+use tables::{Bytecodes, Tables};
 
 /// Ress persisted database for storing bytecodes.
 #[derive(Clone, Debug)]
@@ -39,7 +57,7 @@ impl RessDatabase {
 
     /// Get bytecode by code hash.
     pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
-        self.database.tx()?.get::<tables::Bytecodes>(code_hash)
+        self.database.tx()?.get::<Bytecodes>(code_hash)
     }
 
     /// Insert bytecode into the database.
@@ -49,7 +67,7 @@ impl RessDatabase {
         bytecode: Bytecode,
     ) -> Result<(), DatabaseError> {
         let tx_mut = self.database.tx_mut()?;
-        tx_mut.put::<tables::Bytecodes>(code_hash, bytecode)?;
+        tx_mut.put::<Bytecodes>(code_hash, bytecode)?;
         tx_mut.commit()?;
         Ok(())
     }
@@ -61,7 +79,7 @@ impl RessDatabase {
     ) -> Result<B256HashSet, DatabaseError> {
         let mut missing = B256HashSet::default();
         let tx = self.database.tx()?;
-        let mut cursor = tx.cursor_read::<tables::Bytecodes>()?;
+        let mut cursor = tx.cursor_read::<Bytecodes>()?;
         for code_hash in code_hashes.into_iter().sorted_unstable() {
             if cursor.seek_exact(code_hash)?.is_none() {
                 missing.insert(code_hash);
@@ -69,13 +87,62 @@ impl RessDatabase {
         }
         Ok(missing)
     }
+
+    #[allow(clippy::type_complexity)]
+    fn collect_metrics(&self) -> Result<Vec<(&'static str, f64, Vec<Label>)>, DatabaseError> {
+        self.database
+            .view(|tx| -> reth_db::mdbx::Result<_> {
+                let table = Tables::Bytecodes.name();
+                let table_label = Label::new("table", table);
+                let table_db = tx.inner.open_db(Some(table))?;
+                let stats = tx.inner.db_stat(&table_db)?;
+
+                let page_size = stats.page_size() as usize;
+                let leaf_pages = stats.leaf_pages();
+                let branch_pages = stats.branch_pages();
+                let overflow_pages = stats.overflow_pages();
+                let num_pages = leaf_pages + branch_pages + overflow_pages;
+                let table_size = page_size * num_pages;
+                let entries = stats.entries();
+
+                let metrics = Vec::from([
+                    ("db.table_size", table_size as f64, Vec::from([table_label.clone()])),
+                    (
+                        "db.table_pages",
+                        leaf_pages as f64,
+                        Vec::from([table_label.clone(), Label::new("type", "leaf")]),
+                    ),
+                    (
+                        "db.table_pages",
+                        branch_pages as f64,
+                        Vec::from([table_label.clone(), Label::new("type", "branch")]),
+                    ),
+                    (
+                        "db.table_pages",
+                        overflow_pages as f64,
+                        Vec::from([table_label.clone(), Label::new("type", "overflow")]),
+                    ),
+                    ("db.table_entries", entries as f64, Vec::from([table_label])),
+                ]);
+                Ok(metrics)
+            })?
+            .map_err(|e| DatabaseError::Read(e.into()))
+    }
 }
 
-tables! {
-    /// Stores all contract bytecodes.
-    table Bytecodes {
-        type Key = B256;
-        type Value = Bytecode;
+impl DatabaseMetrics for RessDatabase {
+    fn report_metrics(&self) {
+        for (name, value, labels) in self.gauge_metrics() {
+            metrics::gauge!(name, labels).set(value);
+        }
+    }
+
+    fn gauge_metrics(&self) -> Vec<(&'static str, f64, Vec<Label>)> {
+        self.collect_metrics()
+            .inspect_err(
+                |error| error!(target: "ress::db", ?error, "Error collecting database metrics"),
+            )
+            .unwrap_or_default()
     }
 }
 

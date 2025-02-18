@@ -5,3 +5,6 @@ pub mod cli;
 
 /// Node launcher.
 pub mod launch;
+
+/// Eth RPC implementation.
+pub mod rpc;

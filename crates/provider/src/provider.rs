@@ -1,10 +1,7 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{
-    map::{B256HashMap, B256HashSet},
-    BlockHash, BlockNumber, Bytes, B256,
-};
-use ress_protocol::RessProtocolProvider;
+use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, Bytes, B256};
+use ress_protocol::{RessProtocolProvider, StateWitnessNet};
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
@@ -41,6 +38,11 @@ impl RessProvider {
     /// Includes both canonical and pending blocks.
     pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
         self.chain_state.block_hash(parent, number)
+    }
+
+    /// Return block number by hash.
+    pub fn block_number(&self, hash: &B256) -> Option<BlockNumber> {
+        self.chain_state.block_number(hash)
     }
 
     /// Return sealed block header by hash.
@@ -117,7 +119,7 @@ impl RessProtocolProvider for RessProvider {
     }
 
     // TODO: implement
-    async fn witness(&self, _block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+    async fn witness(&self, _block_hash: B256) -> ProviderResult<Option<StateWitnessNet>> {
         Ok(None)
     }
 }

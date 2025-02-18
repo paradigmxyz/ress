@@ -37,9 +37,8 @@ reth-eth-wire = { workspace = true, features = ["arbitrary"] }
 arbitrary = { workspace = true, features = ["derive"] }
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
-
-strum = "0.27"
-strum_macros = "0.27"
+strum.workspace = true
+strum_macros.workspace = true
 
 [features]
 arbitrary = ["dep:arbitrary", "reth-eth-wire/arbitrary"]

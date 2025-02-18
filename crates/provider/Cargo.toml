@@ -29,6 +29,8 @@ reth-db-api.workspace = true
 parking_lot.workspace = true
 eyre.workspace = true
 itertools.workspace = true
+tracing.workspace = true
+metrics.workspace = true
 
 [dev-dependencies]
 derive_more.workspace = true

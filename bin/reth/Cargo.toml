@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 # ress
-ress-network.workspace = true
 ress-protocol.workspace = true
 
 # reth
@@ -38,3 +37,4 @@ futures.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 parking_lot.workspace = true
+schnellru.workspace = true

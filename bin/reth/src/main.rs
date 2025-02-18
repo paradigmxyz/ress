@@ -7,8 +7,10 @@ use alloy_primitives::{
     Address, BlockNumber, Bytes, B256, U256,
 };
 use futures::StreamExt;
-use parking_lot::RwLock;
-use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
+use parking_lot::{Mutex, RwLock};
+use ress_protocol::{
+    NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider, StateWitnessNet,
+};
 use reth::{
     network::{protocol::IntoRlpxSubProtocol, NetworkProtocols},
     providers::{
@@ -26,6 +28,7 @@ use reth_primitives::{Block, BlockBody, Bytecode, EthPrimitives, Header, Recover
 use reth_tasks::pool::BlockingTaskPool;
 use reth_tokio_util::EventStream;
 use reth_trie::{HashedPostState, HashedStorage, MultiProofTargets, Nibbles, TrieInput};
+use schnellru::{ByLength, LruMap};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -57,6 +60,7 @@ fn main() -> eyre::Result<()> {
             witness_task_pool: BlockingTaskPool::new(
                 BlockingTaskPool::builder().num_threads(5).build()?,
             ),
+            witness_cache: Arc::new(Mutex::new(LruMap::new(ByLength::new(10)))),
         };
         let protocol_handler = RessProtocolHandler {
             provider,
@@ -75,6 +79,7 @@ struct RethBlockchainProvider<N: NodeTypesWithDB, E> {
     block_executor: E,
     pending_state: PendingState,
     witness_task_pool: BlockingTaskPool,
+    witness_cache: Arc<Mutex<LruMap<B256, Arc<StateWitnessNet>>>>,
 }
 
 impl<N: NodeTypesWithDB, E: Clone> Clone for RethBlockchainProvider<N, E> {
@@ -84,6 +89,7 @@ impl<N: NodeTypesWithDB, E: Clone> Clone for RethBlockchainProvider<N, E> {
             block_executor: self.block_executor.clone(),
             pending_state: self.pending_state.clone(),
             witness_task_pool: self.witness_task_pool.clone(),
+            witness_cache: self.witness_cache.clone(),
         }
     }
 }
@@ -113,7 +119,11 @@ where
         Ok(maybe_block)
     }
 
-    fn generate_witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+    fn generate_witness(&self, block_hash: B256) -> ProviderResult<Option<StateWitnessNet>> {
+        if let Some(witness) = self.witness_cache.lock().get(&block_hash).cloned() {
+            return Ok(Some(witness.as_ref().clone()))
+        }
+
         let block =
             self.block_by_hash(block_hash)?.ok_or(ProviderError::BlockHashNotFound(block_hash))?;
 
@@ -185,7 +195,11 @@ where
         } else {
             witness_state_provider.witness(trie_input, hashed_state)?
         };
-        Ok(Some(witness))
+
+        let state_witness = StateWitnessNet::from_iter(witness);
+        self.witness_cache.lock().insert(block_hash, Arc::new(state_witness.clone()));
+
+        Ok(Some(state_witness))
     }
 }
 
@@ -217,7 +231,7 @@ where
         Ok(maybe_bytecode.map(|bytecode| bytecode.original_bytes()))
     }
 
-    async fn witness(&self, block_hash: B256) -> ProviderResult<Option<B256HashMap<Bytes>>> {
+    async fn witness(&self, block_hash: B256) -> ProviderResult<Option<StateWitnessNet>> {
         trace!(target: "reth::ress_provider", %block_hash, "Serving witness");
         let started_at = Instant::now();
         let this = self.clone();

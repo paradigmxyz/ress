@@ -72,6 +72,11 @@ impl ChainState {
         }
     }
 
+    /// Return block number by hash.
+    pub fn block_number(&self, hash: &B256) -> Option<BlockNumber> {
+        self.map_recovered_block(hash, |b| b.number)
+    }
+
     /// Returns header by hash.
     pub fn header(&self, hash: &BlockHash) -> Option<Header> {
         self.map_recovered_block(hash, RecoveredBlock::clone_header)
@@ -115,7 +120,7 @@ impl ChainState {
             while this
                 .block_hashes_by_number
                 .first_key_value()
-                .is_some_and(|(number, _)| number <= &finalized_number)
+                .is_some_and(|(number, _)| number < &finalized_number)
             {
                 let (_, block_hashes) = this.block_hashes_by_number.pop_first().unwrap();
                 for block_hash in block_hashes {
