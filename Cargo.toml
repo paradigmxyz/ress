@@ -196,15 +196,12 @@ reqwest = { version = "0.12", features = [
     "rustls-tls",
 ], default-features = false }
 dotenvy = "0.15.7"
-itertools = "0.13"
+itertools = "0.14"
 metrics = "0.24.0"
-derive_more = { version = "1", default-features = false, features = ["full"] }
+derive_more = { version = "2", default-features = false, features = ["full"] }
 strum = "0.27"
 strum_macros = "0.27"
 schnellru = "0.2"
-
-# for now disk using sqlite
-rusqlite = { version = "0.32.0", features = ["bundled"] }
 
 # testing
 arbitrary = "1.3"
