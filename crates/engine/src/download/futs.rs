@@ -3,7 +3,7 @@ use alloy_rlp::Encodable;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
 use ress_primitives::witness::{ExecutionWitness, StateWitness};
-use ress_protocol::{GetHeaders, StateWitnessEntry, StateWitnessNet};
+use ress_protocol::{GetBlockHeaders, StateWitnessEntry, StateWitnessNet};
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
@@ -74,8 +74,8 @@ impl FetchFullBlockFuture {
         let hash = self.block_hash;
         Box::pin(async move {
             tokio::time::sleep(delay).await;
-            let request = GetHeaders { start_hash: hash, limit: 1 };
-            network.fetch_headers(request).await.map(|res| res.into_iter().next())
+            let request = GetBlockHeaders { start_hash: hash, limit: 1 };
+            network.fetch_block_headers(request).await.map(|res| res.into_iter().next())
         })
     }
 
@@ -178,7 +178,7 @@ pub struct FetchHeadersRangeFuture {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
-    request: GetHeaders,
+    request: GetBlockHeaders,
     started_at: Instant,
     pending: DownloadFut<Vec<Header>>,
 }
@@ -189,7 +189,7 @@ impl FetchHeadersRangeFuture {
         network: RessNetworkHandle,
         consensus: EthBeaconConsensus<ChainSpec>,
         retry_delay: Duration,
-        request: GetHeaders,
+        request: GetBlockHeaders,
     ) -> Self {
         let network_ = network.clone();
         Self {
@@ -198,12 +198,12 @@ impl FetchHeadersRangeFuture {
             retry_delay,
             request,
             started_at: Instant::now(),
-            pending: Box::pin(async move { network_.fetch_headers(request).await }),
+            pending: Box::pin(async move { network_.fetch_block_headers(request).await }),
         }
     }
 
     /// Returns the get headers request.
-    pub fn request(&self) -> GetHeaders {
+    pub fn request(&self) -> GetBlockHeaders {
         self.request
     }
 
@@ -218,7 +218,7 @@ impl FetchHeadersRangeFuture {
         let delay = self.retry_delay;
         Box::pin(async move {
             tokio::time::sleep(delay).await;
-            network.fetch_headers(request).await
+            network.fetch_block_headers(request).await
         })
     }
 
@@ -329,7 +329,10 @@ impl Future for FetchFullBlockWithAncestorsFuture {
                         fut.network.clone(),
                         fut.consensus.clone(),
                         fut.retry_delay,
-                        GetHeaders { start_hash: block.parent_hash, limit: this.ancestor_count },
+                        GetBlockHeaders {
+                            start_hash: block.parent_hash,
+                            limit: this.ancestor_count,
+                        },
                     );
                     this.state =
                         FullBlockWithAncestorsDownloadState::Ancestors(block, ancestors_fut);
@@ -373,7 +376,7 @@ pub struct FetchFullBlockRangeFuture {
     network: RessNetworkHandle,
     consensus: EthBeaconConsensus<ChainSpec>,
     retry_delay: Duration,
-    request: GetHeaders,
+    request: GetBlockHeaders,
     started_at: Instant,
     state: FullBlockRangeDownloadState,
 }
@@ -384,7 +387,7 @@ impl FetchFullBlockRangeFuture {
         network: RessNetworkHandle,
         consensus: EthBeaconConsensus<ChainSpec>,
         retry_delay: Duration,
-        request: GetHeaders,
+        request: GetBlockHeaders,
     ) -> Self {
         let fut =
             FetchHeadersRangeFuture::new(network.clone(), consensus.clone(), retry_delay, request);
@@ -399,7 +402,7 @@ impl FetchFullBlockRangeFuture {
     }
 
     /// Returns the get headers request.
-    pub fn request(&self) -> GetHeaders {
+    pub fn request(&self) -> GetBlockHeaders {
         self.request
     }
 

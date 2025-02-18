@@ -1,5 +1,6 @@
 use crate::{
-    GetHeaders, NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider, StateWitnessNet,
+    GetBlockHeaders, NodeType, RessMessage, RessProtocolMessage, RessProtocolProvider,
+    StateWitnessNet,
 };
 use alloy_primitives::{bytes::BytesMut, BlockHash, Bytes, B256};
 use futures::{stream::FuturesUnordered, Stream, StreamExt};
@@ -19,9 +20,9 @@ use tracing::*;
 #[derive(Debug)]
 pub enum RessPeerRequest {
     /// Get block headers.
-    GetHeaders {
+    GetBlockHeaders {
         /// The request for block headers.
-        request: GetHeaders,
+        request: GetBlockHeaders,
         /// The sender for the response.
         tx: oneshot::Sender<Vec<Header>>,
     },
@@ -103,8 +104,8 @@ impl<P> RessProtocolConnection<P> {
     fn on_command(&mut self, command: RessPeerRequest) -> RessProtocolMessage {
         let next_id = self.next_id();
         let message = match &command {
-            RessPeerRequest::GetHeaders { request, .. } => {
-                RessProtocolMessage::get_headers(next_id, *request)
+            RessPeerRequest::GetBlockHeaders { request, .. } => {
+                RessProtocolMessage::get_block_headers(next_id, *request)
             }
             RessPeerRequest::GetBlockBodies { request, .. } => {
                 RessProtocolMessage::get_block_bodies(next_id, request.clone())
@@ -125,11 +126,11 @@ impl<P> RessProtocolConnection<P>
 where
     P: RessProtocolProvider + Clone + 'static,
 {
-    fn on_headers_request(&self, request: GetHeaders) -> Vec<Header> {
-        match self.provider.headers(request) {
+    fn on_block_headers_request(&self, request: GetBlockHeaders) -> Vec<Header> {
+        match self.provider.block_headers(request) {
             Ok(headers) => headers,
             Err(error) => {
-                trace!(target: "ress::net::connection", ?request, %error, "error retrieving headers");
+                trace!(target: "ress::net::connection", ?request, %error, "error retrieving block headers");
                 Default::default()
             }
         }
@@ -228,11 +229,11 @@ where
                             return Poll::Ready(None);
                         }
                     }
-                    RessMessage::GetHeaders(req) => {
+                    RessMessage::GetBlockHeaders(req) => {
                         let request = req.message;
                         trace!(target: "ress::net::connection", ?request, "serving headers");
-                        let header = this.on_headers_request(request);
-                        let response = RessProtocolMessage::headers(req.request_id, header);
+                        let header = this.on_block_headers_request(request);
+                        let response = RessProtocolMessage::block_headers(req.request_id, header);
                         return Poll::Ready(Some(response.encoded()));
                     }
                     RessMessage::GetBlockBodies(req) => {
@@ -253,8 +254,8 @@ where
                         trace!(target: "ress::net::connection", block_hash = %req.message, "serving witness");
                         this.on_witness_request(req);
                     }
-                    RessMessage::Headers(res) => {
-                        if let Some(RessPeerRequest::GetHeaders { tx, .. }) =
+                    RessMessage::BlockHeaders(res) => {
+                        if let Some(RessPeerRequest::GetBlockHeaders { tx, .. }) =
                             this.inflight_requests.remove(&res.request_id)
                         {
                             let _ = tx.send(res.message);

@@ -7,7 +7,7 @@ use alloy_rpc_types_eth::{Block, BlockId, BlockNumberOrTag, BlockTransactionsKin
 use futures::{stream::FuturesOrdered, StreamExt};
 use parking_lot::RwLock;
 use ress_protocol::{
-    GetHeaders, RessPeerRequest, StateWitnessNet, MAX_BODIES_SERVE, MAX_HEADERS_SERVE,
+    GetBlockHeaders, RessPeerRequest, StateWitnessNet, MAX_BODIES_SERVE, MAX_HEADERS_SERVE,
     SOFT_RESPONSE_LIMIT,
 };
 use reth_primitives::{BlockBody, Header, TransactionSigned};
@@ -53,7 +53,7 @@ impl RpcNetworkAdapter {
         result.ok().flatten()
     }
 
-    async fn on_headers_request(&self, request: GetHeaders) -> Vec<Header> {
+    async fn on_headers_request(&self, request: GetBlockHeaders) -> Vec<Header> {
         let Some(start_block) =
             self.block(request.start_hash.into(), BlockTransactionsKind::Hashes).await
         else {
@@ -127,7 +127,7 @@ impl RpcNetworkAdapter {
     pub async fn run(self, mut request_stream: UnboundedReceiverStream<RessPeerRequest>) {
         while let Some(request) = request_stream.next().await {
             match request {
-                RessPeerRequest::GetHeaders { request, tx } => {
+                RessPeerRequest::GetBlockHeaders { request, tx } => {
                     let provider = self.clone();
                     tokio::spawn(async move {
                         let headers = provider.on_headers_request(request).await;

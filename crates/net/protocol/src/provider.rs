@@ -1,4 +1,4 @@
-use crate::{GetHeaders, StateWitnessNet};
+use crate::{GetBlockHeaders, StateWitnessNet};
 use alloy_primitives::{Bytes, B256};
 use alloy_rlp::Encodable;
 use reth_primitives::{BlockBody, Header};
@@ -21,14 +21,14 @@ pub const SOFT_RESPONSE_LIMIT: usize = 2 * 1024 * 1024;
 /// A provider trait for ress protocol.
 pub trait RessProtocolProvider: Send + Sync {
     /// Return block header by hash.
-    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>>;
+    fn block_header(&self, block_hash: B256) -> ProviderResult<Option<Header>>;
 
     /// Return block headers.
-    fn headers(&self, request: GetHeaders) -> ProviderResult<Vec<Header>> {
+    fn block_headers(&self, request: GetBlockHeaders) -> ProviderResult<Vec<Header>> {
         let mut total_bytes = 0;
         let mut block_hash = request.start_hash;
         let mut headers = Vec::new();
-        while let Some(header) = self.header(block_hash)? {
+        while let Some(header) = self.block_header(block_hash)? {
             block_hash = header.parent_hash;
             total_bytes += header.length();
             headers.push(header);

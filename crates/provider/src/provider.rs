@@ -106,7 +106,7 @@ impl RessProvider {
 }
 
 impl RessProtocolProvider for RessProvider {
-    fn header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
+    fn block_header(&self, block_hash: B256) -> ProviderResult<Option<Header>> {
         Ok(self.chain_state.header(&block_hash))
     }
 

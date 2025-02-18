@@ -1,5 +1,5 @@
 use alloy_primitives::{Bytes, B256};
-use ress_protocol::{GetHeaders, RessPeerRequest, StateWitnessNet};
+use ress_protocol::{GetBlockHeaders, RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
 use thiserror::Error;
@@ -36,13 +36,13 @@ impl RessNetworkHandle {
 
 impl RessNetworkHandle {
     /// Get block headers.
-    pub async fn fetch_headers(
+    pub async fn fetch_block_headers(
         &self,
-        request: GetHeaders,
+        request: GetBlockHeaders,
     ) -> Result<Vec<Header>, PeerRequestError> {
-        trace!(target: "ress::net", ?request, "requesting header");
+        trace!(target: "ress::net", ?request, "requesting block headers");
         let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetHeaders { request, tx })?;
+        self.send_request(RessPeerRequest::GetBlockHeaders { request, tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
         trace!(target: "ress::net", ?request, "headers received");
         Ok(response)
