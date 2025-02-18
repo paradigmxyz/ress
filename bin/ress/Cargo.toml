@@ -12,50 +12,60 @@ workspace = true
 
 [dependencies]
 # ress
-ress-common.workspace = true
 ress-provider.workspace = true
 ress-protocol.workspace = true
 ress-network.workspace = true
 ress-engine.workspace = true
-ress-rpc.workspace = true
 ress-testing.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
-alloy-rpc-types.workspace = true
 alloy-rpc-types-engine.workspace = true
-alloy-provider.workspace = true
+alloy-rpc-types-eth.workspace = true
+alloy-network.workspace = true
+alloy-serde.workspace = true
 
 # reth
+reth-ethereum-primitives.workspace = true
 reth-chainspec.workspace = true
 reth-network.workspace = true
-reth-network-api.workspace = true
 reth-network-peers.workspace = true
+reth-discv4.workspace = true
+reth-db-api.workspace = true
+reth-storage-api.workspace = true
+reth-node-api.workspace = true
 reth-node-core.workspace = true
 reth-node-ethereum.workspace = true
+reth-node-events.workspace = true
+reth-node-metrics.workspace = true
 reth-engine-tree.workspace = true
-reth-rpc-api.workspace = true
+reth-rpc-eth-types.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-rpc-api.workspace = true
 reth-rpc-builder.workspace = true
+reth-rpc.workspace = true
 reth-consensus-debug-client.workspace = true
+reth-payload-builder.workspace = true
+reth-transaction-pool.workspace = true
 reth-cli.workspace = true
+reth-cli-util.workspace = true
 reth-ethereum-cli.workspace = true
+reth-tasks.workspace = true
 
 # misc
 clap.workspace = true
 eyre.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-rand.workspace = true
 futures.workspace = true
-parking_lot.workspace = true
-assert_matches.workspace = true
-dotenvy.workspace = true
-serde_json.workspace = true
+metrics.workspace = true
 dirs-next = "2.0"
 shellexpand = "3.0"
-
-[dev-dependencies]
-reth-tokio-util.workspace = true
+http = "1.0"
+tower = "0.4"
+jsonrpsee = "0.24"
+jsonrpsee-server = "0.24"
+async-trait = "0.1.68"

@@ -1,49 +1,72 @@
 use alloy_primitives::{Bytes, B256};
-use ress_protocol::{RessPeerRequest, StateWitnessNet};
+use ress_protocol::{GetHeaders, RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
-use tokio::sync::{mpsc, mpsc::UnboundedSender, oneshot};
+use thiserror::Error;
+use tokio::sync::{mpsc, oneshot};
 use tracing::trace;
 
 /// Ress networking handle.
 #[derive(Clone, Debug)]
 pub struct RessNetworkHandle {
     /// Handle for interacting with the network.
-    pub network_handle: NetworkHandle,
-    /// Sender for forwarding network commands.
-    pub network_peer_conn: UnboundedSender<RessPeerRequest>,
+    network_handle: NetworkHandle,
+    /// Sender for forwarding peer requests.
+    peer_requests_sender: mpsc::UnboundedSender<RessPeerRequest>,
 }
 
 impl RessNetworkHandle {
-    /// Get header by block hash.
-    pub async fn fetch_header(&self, block_hash: B256) -> Result<Header, NetworkStorageError> {
-        trace!(target: "ress::net", %block_hash, "requesting header");
+    /// Create new network handle from reth's handle and peer connection.
+    pub fn new(
+        network_handle: NetworkHandle,
+        peer_requests_sender: mpsc::UnboundedSender<RessPeerRequest>,
+    ) -> Self {
+        Self { network_handle, peer_requests_sender }
+    }
+
+    /// Return reference to reth's network handle.
+    pub fn inner(&self) -> &NetworkHandle {
+        &self.network_handle
+    }
+
+    fn send_request(&self, request: RessPeerRequest) -> Result<(), PeerRequestError> {
+        self.peer_requests_sender.send(request).map_err(|_| PeerRequestError::ConnectionClosed)
+    }
+}
+
+impl RessNetworkHandle {
+    /// Get block headers.
+    pub async fn fetch_headers(
+        &self,
+        request: GetHeaders,
+    ) -> Result<Vec<Header>, PeerRequestError> {
+        trace!(target: "ress::net", ?request, "requesting header");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessPeerRequest::GetHeader { block_hash, tx })?;
-        let response = rx.await?;
-        trace!(target: "ress::net", %block_hash, "header received");
+        self.send_request(RessPeerRequest::GetHeaders { request, tx })?;
+        let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
+        trace!(target: "ress::net", ?request, "headers received");
         Ok(response)
     }
 
-    /// Get block body by block hash.
-    pub async fn fetch_block_body(
+    /// Get block bodies.
+    pub async fn fetch_block_bodies(
         &self,
-        block_hash: B256,
-    ) -> Result<BlockBody, NetworkStorageError> {
-        trace!(target: "ress::net", %block_hash, "requesting block body");
+        request: Vec<B256>,
+    ) -> Result<Vec<BlockBody>, PeerRequestError> {
+        trace!(target: "ress::net", ?request, "requesting block bodies");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessPeerRequest::GetBlockBody { block_hash, tx })?;
-        let response = rx.await?;
-        trace!(target: "ress::net", %block_hash, "block body received");
+        self.send_request(RessPeerRequest::GetBlockBodies { request: request.clone(), tx })?;
+        let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
+        trace!(target: "ress::net", ?request, "block bodies received");
         Ok(response)
     }
 
     /// Get contract bytecode by code hash.
-    pub async fn fetch_bytecode(&self, code_hash: B256) -> Result<Bytes, NetworkStorageError> {
+    pub async fn fetch_bytecode(&self, code_hash: B256) -> Result<Bytes, PeerRequestError> {
         trace!(target: "ress::net", %code_hash, "requesting bytecode");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessPeerRequest::GetBytecode { code_hash, tx })?;
-        let response = rx.await?;
+        self.send_request(RessPeerRequest::GetBytecode { code_hash, tx })?;
+        let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
         trace!(target: "ress::net", %code_hash, "bytecode received");
         Ok(response)
     }
@@ -52,25 +75,24 @@ impl RessNetworkHandle {
     pub async fn fetch_witness(
         &self,
         block_hash: B256,
-    ) -> Result<StateWitnessNet, NetworkStorageError> {
+    ) -> Result<StateWitnessNet, PeerRequestError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
-        self.network_peer_conn.send(RessPeerRequest::GetWitness { block_hash, tx })?;
-        let response = rx.await?;
+        self.send_request(RessPeerRequest::GetWitness { block_hash, tx })?;
+        let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
         trace!(target: "ress::net", %block_hash, "witness received");
         Ok(response)
     }
 }
 
-// TODO: rename
-/// Errors that can occur during network storage operations.
-#[derive(Debug, thiserror::Error)]
-pub enum NetworkStorageError {
-    /// Failed to send a request through the channel.
-    #[error("Failed to send request through channel: {0}")]
-    ChannelSend(#[from] mpsc::error::SendError<RessPeerRequest>),
+/// Peer request errors.
+#[derive(Debug, Error)]
+pub enum PeerRequestError {
+    /// Request dropped.
+    #[error("Peer request dropped")]
+    RequestDropped,
 
-    /// Failed to receive a response from the channel.
-    #[error("Failed to receive response from channel: {0}")]
-    ChannelReceive(#[from] oneshot::error::RecvError),
+    /// Connection closed.
+    #[error("Peer connection was closed")]
+    ConnectionClosed,
 }

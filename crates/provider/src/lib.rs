@@ -10,8 +10,6 @@ pub use provider::RessProvider;
 mod database;
 pub use database::RessDatabase;
 
-/// Data storage backends.
-pub mod backends;
-
-/// Error types.
-pub mod errors;
+/// Chain state.
+mod chain_state;
+pub use chain_state::ChainState;

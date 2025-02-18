@@ -6,8 +6,7 @@
 pub mod tree;
 
 /// Engine downloader.
-#[allow(missing_debug_implementations)]
-pub mod downloader;
+pub mod download;
 
 /// Consensus engine.
 pub mod engine;

@@ -16,12 +16,12 @@ ress-provider.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
-alloy-trie.workspace = true
 alloy-rlp.workspace = true
+alloy-trie.workspace = true
+alloy-eips.workspace = true
 
 # reth
 reth-primitives.workspace = true
-reth-chainspec.workspace = true
 reth-provider.workspace = true
 reth-evm.workspace = true
 reth-evm-ethereum.workspace = true
@@ -29,5 +29,4 @@ reth-revm.workspace = true
 reth-trie-sparse.workspace = true
 
 # misc
-thiserror.workspace = true
 tracing.workspace = true

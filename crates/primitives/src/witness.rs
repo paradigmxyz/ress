@@ -1,13 +1,12 @@
 //! Execution witness type.
 
-use std::sync::OnceLock;
-
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
     Bytes,
 };
 use alloy_rlp::Decodable;
 use alloy_trie::{nodes::TrieNode, TrieAccount, KECCAK_EMPTY};
+use std::sync::OnceLock;
 
 /// Alias type representing execution state witness.
 /// Execution state witness is a mapping of hashes of encoded
@@ -23,19 +22,26 @@ pub type StateWitness = B256HashMap<Bytes>;
 pub struct ExecutionWitness {
     /// The state witness with touched trie nodes.
     state_witness: StateWitness,
+    /// Size of RLP encoded state witness.
+    rlp_size_bytes: usize,
     /// Lazy-loaded bytecode hashes.
     bytecode_hashes: OnceLock<B256HashSet>,
 }
 
 impl ExecutionWitness {
     /// Create new [`ExecutionWitness`].
-    pub fn new(state_witness: StateWitness) -> Self {
-        Self { state_witness, bytecode_hashes: OnceLock::new() }
+    pub fn new(state_witness: StateWitness, rlp_size_bytes: usize) -> Self {
+        Self { state_witness, rlp_size_bytes, bytecode_hashes: OnceLock::new() }
     }
 
     /// Returns reference to the state witness.
     pub fn state_witness(&self) -> &StateWitness {
         &self.state_witness
+    }
+
+    /// Returns the size of RLP encoded state witness in bytes.
+    pub fn rlp_size_bytes(&self) -> usize {
+        self.rlp_size_bytes
     }
 
     /// Returns all code hashes found in the witness.

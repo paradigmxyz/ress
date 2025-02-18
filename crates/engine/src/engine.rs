@@ -1,8 +1,8 @@
 use crate::{
-    downloader::{DownloadOutcome, EngineDownloader},
+    download::{DownloadData, DownloadOutcome, EngineDownloader},
     tree::{DownloadRequest, EngineTree, TreeAction, TreeEvent},
 };
-use alloy_primitives::B256;
+use alloy_primitives::{map::B256HashSet, B256};
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use ress_network::RessNetworkHandle;
@@ -11,7 +11,9 @@ use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_errors::ProviderError;
 use reth_ethereum_engine_primitives::EthereumEngineValidator;
-use reth_node_api::{BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload};
+use reth_node_api::{
+    BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload,
+};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
 use std::{
     future::Future,
@@ -20,7 +22,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    sync::{mpsc::UnboundedReceiver, oneshot},
+    sync::{mpsc, oneshot},
     time::Sleep,
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -43,13 +45,19 @@ impl ConsensusEngine {
         consensus: EthBeaconConsensus<ChainSpec>,
         engine_validator: EthereumEngineValidator,
         network: RessNetworkHandle,
-        from_beacon_engine: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        from_beacon_engine: mpsc::UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
+        engine_events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     ) -> Self {
         Self {
-            tree: EngineTree::new(provider, consensus.clone(), engine_validator),
+            tree: EngineTree::new(
+                provider,
+                consensus.clone(),
+                engine_validator,
+                engine_events_sender,
+            ),
             downloader: EngineDownloader::new(network, consensus),
             from_beacon_engine: UnboundedReceiverStream::from(from_beacon_engine),
-            parked_payload_timeout: Duration::from_secs(1),
+            parked_payload_timeout: Duration::from_secs(3),
             parked_payload: None,
         }
     }
@@ -63,13 +71,16 @@ impl ConsensusEngine {
     fn on_tree_event(&mut self, event: TreeEvent) {
         match event {
             TreeEvent::Download(DownloadRequest::Block { block_hash }) => {
-                self.downloader.download_block(block_hash);
+                self.downloader.download_full_block(block_hash);
                 if !self.tree.block_buffer.witnesses.contains_key(&block_hash) {
                     self.downloader.download_witness(block_hash);
                 }
             }
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
                 self.downloader.download_witness(block_hash);
+            }
+            TreeEvent::Download(DownloadRequest::Finalized { block_hash }) => {
+                self.downloader.download_finalized_with_ancestors(block_hash);
             }
             TreeEvent::TreeAction(TreeAction::MakeCanonical { sync_target_head }) => {
                 self.tree.make_canonical(sync_target_head);
@@ -81,11 +92,27 @@ impl ConsensusEngine {
         &mut self,
         outcome: DownloadOutcome,
     ) -> Result<(), InsertBlockFatalError> {
-        let mut blocks = Vec::new();
-        match outcome {
-            DownloadOutcome::Block(block) => {
+        let elapsed = outcome.elapsed;
+        let mut unlocked_block_hashes = B256HashSet::default();
+        match outcome.data {
+            DownloadData::FinalizedBlock(block, ancestors) => {
                 let block_num_hash = block.num_hash();
-                trace!(target: "ress::engine", ?block_num_hash, "Downloaded block");
+                info!(target: "ress::engine", ?block_num_hash, ancestors_len = ancestors.len(), "Downloaded finalized block");
+
+                let recovered = block.try_recover().map_err(|_| {
+                    InsertBlockFatalError::Provider(ProviderError::SenderRecoveryError)
+                })?;
+                self.tree.set_canonical_head(block_num_hash);
+                self.tree.provider.insert_canonical_hash(recovered.number, recovered.hash());
+                self.tree.provider.insert_block(recovered);
+                for header in ancestors {
+                    self.tree.provider.insert_canonical_hash(header.number, header.hash());
+                }
+                unlocked_block_hashes.insert(block_num_hash.hash);
+            }
+            DownloadData::FullBlock(block) => {
+                let block_num_hash = block.num_hash();
+                trace!(target: "ress::engine", ?block_num_hash, ?elapsed, "Downloaded block");
                 let recovered = match block.try_recover() {
                     Ok(block) => block,
                     Err(_error) => {
@@ -94,34 +121,42 @@ impl ConsensusEngine {
                     }
                 };
                 self.tree.block_buffer.insert_block(recovered);
-                blocks = self.tree.block_buffer.remove_block_with_children(block_num_hash.hash);
+                unlocked_block_hashes.insert(block_num_hash.hash);
             }
-            DownloadOutcome::Witness(block_hash, witness) => {
+            DownloadData::Witness(block_hash, witness) => {
                 let code_hashes = witness.bytecode_hashes().clone();
                 let missing_code_hashes =
                     self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
                         InsertBlockFatalError::Provider(ProviderError::Database(error))
                     })?;
+                let missing_bytecodes_len = missing_code_hashes.len();
+                let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
                 self.tree.block_buffer.insert_witness(
                     block_hash,
                     witness,
                     missing_code_hashes.clone(),
                 );
-                trace!(target: "ress::engine", %block_hash, missing_bytecodes_len = missing_code_hashes.len(), "Downloaded witness");
+
+                if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
+                {
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded for parked payload");
+                } else {
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness");
+                }
                 if missing_code_hashes.is_empty() {
-                    blocks = self.tree.block_buffer.remove_block_with_children(block_hash);
+                    unlocked_block_hashes.insert(block_hash);
                 } else {
                     for code_hash in missing_code_hashes {
                         self.downloader.download_bytecode(code_hash);
                     }
                 }
             }
-            DownloadOutcome::Bytecode(code_hash, bytecode) => {
-                trace!(target: "ress::engine", %code_hash, "Downloaded bytecode");
+            DownloadData::Bytecode(code_hash, bytecode) => {
+                trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
                 match self.tree.provider.insert_bytecode(code_hash, bytecode) {
                     Ok(()) => {
-                        blocks =
-                            self.tree.block_buffer.remove_blocks_with_received_bytecode(code_hash);
+                        unlocked_block_hashes
+                            .extend(self.tree.block_buffer.on_bytecode_received(code_hash));
                     }
                     Err(error) => {
                         error!(target: "ress::engine", %error, "Failed to insert the bytecode");
@@ -129,10 +164,13 @@ impl ConsensusEngine {
                 };
             }
         };
-        for (block, witness) in blocks {
-            let block_number = block.number;
-            let block_hash = block.hash();
-            trace!(target: "ress::engine", block_number, %block_hash, "Inserting block after download");
+
+        for unlocked_hash in unlocked_block_hashes {
+            let Some((block, witness)) = self.tree.block_buffer.remove_block(&unlocked_hash) else {
+                continue
+            };
+            let block_num_hash = block.num_hash();
+            trace!(target: "ress::engine", block = ?block_num_hash, "Inserting block after download");
             let mut result = self
                 .tree
                 .on_downloaded_block(block, witness)
@@ -142,17 +180,22 @@ impl ConsensusEngine {
                     self.on_maybe_tree_event(outcome.event.take());
                 }
                 Err(error) => {
-                    error!(target: "ress::engine", block_number, %block_hash, %error, "Error inserting downloaded block");
+                    error!(target: "ress::engine", block = ?block_num_hash, %error, "Error inserting downloaded block");
                 }
             };
-            if self.parked_payload.as_ref().is_some_and(|parked| parked.block_hash == block_hash) {
+            if self
+                .parked_payload
+                .as_ref()
+                .is_some_and(|parked| parked.block_hash == block_num_hash.hash)
+            {
                 let parked = self.parked_payload.take().unwrap();
-                trace!(target: "ress::engine", block_number, %block_hash, elapsed = ?parked.parked_at.elapsed(), "Sending response for parked payload");
+                trace!(target: "ress::engine",  block = ?block_num_hash, elapsed = ?parked.parked_at.elapsed(), "Sending response for parked payload");
                 if let Err(error) = parked.tx.send(result.map(|o| o.outcome)) {
-                    error!(target: "ress::engine", block_number, %block_hash, ?error, "Failed to send payload status");
+                    error!(target: "ress::engine",  block = ?block_num_hash, ?error, "Failed to send payload status");
                 }
             }
         }
+
         Ok(())
     }
 
@@ -162,7 +205,8 @@ impl ConsensusEngine {
                 let block_hash = payload.block_hash();
                 let block_number = payload.block_number();
                 let maybe_witness = self.tree.block_buffer.remove_witness(&payload.block_hash());
-                debug!(target: "ress::engine", block_number, %block_hash, has_witness = maybe_witness.is_some(), "Inserting new payload");
+                let has_witness = maybe_witness.is_some();
+                debug!(target: "ress::engine", block_number, %block_hash, has_witness, "Inserting new payload");
                 let mut result = self
                     .tree
                     .on_new_payload(payload, maybe_witness)
@@ -181,8 +225,10 @@ impl ConsensusEngine {
                             ));
                             return
                         }
+                        if !has_witness {
+                            self.on_tree_event(TreeEvent::download_witness(block_hash));
+                        }
                     }
-                    self.on_maybe_tree_event(outcome.event.take());
                 }
                 let outcome_result = result.map(|o| o.outcome);
                 debug!(target: "ress::engine", block_number, %block_hash, result = ?outcome_result, "Returning payload result");
@@ -191,19 +237,14 @@ impl ConsensusEngine {
                 }
             }
             BeaconEngineMessage::ForkchoiceUpdated { state, payload_attrs, tx, version } => {
-                debug!(
-                    target: "ress::engine",
-                    head = %state.head_block_hash,
-                    safe = %state.safe_block_hash,
-                    finalized = %state.finalized_block_hash,
-                    "Updating forkchoice state"
-                );
+                debug!(target: "ress::engine", head = %state.head_block_hash, safe = %state.safe_block_hash, finalized = %state.finalized_block_hash, "Updating forkchoice state");
                 let mut result = self.tree.on_forkchoice_updated(state, payload_attrs, version);
                 if let Ok(outcome) = &mut result {
                     // track last received forkchoice state
+                    let status = outcome.outcome.forkchoice_status();
+                    self.tree.forkchoice_state_tracker.set_latest(state, status);
                     self.tree
-                        .forkchoice_state_tracker
-                        .set_latest(state, outcome.outcome.forkchoice_status());
+                        .emit_event(BeaconConsensusEngineEvent::ForkchoiceUpdated(state, status));
                     self.on_maybe_tree_event(outcome.event.take());
                 }
                 let outcome_result = result.map(|o| o.outcome);

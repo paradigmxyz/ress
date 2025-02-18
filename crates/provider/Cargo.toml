@@ -26,13 +26,12 @@ reth-db = { workspace = true, features = ["mdbx"] }
 reth-db-api.workspace = true
 
 # misc
-thiserror.workspace = true
 parking_lot.workspace = true
-tracing.workspace = true
 eyre.workspace = true
 itertools.workspace = true
+tracing.workspace = true
+metrics.workspace = true
 
 [dev-dependencies]
-tracing-subscriber.workspace = true
 derive_more.workspace = true
 tempfile = "3.8"
