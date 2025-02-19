@@ -39,7 +39,12 @@ pub struct RessDatabase {
 impl RessDatabase {
     /// Create new database at path.
     pub fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
-        Self::new_with_args(path, DatabaseArguments::default())
+        Self::new_with_args(
+            path,
+            DatabaseArguments::default()
+                .with_growth_step(Some(1024 * 1024 * 1024))
+                .with_geometry_max_size(Some(64 * 1024 * 1024 * 1024)),
+        )
     }
 
     /// Create new database at path with arguments.
