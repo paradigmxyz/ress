@@ -1,12 +1,14 @@
 # Ress Protocol (RESS)
 
-The `ress` protocol runs on top of [RLPx], allowing a stateless full node to fetch necessary state data (witness, block, bytecode) from a stateful full node. The protocol is an optional extension for peers that support (or are interested in) stateless Ethereum full nodes.
+The `ress` protocol runs on top of [RLPx], allowing a stateless nodes to fetch necessary state data (witness, block, bytecode) from a stateful node. The protocol is an optional extension for peers that support (or are interested in) stateless Ethereum full nodes.
+
+**Note**: In this context, “stateless nodes” does not imply holding zero state on disk. Rather, such nodes still maintain minimal or partial state (e.g., essential bytecodes), which is relatively small. For simplicity, we continue to use the term “stateless” throughout these documents.
 
 The current version is `ress/0`.
 
 ## Overview
 
-The `ress` protocol is designed to provide support for stateless full nodes. Its goal is to enable the exchange of necessary block execution state from a stateful node to a stateless node so that the latter can store in disk only the minimal required state (such as bytecode) and lazily fetch other state data. It supports retrieving a state witness for a target new payload from a stateful peer, as well as contract bytecode and full block data (headers and bodies). The `ress` protocol is intended to be run alongside other protocols (e.g., `eth`), rather than as a standalone protocol.
+The `ress` protocol is designed to provide support for stateless nodes. Its goal is to enable the exchange of necessary block execution state from stateful nodes to a stateless nodes so that the latter can store in disk only the minimal required state (such as bytecode) and lazily fetch other state data. It supports retrieving a state witness for a target new payload from a stateful peer, as well as contract bytecode and full block data (headers and bodies). The `ress` protocol is intended to be run alongside other protocols (e.g., `eth`), rather than as a standalone protocol.
 
 ## Basic operation
 
