@@ -12,9 +12,9 @@ The `ress` protocol is designed to provide support for stateless full nodes. Its
 
 Once a connection is established, a [NodeType] message must be sent. After the peer's node type is validated according to the connection rules, any other protocol messages may be sent. The `ress` session will be terminated if the peer combination is invalid (e.g., stateful-to-stateful connections are not needed).
 
-Within a session, four types of messages can be exchanged: header, body, bytecode, and witness.
+Within a session, four types of messages can be exchanged: headers, bodies, bytecode, and witness.
 
-During the startup phase, a stateless node downloads the necessary ancestor blocks (header and body) via the header and body messages. When the stateless node receives a new payload through the engine API, it requests a witness—a compressed multi Merkle proof of state—using the witness message. From this witness, the stateless node can determine if any contract bytecode is missing by comparing it with its disk. It then requests any missing bytecode. All requests are sent to the connected stateful peer and occur synchronously.
+During the startup phase, a stateless node downloads the necessary ancestor blocks (headers and bodies) via the header and body messages. When the stateless node receives a new payload through the engine API, it requests a witness—a compressed multi Merkle proof of state—using the witness message. From this witness, the stateless node can determine if any contract bytecode is missing by comparing it with its disk. It then requests any missing bytecode. All requests are sent to the connected stateful peer and occur synchronously.
 
 ## Protocol Messages
 
@@ -42,29 +42,29 @@ The following table shows which connections between node types are valid:
 | stateful  | true      | false    |
 
 
-### GetHeader (0x01)
+### GetHeaders (0x01)
 
-`[request-id: P, [blockhash: B_32]]`
+`[request-id: P, [blockhash: B_32, limit: P]]`
 
-Require peer to return a Header message containing the header of the given block hash. 
+Require the peer to return a Headers message. The response must contain up to limit block headers, beginning at blockhash in the canonical chain and traversing towards the genesis block (descending order).
 
-### Header (0x02)
+### Headers (0x02)
 
-`[request-id: P, [header]]`
+`[request-id: P, [header₁, header₂, ...]]`
 
-This is the response to GetHeader, providing the requested block header. Response corresponds to a block hash of the GetHeader request.
+This is the response to GetHeaders, containing the requested headers. The header list may be empty if none of the requested block headers were found. The number of headers that can be requested in a single message may be subject to implementation-defined limits.
 
-### GetBlockBody (0x03)
+### GetBlockBodies (0x03)
 
-`[request-id: P, [blockhash: B_32]]`
+`[request-id: P, [blockhash₁: B_32, blockhash₂: B_32, ...]]`
 
-Require peer to return a block body message containing the body of the given block hash. 
+This message requests block body data by hash. The number of blocks that can be requested in a single message may be subject to implementation-defined limits.
 
-### BlockBody (0x04)
+### BlockBodies (0x04)
 
-`[request-id: P, [blockbody]]`
+`[request-id: P, [block-body₁, block-body₂, ...]]`
 
-This is the response to GetBlockBody, providing the requested block body. Response corresponds to a block hash of the GetBlockBody request.
+This is the response to GetBlockBodies. The items in the list contain the body data of the requested blocks. The list may be empty if none of the requested blocks were available.
 
 ### GetBytecode (0x05)
 

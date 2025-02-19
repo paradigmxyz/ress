@@ -38,6 +38,13 @@ pub struct RessDatabase {
 
 impl RessDatabase {
     /// Create new database at path.
+    #[cfg(target_arch = "arm")]
+    pub fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
+        Self::new_with_args(path, DatabaseArguments::default())
+    }
+
+    /// Create new database at path.
+    #[cfg(not(target_arch = "arm"))]
     pub fn new<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
         Self::new_with_args(path, DatabaseArguments::default())
     }
