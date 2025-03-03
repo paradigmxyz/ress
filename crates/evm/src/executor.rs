@@ -13,8 +13,9 @@ use reth_trie_sparse::SparseStateTrie;
 
 use crate::db::WitnessDatabase;
 
-/// An evm block executor that uses a [`EthExecutionStrategy`] to
-/// execute blocks by using state from [`SparseStateTrie`].
+/// An evm block executor that uses a
+/// [`EthExecutionStrategy`](reth_evm_ethereum::execute::EthExecutionStrategy) to execute blocks by
+/// using state from [`SparseStateTrie`].
 #[allow(missing_debug_implementations)]
 pub struct BlockExecutor<'a> {
     evm_config: EthEvmConfig,
