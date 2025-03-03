@@ -10,11 +10,8 @@ use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_errors::ProviderError;
-use reth_ethereum_engine_primitives::EthereumEngineValidator;
-use reth_node_api::{
-    BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError, ExecutionPayload,
-};
-use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes};
+use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
+use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
 use std::{
     future::Future,
     pin::Pin,

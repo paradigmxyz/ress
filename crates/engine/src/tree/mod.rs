@@ -1,7 +1,8 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
-    ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
+    ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
+    PayloadValidationError,
 };
 use metrics::Gauge;
 use rayon::iter::IntoParallelRefIterator;
@@ -10,23 +11,19 @@ use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
-use reth_consensus::{
-    Consensus, ConsensusError, FullConsensus, HeaderValidator, PostExecutionInput,
-};
+use reth_consensus::{Consensus, ConsensusError, FullConsensus, HeaderValidator};
 use reth_engine_tree::tree::{
     error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError},
     InvalidHeaderCache,
 };
 use reth_errors::{ProviderError, RethResult};
-use reth_ethereum_engine_primitives::{
-    EthEngineTypes, EthPayloadBuilderAttributes, EthereumEngineValidator,
-};
+use reth_ethereum_engine_primitives::{EthEngineTypes, EthPayloadBuilderAttributes};
 use reth_metrics::Metrics;
 use reth_node_api::{
-    BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ExecutionData,
-    ForkchoiceStateTracker, OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
+    BeaconConsensusEngineEvent, EngineApiMessageVersion, EngineValidator, ForkchoiceStateTracker,
+    OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
 };
-use reth_node_ethereum::consensus::EthBeaconConsensus;
+use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
 use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::ExecutionOutcome;
@@ -515,18 +512,19 @@ impl EngineTree {
             return Ok(TreeOutcome::new(status));
         }
 
-        let recovered = match block.clone().try_recover() {
-            Ok(block) => block,
-            Err(_error) => {
-                return Ok(TreeOutcome::new(self.on_insert_block_error(InsertBlockError::new(
-                    block,
-                    InsertBlockErrorKind::SenderRecovery,
-                ))?))
-            }
-        };
+        // TODO:
+        // let recovered = match block.clone().try_recover() {
+        //     Ok(block) => block,
+        //     Err(_error) => {
+        //         return Ok(TreeOutcome::new(self.on_insert_block_error(InsertBlockError::new(
+        //             block.into_sealed_block(),
+        //             InsertBlockErrorKind::Provider(ProviderError::SenderRecoveryError),
+        //         ))?))
+        //     }
+        // };
 
         let mut maybe_tree_event = None;
-        let status = match self.insert_block(recovered, maybe_witness) {
+        let status = match self.insert_block(block.clone(), maybe_witness) {
             Ok(InsertPayloadOk::Inserted(BlockStatus::Valid) | InsertPayloadOk::AlreadySeen) => {
                 self.try_connect_buffered_blocks(block_hash)?;
                 // if the block is valid and it is the sync target head, make it canonical
@@ -547,7 +545,9 @@ impl EngineTree {
                 maybe_tree_event = Some(TreeEvent::download_witness(block_hash));
                 PayloadStatus::new(PayloadStatusEnum::Syncing, None)
             }
-            Err(kind) => self.on_insert_block_error(InsertBlockError::new(block, kind))?,
+            Err(kind) => {
+                self.on_insert_block_error(InsertBlockError::new(block.into_sealed_block(), kind))?
+            }
         };
 
         let mut outcome = TreeOutcome::new(status);
@@ -730,7 +730,7 @@ impl EngineTree {
         <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
             &self.consensus,
             &block,
-            PostExecutionInput::new(&output.receipts, &output.requests),
+            &output.result
         )?;
 
         // ===================== State Root =====================

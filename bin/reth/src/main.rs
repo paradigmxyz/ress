@@ -18,7 +18,7 @@ use reth::{
         BlockNumReader, BlockReader, BlockSource, ProviderError, ProviderResult, StateProvider,
         StateProviderFactory,
     },
-    revm::{database::StateProviderDatabase, witness::ExecutionWitnessRecord, Database, State},
+    revm::{database::StateProviderDatabase, db::State, witness::ExecutionWitnessRecord, Database},
 };
 use reth_chain_state::{ExecutedBlock, ExecutedBlockWithTrieUpdates, MemoryOverlayStateProvider};
 use reth_evm::execute::{BlockExecutorProvider, Executor};
@@ -372,7 +372,7 @@ impl<D: Database> Database for StateWitnessRecorderDatabase<D> {
     fn basic(
         &mut self,
         address: Address,
-    ) -> Result<Option<reth::revm::primitives::AccountInfo>, Self::Error> {
+    ) -> Result<Option<reth::revm::state::AccountInfo>, Self::Error> {
         let maybe_account = self.database.basic(address)?;
         let hashed_address = keccak256(address);
         self.state.accounts.insert(hashed_address, maybe_account.as_ref().map(|acc| acc.into()));
@@ -399,7 +399,7 @@ impl<D: Database> Database for StateWitnessRecorderDatabase<D> {
     fn code_by_hash(
         &mut self,
         code_hash: B256,
-    ) -> Result<reth::revm::primitives::Bytecode, Self::Error> {
+    ) -> Result<reth::revm::bytecode::Bytecode, Self::Error> {
         self.database.code_by_hash(code_hash)
     }
 }

@@ -6,10 +6,7 @@ use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
 use ress_provider::RessProvider;
 use reth_provider::ProviderError;
-use reth_revm::{
-    primitives::{AccountInfo, Bytecode},
-    Database,
-};
+use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
 use tracing::trace;
 

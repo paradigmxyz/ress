@@ -2,11 +2,13 @@
 
 use alloy_eips::BlockNumHash;
 use ress_provider::RessProvider;
-use reth_evm::execute::{BlockExecutionError, BlockExecutionStrategy, ExecuteOutput};
-use reth_evm_ethereum::{execute::EthExecutionStrategy, EthEvmConfig};
+use reth_evm::execute::{
+    BlockExecutionError, BlockExecutionStrategy, BlockExecutionStrategyFactory,
+};
+use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
-use reth_revm::{db::states::bundle_state::BundleRetention, StateBuilder};
+use reth_revm::db::{states::bundle_state::BundleRetention, State};
 use reth_trie_sparse::SparseStateTrie;
 
 use crate::db::WitnessDatabase;
@@ -15,19 +17,18 @@ use crate::db::WitnessDatabase;
 /// execute blocks by using state from [`SparseStateTrie`].
 #[allow(missing_debug_implementations)]
 pub struct BlockExecutor<'a> {
-    strategy: EthExecutionStrategy<WitnessDatabase<'a>, EthEvmConfig>,
+    evm_config: EthEvmConfig,
+    state: State<WitnessDatabase<'a>>,
 }
 
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
     pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
-        let chain_spec = provider.chain_spec();
+        let evm_config = EthEvmConfig::new(provider.chain_spec());
         let db = WitnessDatabase::new(provider, parent, trie);
-        let eth_evm_config = EthEvmConfig::new(chain_spec.clone());
         let state =
-            StateBuilder::new_with_database(db).with_bundle_update().without_state_clear().build();
-        let strategy = EthExecutionStrategy::new(state, chain_spec, eth_evm_config);
-        Self { strategy }
+            State::builder().with_database(db).with_bundle_update().without_state_clear().build();
+        Self { evm_config, state }
     }
 
     /// Execute a block.
@@ -35,11 +36,13 @@ impl<'a> BlockExecutor<'a> {
         mut self,
         block: &RecoveredBlock<Block>,
     ) -> Result<BlockExecutionOutput<Receipt>, BlockExecutionError> {
-        self.strategy.apply_pre_execution_changes(block)?;
-        let ExecuteOutput { receipts, gas_used } = self.strategy.execute_transactions(block)?;
-        let requests = self.strategy.apply_post_execution_changes(block, &receipts)?;
-        let mut state = self.strategy.into_state();
-        state.merge_transitions(BundleRetention::PlainState);
-        Ok(BlockExecutionOutput { state: state.take_bundle(), receipts, requests, gas_used })
+        let mut strategy = self.evm_config.strategy_for_block(&mut self.state, block);
+        strategy.apply_pre_execution_changes()?;
+        for tx in block.transactions_recovered() {
+            strategy.execute_transaction(tx)?;
+        }
+        let result = strategy.apply_post_execution_changes()?;
+        self.state.merge_transitions(BundleRetention::PlainState);
+        Ok(BlockExecutionOutput { state: self.state.take_bundle(), result })
     }
 }

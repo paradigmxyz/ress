@@ -1,3 +1,4 @@
+use alloy_network::Ethereum;
 use alloy_primitives::keccak256;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use futures::StreamExt;
@@ -16,7 +17,7 @@ use reth_network::{
     NetworkInfo, NetworkManager,
 };
 use reth_network_peers::TrustedPeer;
-use reth_node_api::{BeaconConsensusEngineHandle, BeaconEngineMessage};
+use reth_node_api::BeaconConsensusEngineHandle;
 use reth_node_core::primitives::{Bytecode, RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
@@ -114,17 +115,43 @@ impl NodeLauncher {
 
         // Start auth RPC server.
         let jwt_key = self.args.rpc.auth_jwt_secret(data_dir.jwt())?;
-        let auth_server_handle =
-            self.start_auth_server(jwt_key, provider, engine_validator, to_engine).await?;
+        let beacon_consensus_engine_handle =
+            BeaconConsensusEngineHandle::<EthEngineTypes>::new(to_engine);
+        let auth_server_handle = self
+            .start_auth_server(
+                jwt_key,
+                provider,
+                engine_validator,
+                beacon_consensus_engine_handle.clone(),
+            )
+            .await?;
         info!(target: "ress", addr = %auth_server_handle.local_addr(), "Auth RPC server started");
 
         // Start debug consensus.
         if let Some(url) = self.args.debug.debug_consensus_url {
-            let provider = Arc::new(RpcBlockProvider::new(url.clone()));
-            tokio::spawn(
-                DebugConsensusClient::new(auth_server_handle.clone(), provider)
-                    .run::<EthEngineTypes>(),
+            let rpc_to_primitive_block = |rpc_block: alloy_rpc_types_eth::Block| {
+                let alloy_rpc_types_eth::Block { header, transactions, withdrawals, .. } =
+                    rpc_block;
+                reth_ethereum_primitives::Block {
+                    header: header.inner,
+                    body: reth_ethereum_primitives::BlockBody {
+                        transactions: transactions
+                            .into_transactions()
+                            .map(|tx| tx.inner.into())
+                            .collect(),
+                        ommers: Default::default(),
+                        withdrawals,
+                    },
+                }
+            };
+            let provider = Arc::new(
+                RpcBlockProvider::<Ethereum, reth_ethereum_primitives::Block>::new(
+                    &url,
+                    rpc_to_primitive_block,
+                )
+                .await?,
             );
+            tokio::spawn(DebugConsensusClient::new(beacon_consensus_engine_handle, provider).run());
             info!(target: "ress", %url, "Debug consensus started");
         }
 
@@ -192,7 +219,7 @@ impl NodeLauncher {
         jwt_key: JwtSecret,
         provider: RessProvider,
         engine_validator: EthereumEngineValidator,
-        to_engine: mpsc::UnboundedSender<BeaconEngineMessage<EthEngineTypes>>,
+        beacon_engine_handle: BeaconConsensusEngineHandle<EthEngineTypes>,
     ) -> eyre::Result<AuthServerHandle> {
         let (_, payload_builder_handle) = NoopPayloadBuilderService::<EthEngineTypes>::new();
         let client_version = ClientVersionV1 {
@@ -204,7 +231,7 @@ impl NodeLauncher {
         let engine_api = EngineApi::new(
             NoopProvider::<ChainSpec, EthPrimitives>::new(self.args.chain.clone()),
             self.args.chain.clone(),
-            BeaconConsensusEngineHandle::<EthEngineTypes>::new(to_engine),
+            beacon_engine_handle,
             PayloadStore::new(payload_builder_handle),
             NoopTransactionPool::default(),
             Box::<TokioTaskExecutor>::default(),
