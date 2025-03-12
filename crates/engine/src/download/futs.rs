@@ -1,13 +1,13 @@
-use alloy_primitives::{keccak256, Bytes, B256};
+use alloy_primitives::{Bytes, B256};
 use alloy_rlp::Encodable;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
-use ress_primitives::witness::{ExecutionWitness, StateWitness};
-use ress_protocol::{GetHeaders, StateWitnessEntry, StateWitnessNet};
+use ress_primitives::witness::ExecutionWitness;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, SealedBlock, SealedHeader};
+use reth_ress_protocol::GetHeaders;
 use std::{
     future::Future,
     pin::Pin,
@@ -584,7 +584,7 @@ pub struct FetchWitnessFuture {
     block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
-    pending: DownloadFut<StateWitnessNet>,
+    pending: DownloadFut<Vec<Bytes>>,
 }
 
 impl FetchWitnessFuture {
@@ -610,7 +610,7 @@ impl FetchWitnessFuture {
         self.started_at.elapsed()
     }
 
-    fn witness_request(&self) -> DownloadFut<StateWitnessNet> {
+    fn witness_request(&self) -> DownloadFut<Vec<Bytes>> {
         let network = self.network.clone();
         let hash = self.block_hash;
         let delay = self.retry_delay;
@@ -630,25 +630,26 @@ impl Future for FetchWitnessFuture {
         loop {
             match ready!(this.pending.poll_unpin(cx)) {
                 Ok(witness) => {
-                    if witness.0.is_empty() {
+                    if witness.is_empty() {
                         trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
                         let rlp_size_bytes = witness.length();
-                        let mut state_witness = StateWitness::default();
-                        let valid = 'witness: {
-                            for StateWitnessEntry { hash, bytes } in witness.0 {
-                                let entry_hash = keccak256(&bytes);
-                                if hash == entry_hash {
-                                    state_witness.insert(hash, bytes);
-                                } else {
-                                    trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, expected = %entry_hash, received = %hash, "Invalid witness entry");
-                                    break 'witness false
-                                }
-                            }
+                        let valid = {
+                            // TODO:
+                            // for StateWitnessEntry { hash, bytes } in witness {
+                            //     let entry_hash = keccak256(&bytes);
+                            //     if hash == entry_hash {
+                            //         state_witness.insert(hash, bytes);
+                            //     } else {
+                            //         trace!(target: "ress::engine::downloader", block_hash =
+                            // %this.block_hash, expected = %entry_hash, received = %hash, "Invalid
+                            // witness entry");         break 'witness
+                            // false     }
+                            // }
                             true
                         };
                         if valid {
-                            return Poll::Ready(ExecutionWitness::new(state_witness, rlp_size_bytes))
+                            return Poll::Ready(ExecutionWitness::new(witness, rlp_size_bytes))
                         }
                     }
                 }

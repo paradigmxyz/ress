@@ -15,10 +15,10 @@ workspace = true
 ress-primitives.workspace = true
 ress-provider.workspace = true
 ress-evm.workspace = true
-ress-protocol.workspace = true
 ress-network.workspace = true
 
 # reth
+reth-ress-protocol.workspace = true
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
 reth-chainspec.workspace = true

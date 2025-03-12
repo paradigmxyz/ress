@@ -1,7 +1,7 @@
 use alloy_primitives::{Bytes, B256};
-use ress_protocol::{GetHeaders, RessPeerRequest, StateWitnessNet};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
+use reth_ress_protocol::{GetHeaders, RessPeerRequest};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::trace;
@@ -72,10 +72,7 @@ impl RessNetworkHandle {
     }
 
     /// Get StateWitness from block hash
-    pub async fn fetch_witness(
-        &self,
-        block_hash: B256,
-    ) -> Result<StateWitnessNet, PeerRequestError> {
+    pub async fn fetch_witness(&self, block_hash: B256) -> Result<Vec<Bytes>, PeerRequestError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
         self.send_request(RessPeerRequest::GetWitness { block_hash, tx })?;

@@ -1,6 +1,6 @@
 use futures::StreamExt;
-use ress_protocol::{ProtocolEvent, RessPeerRequest};
 use reth_network_api::PeerId;
+use reth_ress_protocol::{ProtocolEvent, RessPeerRequest};
 use std::{
     collections::VecDeque,
     future::Future,
@@ -73,8 +73,12 @@ impl Future for RessNetworkManager {
                 continue
             }
 
-            if let Poll::Ready(Some(event)) = this.protocol_events.poll_next_unpin(cx) {
-                let ProtocolEvent::Established { direction, peer_id, to_connection } = event;
+            if let Poll::Ready(Some(ProtocolEvent::Established {
+                direction,
+                peer_id,
+                to_connection,
+            })) = this.protocol_events.poll_next_unpin(cx)
+            {
                 debug!(target: "ress::net", %peer_id, %direction, "Peer connection established");
                 this.connections.push_back(ConnectionHandle { peer_id, to_connection });
                 continue

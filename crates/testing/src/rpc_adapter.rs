@@ -6,11 +6,9 @@ use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{Block, BlockId, BlockNumberOrTag, BlockTransactionsKind};
 use futures::{stream::FuturesOrdered, StreamExt};
 use parking_lot::RwLock;
-use ress_protocol::{
-    GetHeaders, RessPeerRequest, StateWitnessNet, MAX_BODIES_SERVE, MAX_HEADERS_SERVE,
-    SOFT_RESPONSE_LIMIT,
-};
-use reth_primitives::{BlockBody, Header, TransactionSigned};
+use reth_network::eth_requests::{MAX_BODIES_SERVE, MAX_HEADERS_SERVE, SOFT_RESPONSE_LIMIT};
+use reth_primitives::{BlockBody, Bytecode, Header, TransactionSigned};
+use reth_ress_protocol::{GetHeaders, RessPeerRequest};
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
@@ -45,7 +43,7 @@ impl RpcNetworkAdapter {
         transactions_kind: BlockTransactionsKind,
     ) -> Option<Block> {
         let result =
-            self.provider.get_block(block_id, transactions_kind).await.inspect_err(
+            self.provider.get_block(block_id).kind(transactions_kind).await.inspect_err(
                 |error| {
                     debug!(target: "ress::rpc_adapter", %block_id, ?error, "Failed to request block from provider");
                 },
@@ -107,7 +105,7 @@ impl RpcNetworkAdapter {
         let mut bodies = Vec::new();
         while let Some(block) = futs.next().await.flatten() {
             trace!(target: "ress::rpc_adapter", number = block.header.number, hash = %block.header.hash, "Downloaded block for body");
-            let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner));
+            let block = block.map_transactions(|tx| TransactionSigned::from(tx.inner.into_inner()));
             let body = BlockBody {
                 transactions: block.transactions.into_transactions().collect(),
                 withdrawals: block.withdrawals.map(|w| w.into_inner().into()),
@@ -168,13 +166,14 @@ impl RpcNetworkAdapter {
                                 .ok();
                             if let Some(witness) = &maybe_witness {
                                 let mut bytecodes_ = provider.bytecodes.write();
-                                for (code_hash, bytecode) in &witness.codes {
-                                    if let Entry::Vacant(entry) = bytecodes_.entry(*code_hash) {
+                                for bytecode in &witness.codes {
+                                    let code_hash = Bytecode::new_raw(bytecode.clone()).hash_slow();
+                                    if let Entry::Vacant(entry) = bytecodes_.entry(code_hash) {
                                         entry.insert(bytecode.clone());
                                     }
                                 }
                             }
-                            maybe_witness.map(|witness| StateWitnessNet::from_iter(witness.state))
+                            maybe_witness.map(|witness| witness.state)
                         } else {
                             None
                         };

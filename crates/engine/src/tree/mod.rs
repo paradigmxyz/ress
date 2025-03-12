@@ -1,5 +1,5 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{keccak256, map::B256Map, B256, U256};
 use alloy_rpc_types_engine::{
     ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
     PayloadValidationError,
@@ -713,11 +713,13 @@ impl EngineTree {
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
         };
         let mut trie = SparseStateTrie::default();
-        trie.reveal_witness(parent.state_root, execution_witness.state_witness()).map_err(
-            |error| {
-                InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-            },
-        )?;
+        let mut state_witness = B256Map::default();
+        for encoded in execution_witness.state_witness() {
+            state_witness.insert(keccak256(encoded), encoded.clone());
+        }
+        trie.reveal_witness(parent.state_root, &state_witness).map_err(|error| {
+            InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
+        })?;
 
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();

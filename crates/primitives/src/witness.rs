@@ -1,18 +1,13 @@
 //! Execution witness type.
 
-use alloy_primitives::{
-    map::{B256HashMap, B256HashSet},
-    Bytes,
-};
+use alloy_primitives::{map::B256HashSet, Bytes};
 use alloy_rlp::Decodable;
 use alloy_trie::{nodes::TrieNode, TrieAccount, KECCAK_EMPTY};
 use std::sync::OnceLock;
 
 /// Alias type representing execution state witness.
-/// Execution state witness is a mapping of hashes of encoded
-/// trie nodes to their preimage:
-/// `keccak(rlp(node)): rlp(node)`
-pub type StateWitness = B256HashMap<Bytes>;
+/// Execution state witness is a collection of trie node preimages.
+pub type StateWitness = Vec<Bytes>;
 
 /// Execution witness contains all data necessary to execute the block (except for bytecodes).
 /// That includes:
@@ -48,7 +43,7 @@ impl ExecutionWitness {
     pub fn bytecode_hashes(&self) -> &B256HashSet {
         self.bytecode_hashes.get_or_init(|| {
             let mut bytecode_hashes = B256HashSet::default();
-            for encoded in self.state_witness.values() {
+            for encoded in &self.state_witness {
                 if let Ok(TrieNode::Leaf(leaf)) = TrieNode::decode(&mut &encoded[..]) {
                     if let Ok(account) = TrieAccount::decode(&mut &leaf.value[..]) {
                         if account.code_hash != KECCAK_EMPTY {

@@ -2,8 +2,9 @@
 
 use alloy_eips::BlockNumHash;
 use ress_provider::RessProvider;
-use reth_evm::execute::{
-    BlockExecutionError, BlockExecutionStrategy, BlockExecutionStrategyFactory,
+use reth_evm::{
+    execute::{BlockExecutionError, BlockExecutor as _},
+    ConfigureEvm,
 };
 use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, Receipt, RecoveredBlock};
@@ -37,7 +38,7 @@ impl<'a> BlockExecutor<'a> {
         mut self,
         block: &RecoveredBlock<Block>,
     ) -> Result<BlockExecutionOutput<Receipt>, BlockExecutionError> {
-        let mut strategy = self.evm_config.strategy_for_block(&mut self.state, block);
+        let mut strategy = self.evm_config.executor_for_block(&mut self.state, block);
         strategy.apply_pre_execution_changes()?;
         for tx in block.transactions_recovered() {
             strategy.execute_transaction(tx)?;

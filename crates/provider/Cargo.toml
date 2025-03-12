@@ -11,14 +11,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# ress
-ress-protocol.workspace = true
-
 # alloy
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 
 # reth
+reth-ress-protocol.workspace = true
 reth-primitives.workspace = true
 reth-chainspec.workspace = true
 reth-storage-errors.workspace = true

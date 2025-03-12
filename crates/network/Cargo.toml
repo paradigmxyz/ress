@@ -11,10 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# ress
-ress-protocol.workspace = true
-
 # reth
+reth-ress-protocol.workspace = true
 reth-primitives.workspace = true
 reth-network-api.workspace = true
 reth-network.workspace = true

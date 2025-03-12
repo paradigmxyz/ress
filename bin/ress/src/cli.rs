@@ -83,12 +83,16 @@ pub struct RessNetworkArgs {
     #[arg(long, value_name = "PATH")]
     pub p2p_secret_key: Option<PathBuf>,
 
+    /// Maximum active connections for `ress` subprotocol.
+    #[arg(long, default_value_t = 256)]
+    pub max_active_connections: u64,
+
     #[allow(clippy::doc_markdown)]
-    /// URL of the remote peer for P2P connections.
+    /// Comma separated enode URLs of trusted peers for P2P connections.
     ///
     /// --remote-peer enode://abcd@192.168.0.1:30303
-    #[arg(long)]
-    pub remote_peer: Option<TrustedPeer>,
+    #[arg(long, value_delimiter = ',')]
+    pub trusted_peers: Vec<TrustedPeer>,
 }
 
 impl RessNetworkArgs {

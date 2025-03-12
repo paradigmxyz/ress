@@ -5,7 +5,6 @@ use futures::StreamExt;
 use http::{header::CONTENT_TYPE, HeaderValue, Response};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
-use ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use ress_provider::{RessDatabase, RessProvider};
 use ress_testing::rpc_adapter::RpcNetworkAdapter;
 use reth_chainspec::ChainSpec;
@@ -25,6 +24,7 @@ use reth_node_ethereum::{
 use reth_node_events::node::handle_events;
 use reth_node_metrics::recorder::install_prometheus_recorder;
 use reth_payload_builder::{noop::NoopPayloadBuilderService, PayloadStore};
+use reth_ress_protocol::{NodeType, ProtocolState, RessProtocolHandler, RessProtocolProvider};
 use reth_rpc_api::EngineEthApiServer;
 use reth_rpc_builder::auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
@@ -94,7 +94,12 @@ impl NodeLauncher {
         let network_secret = reth_cli_util::get_secret_key(&network_secret_path)?;
 
         let network_handle = self
-            .launch_network(provider.clone(), network_secret, self.args.network.remote_peer.clone())
+            .launch_network(
+                provider.clone(),
+                network_secret,
+                self.args.network.max_active_connections,
+                self.args.network.trusted_peers.clone(),
+            )
             .await?;
         info!(target: "ress", peer_id = %network_handle.inner().peer_id(), addr = %network_handle.inner().local_addr(), "Network launched");
 
@@ -137,7 +142,7 @@ impl NodeLauncher {
                     body: reth_ethereum_primitives::BlockBody {
                         transactions: transactions
                             .into_transactions()
-                            .map(|tx| tx.inner.into())
+                            .map(|tx| tx.inner.into_inner().into())
                             .collect(),
                         ommers: Default::default(),
                         withdrawals,
@@ -169,28 +174,32 @@ impl NodeLauncher {
         &self,
         protocol_provider: P,
         secret_key: SecretKey,
-        remote_peer: Option<TrustedPeer>,
+        max_active_connections: u64,
+        trusted_peers: Vec<TrustedPeer>,
     ) -> eyre::Result<RessNetworkHandle>
     where
         P: RessProtocolProvider + Clone + Unpin + 'static,
     {
         // Configure and instantiate the network
+        let config = NetworkConfig::builder(secret_key)
+            .listener_addr(self.args.network.listener_addr())
+            .disable_discovery()
+            .build_with_noop_provider(self.args.chain.clone());
+        let mut manager = NetworkManager::<EthNetworkPrimitives>::new(config).await?;
+
         let (events_sender, protocol_events) = mpsc::unbounded_channel();
         let protocol_handler = RessProtocolHandler {
             provider: protocol_provider,
             node_type: NodeType::Stateless,
-            state: ProtocolState { events_sender },
+            peers_handle: manager.peers_handle(),
+            max_active_connections,
+            state: ProtocolState { events_sender, active_connections: Arc::default() },
         };
-        let config = NetworkConfig::builder(secret_key)
-            .listener_addr(self.args.network.listener_addr())
-            .disable_discovery()
-            .add_rlpx_sub_protocol(protocol_handler.into_rlpx_sub_protocol())
-            .build_with_noop_provider(self.args.chain.clone());
-        let manager = NetworkManager::<EthNetworkPrimitives>::new(config).await?;
+        manager.add_rlpx_sub_protocol(protocol_handler.into_rlpx_sub_protocol());
 
-        if let Some(remote_peer) = remote_peer {
-            let remote_addr = remote_peer.resolve_blocking()?.tcp_addr();
-            manager.peers_handle().add_peer(remote_peer.id, remote_addr);
+        for trusted_peer in trusted_peers {
+            let trusted_peer_addr = trusted_peer.resolve_blocking()?.tcp_addr();
+            manager.peers_handle().add_peer(trusted_peer.id, trusted_peer_addr);
         }
 
         // get a handle to the network to interact with it

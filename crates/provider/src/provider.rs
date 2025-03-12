@@ -1,10 +1,10 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, Bytes, B256};
-use ress_protocol::{RessProtocolProvider, StateWitnessNet};
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
+use reth_ress_protocol::RessProtocolProvider;
 use reth_storage_errors::provider::ProviderResult;
 use std::sync::Arc;
 
@@ -119,7 +119,7 @@ impl RessProtocolProvider for RessProvider {
     }
 
     // TODO: implement
-    async fn witness(&self, _block_hash: B256) -> ProviderResult<Option<StateWitnessNet>> {
-        Ok(None)
+    async fn witness(&self, _block_hash: B256) -> ProviderResult<Vec<Bytes>> {
+        Ok(Vec::new())
     }
 }
