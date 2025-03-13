@@ -73,4 +73,4 @@ Mar 13 09:46:28.033 INF simulation ethereum/engine finished suites=1 tests=226 f
 ```
 
 ### Holesky validators
- For our proof of concept, we successfully [ran Ress-backed Ethereum validators](https://holesky.beaconcha.in/dashboard?validators=1919380,1919381,1919382,1919383,1919384,1919385,1919386,1919387,1919388,1919389#validators-table) on Holesky testnet and correctly attested to block validity.
+For our proof of concept, we successfully [ran Ress-backed Ethereum validators](https://light-holesky.beaconcha.in/validator/1919380?v=attestations) on Holesky testnet and correctly attested to block validity.
