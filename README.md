@@ -42,7 +42,6 @@ To run a ress node successfully you need the following components:
 2. Reth node (stateful) connected to a Consensus Client
 
 ```mermaid
-### Components
 flowchart TB
     subgraph Stateful["Stateful Client Pair"]
         SFCL["Consensus Layer"]
