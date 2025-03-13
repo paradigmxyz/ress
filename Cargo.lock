@@ -5734,6 +5734,8 @@ dependencies = [
  "tower 0.4.13",
  "tracing",
  "tracing-subscriber",
+ "vergen",
+ "vergen-git2",
 ]
 
 [[package]]
