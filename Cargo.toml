@@ -81,81 +81,81 @@ ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-errors = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## db
-reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-storage-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0", features = [
+reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-db-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-storage-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-network-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-network = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-network-peers = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-discv4 = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-network-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-network = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-network-peers = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-discv4 = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## trie
-reth-trie = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-trie = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## evm
-reth-revm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-chain-state = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-chain-state = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-rpc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-rpc = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## node
-reth-node-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-node-events = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0", features = [
+reth-node-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-node-core = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-node-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-node-events = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-tasks = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-cli-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
-reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.0" }
+reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-tasks = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-cli = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-cli-util = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
+reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-fix-cmd-polling" }
 
 # alloy
 alloy-primitives = { version = "0.8.20", default-features = false }

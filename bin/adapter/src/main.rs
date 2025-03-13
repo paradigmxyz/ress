@@ -9,7 +9,7 @@ use hyper_util::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, net::SocketAddr};
+use std::net::SocketAddr;
 use tokio::{self, net::TcpListener};
 use tracing::{error, info, Level};
 
@@ -35,14 +35,13 @@ async fn forward_request(
     let req_method = req.method().clone();
     let req_headers = req.headers().clone();
     let whole_body = req.collect().await?.to_bytes();
-    let params =
-        form_urlencoded::parse(&whole_body).into_owned().collect::<HashMap<String, String>>();
+    let request_body: serde_json::Value = serde_json::from_slice(&whole_body).unwrap();
 
     // `is_engine_method` as true if:
     //  1) method starts with "engine"
     //  2) method does NOT start with "engine_get"
-    let is_engine_method = params
-        .get("method")
+    let is_engine_method = request_body["method"]
+        .as_str()
         .map(|method| method.starts_with("engine") && !method.starts_with("engine_get"))
         .unwrap_or(false);
 
