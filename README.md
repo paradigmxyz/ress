@@ -21,7 +21,7 @@ cast rpc admin_nodeInfo -r http://localhost:9545 | jq .enode
 
 ## How it works
 
-Live sync works like any other stateful node: Ress fetches new payload from consensus and fetches necessary state data (witness, block, bytecodes) from a stateful reth client via [RLPx subprotocol dedicated to Ress](https://github.com/paradigmxyz/reth/tree/main/crates/ress/protocol).
+Live sync works like any other stateful node: Ress receives a new payload from the consensus client and fetches necessary state data (witness, block, bytecodes) from a stateful reth client via [RLPx subprotocol dedicated to Ress](https://github.com/paradigmxyz/reth/tree/main/crates/ress/protocol). It verfies payload and calculates the new state root all in memory.
 
 ```mermaid
 sequenceDiagram
@@ -33,6 +33,30 @@ sequenceDiagram
     Reth-->>Ress: Bytecode
     Ress->>Ress: Validate Payload
     Ress-->>CL: PayloadStatus
+```
+
+### Components
+
+To run a ress node successfully you need the following components:
+1. Ress node (statless) connected to a Consensus Client
+2. Reth node (stateful) connected to a Consensus Client
+
+```mermaid
+### Components
+flowchart TB
+    subgraph Stateful["Stateful Client Pair"]
+        SFCL["Consensus Layer"]
+        Reth["Reth Node"]
+        SFCL -->|Engine API| Reth
+    end
+    
+    subgraph Stateless["Stateless Client Pair"]
+        SLCL["Consensus Layer"]
+        Ress["Ress Node"]
+        SLCL -->|Engine API| Ress
+    end
+
+    Ress -->|ress RLPx subprotocol| Reth
 ```
 
 ## How it was tested
