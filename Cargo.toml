@@ -81,81 +81,81 @@ ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-errors = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## db
-reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-storage-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window", features = [
+reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-db-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-storage-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-network-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-network = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-network-peers = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-discv4 = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-network-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-network = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-network-peers = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-discv4 = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## trie
-reth-trie = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-trie = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## evm
-reth-revm = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-chain-state = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-consensus = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-chain-state = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-rpc = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-rpc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## node
-reth-node-api = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-node-events = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window", features = [
+reth-node-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-node-core = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-node-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-node-events = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-tasks = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-cli = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-cli-util = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-metrics = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
-reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", branch = "rkrasiuk/ress-max-witness-window" }
+reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-tasks = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-cli-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
+reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.1" }
 
 # alloy
 alloy-primitives = { version = "0.8.20", default-features = false }
