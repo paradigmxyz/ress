@@ -2,6 +2,10 @@
 
 Ress (shorthand for: Reth Stateless), a fully validating stateless Ethereum Execution Layer with 14GB disk requirements. Stateless nodes matter not only for improving Ethereum’s decentralization, but also to scale the L1 gas limit, scaling optimistic L2s, and for implementing Native Rollups to improve the L2 ecosystem’s security & interoperability.
 
+> [!CAUTION]
+> Ress is an experimental software that has not been fully tested in production grade settings.
+> At this moment, we do not recommend using ress nodes in validator setups.
+
 ## Run
 
 To run ress you need to either start a reth stateful node with `--ress.enable` to enable support for `ress` subprotocol or connect to a node which already has support enabled. You will need to provide the trusted peer manually:
