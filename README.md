@@ -11,7 +11,7 @@ Ress (shorthand for: Reth Stateless), a fully validating stateless Ethereum Exec
 To run ress you need to either start a reth stateful node with `--ress.enable` to enable support for `ress` subprotocol or connect to a node which already has support enabled. You will need to provide the trusted peer manually:
 
 ```bash
-cargo r --bin ress --profile profiling -- --debug.debug-consensus-url wss://reth-ethereum.ithaca.xyz/ws --remote-peer enode://ea6ac5192e6321f91eece5aeb6185e6b289f20dbc693c0f4b0abd299997b56227407f26ae1af5c3f05d00b9c743938e7afaf835709a956e01ebd980723caf1f8@103.50.32.176:30303
+ress --trusted-peers <peers>
 ```
 
 To fetch the enode from a reth node you can do 
