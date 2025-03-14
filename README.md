@@ -1,3 +1,7 @@
+![image](https://github.com/user-attachments/assets/ac01e368-4872-4983-afc0-a7fd218dd342)
+
+See the [accompanying blog on Paradigm Research](https://www.paradigm.xyz/2025/03/stateless-reth-nodes).
+
 # ress(reth stateless)
 
 Ress (shorthand for: Reth Stateless) is a fully validating stateless Ethereum Execution Layer with 14GB disk requirements.
