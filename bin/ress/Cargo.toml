@@ -70,3 +70,7 @@ tower = "0.4"
 jsonrpsee = "0.24"
 jsonrpsee-server = "0.24"
 async-trait = "0.1.68"
+
+[build-dependencies]
+vergen = { version = "9.0", features = ["build"] }
+vergen-git2 = "1.0"

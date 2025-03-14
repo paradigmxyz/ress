@@ -38,6 +38,15 @@ use tracing::*;
 
 use crate::{cli::RessArgs, rpc::RessEthRpc};
 
+/// The human readable name of the client
+pub const NAME_CLIENT: &str = "Ress";
+
+/// The latest version from Cargo.toml.
+pub const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// The 8 character short SHA of the latest commit.
+pub const VERGEN_GIT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
+
 /// Ress node launcher
 #[derive(Debug)]
 pub struct NodeLauncher {
@@ -233,9 +242,9 @@ impl NodeLauncher {
         let (_, payload_builder_handle) = NoopPayloadBuilderService::<EthEngineTypes>::new();
         let client_version = ClientVersionV1 {
             code: ClientCode::RH,
-            name: "Ress".to_string(),
-            version: "".to_string(),
-            commit: "".to_string(),
+            name: NAME_CLIENT.to_string(),
+            version: CARGO_PKG_VERSION.to_string(),
+            commit: VERGEN_GIT_SHA.to_string(),
         };
         let engine_api = EngineApi::new(
             NoopProvider::<ChainSpec, EthPrimitives>::new(self.args.chain.clone()),
