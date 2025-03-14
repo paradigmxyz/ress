@@ -1,6 +1,6 @@
 # ress(reth stateless)
 
-Ress (shorthand for: Reth Stateless), a fully validating stateless Ethereum Execution Layer with 14GB disk requirements. Stateless nodes matter not only for improving Ethereum’s decentralization, but also to scale the L1 gas limit, scaling optimistic L2s, and for implementing Native Rollups to improve the L2 ecosystem’s security & interoperability.
+Ress (shorthand for: Reth Stateless) is a fully validating stateless Ethereum Execution Layer with 14GB disk requirements. Stateless nodes matter not only for improving Ethereum’s decentralization, but also to scale the L1 gas limit, scaling optimistic L2s, and for implementing Native Rollups to improve the L2 ecosystem’s security & interoperability.
 
 > [!CAUTION]
 > Ress is an experimental software that has not been fully tested in production grade settings.
@@ -38,7 +38,7 @@ sequenceDiagram
 ### Components
 
 To run a ress node successfully you need the following components:
-1. Ress node (statless) connected to a Consensus Client
+1. Ress node (stateless) connected to a Consensus Client
 2. Reth node (stateful) connected to a Consensus Client
 
 ```mermaid
