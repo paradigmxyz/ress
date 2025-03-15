@@ -128,6 +128,8 @@ impl ConsensusEngine {
                     })?;
                 let missing_bytecodes_len = missing_code_hashes.len();
                 let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
+                let witness_nodes = witness.state_witness().len();
+                
                 self.tree.block_buffer.insert_witness(
                     block_hash,
                     witness,
@@ -136,9 +138,9 @@ impl ConsensusEngine {
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes, ?elapsed, "Downloaded for parked payload");
                 } else {
-                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness");
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes, ?elapsed, "Downloaded witness");
                 }
                 if missing_code_hashes.is_empty() {
                     unlocked_block_hashes.insert(block_hash);
