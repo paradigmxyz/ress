@@ -15,6 +15,12 @@ pub(crate) struct BlockBufferMetrics {
     pub blocks: Gauge,
     /// Total witnesses in the block buffer.
     pub witnesses: Gauge,
+    /// Average witness size in bytes.
+    pub avg_witness_size_bytes: Gauge,
+    /// Maximum witness size in bytes.
+    pub max_witness_size_bytes: Gauge,
+    /// Total number of witness nodes.
+    pub total_witness_nodes: Gauge,
 }
 
 /// Contains the tree of pending blocks that cannot be executed due to missing parent.
@@ -50,6 +56,12 @@ pub struct BlockBuffer<B: Block> {
     pub(crate) lru: LruMap<BlockHash, ()>,
     /// Various metrics for the block buffer.
     pub(crate) metrics: BlockBufferMetrics,
+    /// Track total witness size for average calculation
+    total_witness_size: usize,
+    /// Track maximum witness size
+    max_witness_size: usize,
+    /// Track total witness nodes
+    total_witness_nodes: usize,
 }
 
 impl<B: Block> BlockBuffer<B> {
@@ -63,6 +75,9 @@ impl<B: Block> BlockBuffer<B> {
             earliest_blocks: Default::default(),
             lru: LruMap::new(ByLength::new(limit)),
             metrics: Default::default(),
+            total_witness_size: 0,
+            max_witness_size: 0,
+            total_witness_nodes: 0,
         }
     }
 
@@ -105,8 +120,38 @@ impl<B: Block> BlockBuffer<B> {
         witness: ExecutionWitness,
         missing_bytecodes: B256HashSet,
     ) {
+        // Update witness size metrics
+        let witness_size_bytes = witness.rlp_size_bytes();
+        let witness_nodes_count = witness.state_witness().len();
+
+        // Update max witness size if this witness is larger
+        if witness_size_bytes > self.max_witness_size {
+            self.max_witness_size = witness_size_bytes;
+            self.metrics.max_witness_size_bytes.set(witness_size_bytes as f64);
+        }
+
+        // Update total size for average calculation
+        self.total_witness_size += witness_size_bytes;
+
+        // Update total witness nodes count
+        self.total_witness_nodes += witness_nodes_count;
+
+        // Insert the witness
         self.witnesses.insert(block_hash, witness);
-        self.metrics.witnesses.set(self.witnesses.len() as f64);
+
+        // Update metrics
+        let witnesses_count = self.witnesses.len();
+        self.metrics.witnesses.set(witnesses_count as f64);
+
+        // Calculate and update average witness size
+        if witnesses_count > 0 {
+            let avg_size = self.total_witness_size as f64 / witnesses_count as f64;
+            self.metrics.avg_witness_size_bytes.set(avg_size);
+        }
+
+        // Update total witness nodes metric
+        self.metrics.total_witness_nodes.set(self.total_witness_nodes as f64);
+
         if !missing_bytecodes.is_empty() {
             self.missing_bytecodes.insert(block_hash, missing_bytecodes);
         }
@@ -139,6 +184,10 @@ impl<B: Block> BlockBuffer<B> {
             .into_iter()
             .chain(self.remove_children(Vec::from([parent_hash])))
             .collect();
+
+        // After removing blocks and witnesses, recalculate witness metrics
+        self.recalculate_witness_metrics();
+
         self.metrics.blocks.set(self.blocks.len() as f64);
         self.metrics.witnesses.set(self.witnesses.len() as f64);
         removed
@@ -164,8 +213,51 @@ impl<B: Block> BlockBuffer<B> {
         }
 
         self.evict_children(block_hashes_to_remove);
+
+        // After evicting blocks and witnesses, recalculate witness metrics
+        self.recalculate_witness_metrics();
+
         self.metrics.blocks.set(self.blocks.len() as f64);
         self.metrics.witnesses.set(self.witnesses.len() as f64);
+    }
+
+    /// Recalculate witness metrics after removing witnesses
+    fn recalculate_witness_metrics(&mut self) {
+        if self.witnesses.is_empty() {
+            // Reset all metrics to zero if no witnesses remain
+            self.total_witness_size = 0;
+            self.max_witness_size = 0;
+            self.total_witness_nodes = 0;
+            self.metrics.avg_witness_size_bytes.set(0.0);
+            self.metrics.max_witness_size_bytes.set(0.0);
+            self.metrics.total_witness_nodes.set(0.0);
+            return;
+        }
+
+        // Recalculate max, total size, and total nodes
+        self.max_witness_size = 0;
+        self.total_witness_size = 0;
+        self.total_witness_nodes = 0;
+
+        for witness in self.witnesses.values() {
+            let size = witness.rlp_size_bytes();
+            let nodes = witness.state_witness().len();
+
+            if size > self.max_witness_size {
+                self.max_witness_size = size;
+            }
+
+            self.total_witness_size += size;
+            self.total_witness_nodes += nodes;
+        }
+
+        // Update metrics
+        let witnesses_count = self.witnesses.len();
+        let avg_size = self.total_witness_size as f64 / witnesses_count as f64;
+
+        self.metrics.avg_witness_size_bytes.set(avg_size);
+        self.metrics.max_witness_size_bytes.set(self.max_witness_size as f64);
+        self.metrics.total_witness_nodes.set(self.total_witness_nodes as f64);
     }
 
     /// Remove block entry
