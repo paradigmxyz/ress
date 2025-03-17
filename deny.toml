@@ -69,6 +69,7 @@ exceptions = [
     { allow = [
         "MPL-2.0",
     ], name = "webpki-roots" },
+    { allow = ["MPL-2.0"], name = "webpki-root-certs" },
 ]
 
 [[licenses.clarify]]
