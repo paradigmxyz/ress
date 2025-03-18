@@ -109,12 +109,8 @@ impl<B: Block> BlockBuffer<B> {
         witness: ExecutionWitness,
         missing_bytecodes: B256HashSet,
     ) {
-        // Insert the witness
         self.witnesses.insert(block_hash, witness);
-
-        // Update witnesses count metric
         self.metrics.witnesses.set(self.witnesses.len() as f64);
-
         if !missing_bytecodes.is_empty() {
             self.missing_bytecodes.insert(block_hash, missing_bytecodes);
         }
@@ -147,7 +143,6 @@ impl<B: Block> BlockBuffer<B> {
             .into_iter()
             .chain(self.remove_children(Vec::from([parent_hash])))
             .collect();
-
         self.metrics.blocks.set(self.blocks.len() as f64);
         self.metrics.witnesses.set(self.witnesses.len() as f64);
         removed
@@ -173,7 +168,6 @@ impl<B: Block> BlockBuffer<B> {
         }
 
         self.evict_children(block_hashes_to_remove);
-
         self.metrics.blocks.set(self.blocks.len() as f64);
         self.metrics.witnesses.set(self.witnesses.len() as f64);
     }
