@@ -1,12 +1,19 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, Bytes, B256};
+use alloy_primitives::{
+    map::{B256HashMap, B256HashSet},
+    BlockHash, BlockNumber, Bytes, B256,
+};
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::RessProtocolProvider;
 use reth_storage_errors::provider::ProviderResult;
-use std::sync::Arc;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tokio::time::sleep;
 
 /// Provider for retrieving blockchain data.
 ///
@@ -16,12 +23,20 @@ pub struct RessProvider {
     chain_spec: Arc<ChainSpec>,
     database: RessDatabase,
     chain_state: ChainState,
+    witnesses: Arc<Mutex<B256HashMap<Vec<Bytes>>>>,
+    witness_delay: Option<Duration>,
 }
 
 impl RessProvider {
     /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>, database: RessDatabase) -> Self {
-        Self { chain_spec, database, chain_state: ChainState::default() }
+        Self {
+            chain_spec,
+            database,
+            chain_state: ChainState::default(),
+            witnesses: Arc::new(Mutex::new(B256HashMap::default())),
+            witness_delay: None,
+        }
     }
 
     /// Get chain spec.
@@ -103,6 +118,17 @@ impl RessProvider {
             self.chain_state.remove_blocks_on_finalized(finalized_hash);
         }
     }
+
+    /// Insert witness.
+    pub fn add_witness(&self, block_hash: B256, witness: Vec<Bytes>) {
+        self.witnesses.lock().unwrap().insert(block_hash, witness);
+    }
+
+    /// Configure witness response delay.
+    pub fn with_witness_delay(mut self, delay: Duration) -> Self {
+        self.witness_delay = Some(delay);
+        self
+    }
 }
 
 impl RessProtocolProvider for RessProvider {
@@ -118,8 +144,10 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.database.get_bytecode(code_hash)?.map(|b| b.original_bytes()))
     }
 
-    // TODO: implement
-    async fn witness(&self, _block_hash: B256) -> ProviderResult<Vec<Bytes>> {
-        Ok(Vec::new())
+    async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
+        if let Some(delay) = self.witness_delay {
+            sleep(delay).await;
+        }
+        Ok(self.witnesses.lock().unwrap().get(&block_hash).map(|w| w.clone()).unwrap_or_default())
     }
 }

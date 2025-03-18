@@ -5846,6 +5846,7 @@ dependencies = [
  "reth-ress-protocol",
  "reth-storage-errors",
  "tempfile",
+ "tokio",
  "tracing",
 ]
 

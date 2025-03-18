@@ -30,6 +30,9 @@ itertools.workspace = true
 tracing.workspace = true
 metrics.workspace = true
 
+# async
+tokio = { workspace = true, default-features = false, features = ["sync", "macros"] }
+
 [dev-dependencies]
 derive_more.workspace = true
 tempfile = "3.8"
