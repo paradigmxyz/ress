@@ -1,6 +1,6 @@
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
-use metrics::{Gauge, Histogram};
+use metrics::Gauge;
 use ress_primitives::witness::ExecutionWitness;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};
@@ -15,10 +15,6 @@ pub(crate) struct BlockBufferMetrics {
     pub blocks: Gauge,
     /// Total witnesses in the block buffer.
     pub witnesses: Gauge,
-    /// Histogram of witness sizes in bytes.
-    pub witness_size_bytes: Histogram,
-    /// Histogram of witness node counts.
-    pub witness_nodes_count: Histogram,
 }
 
 /// Contains the tree of pending blocks that cannot be executed due to missing parent.
@@ -290,15 +286,6 @@ impl<B: Block> BlockBuffer<B> {
             }
         });
         block_hashes
-    }
-
-    /// Record witness metrics
-    pub fn record_witness_metrics(&self, witness: &ExecutionWitness) {
-        let witness_size_bytes = witness.rlp_size_bytes();
-        let witness_nodes_count = witness.state_witness().len();
-
-        self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
-        self.metrics.witness_nodes_count.record(witness_nodes_count as f64);
     }
 }
 
