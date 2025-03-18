@@ -109,14 +109,6 @@ impl<B: Block> BlockBuffer<B> {
         witness: ExecutionWitness,
         missing_bytecodes: B256HashSet,
     ) {
-        // Record witness metrics
-        let witness_size_bytes = witness.rlp_size_bytes();
-        let witness_nodes_count = witness.state_witness().len();
-
-        // Record the metrics for the histograms
-        self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
-        self.metrics.witness_nodes_count.record(witness_nodes_count as f64);
-
         // Insert the witness
         self.witnesses.insert(block_hash, witness);
 
@@ -304,6 +296,15 @@ impl<B: Block> BlockBuffer<B> {
             }
         });
         block_hashes
+    }
+
+    /// Record witness metrics
+    pub fn record_witness_metrics(&self, witness: &ExecutionWitness) {
+        let witness_size_bytes = witness.rlp_size_bytes();
+        let witness_nodes_count = witness.state_witness().len();
+
+        self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
+        self.metrics.witness_nodes_count.record(witness_nodes_count as f64);
     }
 }
 

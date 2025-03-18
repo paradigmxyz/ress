@@ -130,6 +130,9 @@ impl ConsensusEngine {
                 let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
                 let witness_nodes_count = witness.state_witness().len();
                 
+                // Record witness metrics before inserting the witness
+                self.tree.block_buffer.record_witness_metrics(&witness);
+                
                 self.tree.block_buffer.insert_witness(
                     block_hash,
                     witness,
