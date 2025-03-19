@@ -9,11 +9,7 @@ use reth_db::DatabaseError;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::RessProtocolProvider;
 use reth_storage_errors::provider::ProviderResult;
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-use tokio::time::sleep;
+use std::sync::{Arc, Mutex};
 
 /// Provider for retrieving blockchain data.
 ///
@@ -24,7 +20,6 @@ pub struct RessProvider {
     database: RessDatabase,
     chain_state: ChainState,
     witnesses: Arc<Mutex<B256HashMap<Vec<Bytes>>>>,
-    witness_delay: Option<Duration>,
 }
 
 impl RessProvider {
@@ -35,7 +30,6 @@ impl RessProvider {
             database,
             chain_state: ChainState::default(),
             witnesses: Arc::new(Mutex::new(B256HashMap::default())),
-            witness_delay: None,
         }
     }
 
@@ -123,12 +117,6 @@ impl RessProvider {
     pub fn add_witness(&self, block_hash: B256, witness: Vec<Bytes>) {
         self.witnesses.lock().unwrap().insert(block_hash, witness);
     }
-
-    /// Configure witness response delay.
-    pub fn with_witness_delay(mut self, delay: Duration) -> Self {
-        self.witness_delay = Some(delay);
-        self
-    }
 }
 
 impl RessProtocolProvider for RessProvider {
@@ -145,9 +133,6 @@ impl RessProtocolProvider for RessProvider {
     }
 
     async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
-        if let Some(delay) = self.witness_delay {
-            sleep(delay).await;
-        }
         Ok(self.witnesses.lock().unwrap().get(&block_hash).map(|w| w.clone()).unwrap_or_default())
     }
 }
