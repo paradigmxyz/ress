@@ -256,6 +256,7 @@ impl NodeLauncher {
             client_version,
             EngineCapabilities::default(),
             engine_validator,
+            false,
         );
         let auth_socket = self.args.rpc.auth_rpc_addr();
         let config = AuthServerConfig::builder(jwt_key).socket_addr(auth_socket).build();
