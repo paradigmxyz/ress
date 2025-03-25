@@ -28,7 +28,7 @@ use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock,
 use reth_primitives_traits::SealedHeader;
 use reth_provider::ExecutionOutcome;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
-use reth_trie_sparse::SparseStateTrie;
+use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
 use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::*;
@@ -712,7 +712,7 @@ impl EngineTree {
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
         };
-        let mut trie = SparseStateTrie::default();
+        let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
         let mut state_witness = B256Map::default();
         for encoded in execution_witness.state_witness() {
             state_witness.insert(keccak256(encoded), encoded.clone());

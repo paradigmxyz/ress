@@ -5,11 +5,7 @@ use rayon::prelude::*;
 use reth_trie::{
     HashedPostState, Nibbles, TrieAccount, EMPTY_ROOT_HASH, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
-use reth_trie_sparse::{
-    blinded::{DefaultBlindedProvider, DefaultBlindedProviderFactory},
-    errors::SparseStateTrieResult,
-    SparseStateTrie, SparseTrie,
-};
+use reth_trie_sparse::{errors::SparseStateTrieResult, SparseStateTrie, SparseTrie};
 use std::sync::mpsc;
 
 /// Compute the state root given a revealed sparse trie and hashed state update.
@@ -36,13 +32,10 @@ pub fn calculate_state_root(
             {
                 let nibbles = Nibbles::unpack(hashed_slot);
                 if value.is_zero() {
-                    storage_trie.remove_leaf(&nibbles, &DefaultBlindedProvider)?;
+                    storage_trie.remove_leaf(&nibbles)?;
                 } else {
-                    storage_trie.update_leaf(
-                        nibbles,
-                        alloy_rlp::encode_fixed_size(&value).to_vec(),
-                        &DefaultBlindedProvider,
-                    )?;
+                    storage_trie
+                        .update_leaf(nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
                 }
             }
 
@@ -77,17 +70,13 @@ pub fn calculate_state_root(
         };
 
         if account.is_empty() && storage_root == EMPTY_ROOT_HASH {
-            trie.remove_account_leaf(&nibbles, &DefaultBlindedProviderFactory)?;
+            trie.remove_account_leaf(&nibbles)?;
         } else {
             account_rlp_buf.clear();
             account.into_trie_account(storage_root).encode(&mut account_rlp_buf);
-            trie.update_account_leaf(
-                nibbles,
-                account_rlp_buf.clone(),
-                &DefaultBlindedProviderFactory,
-            )?;
+            trie.update_account_leaf(nibbles, account_rlp_buf.clone())?;
         }
     }
 
-    trie.root(&DefaultBlindedProviderFactory)
+    trie.root()
 }
