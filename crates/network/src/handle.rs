@@ -29,12 +29,13 @@ impl RessNetworkHandle {
         &self.network_handle
     }
 
+    /// Send a request to the peer request sender.
     fn send_request(&self, request: RessPeerRequest) -> Result<(), PeerRequestError> {
-        self.peer_requests_sender.send(request).map_err(|_| PeerRequestError::ConnectionClosed)
+        self.peer_requests_sender
+            .send(request)
+            .map_err(|_| PeerRequestError::ConnectionClosed)
     }
-}
 
-impl RessNetworkHandle {
     /// Get block headers.
     pub async fn fetch_headers(
         &self,
@@ -42,7 +43,7 @@ impl RessNetworkHandle {
     ) -> Result<Vec<Header>, PeerRequestError> {
         trace!(target: "ress::net", ?request, "requesting header");
         let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetHeaders { request, tx })?;
+        self.send_request(RessPeerRequest::GetHeaders { request: request.clone(), tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
         trace!(target: "ress::net", ?request, "headers received");
         Ok(response)
@@ -71,7 +72,7 @@ impl RessNetworkHandle {
         Ok(response)
     }
 
-    /// Get StateWitness from block hash
+    /// Get StateWitness from block hash.
     pub async fn fetch_witness(&self, block_hash: B256) -> Result<Vec<Bytes>, PeerRequestError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
