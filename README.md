@@ -17,7 +17,7 @@ scaling optimistic L2s, and for implementing Native Rollups to improve the L2 ec
 ### Install
 
 ```bash
-cargo install --git https://github.com/paradigmxyz/ress ress
+cargo install --git https://github.com/paradigmxyz/ress ress --locked
 ```
 
 ### Run Consensus Layer client
