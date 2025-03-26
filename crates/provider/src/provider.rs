@@ -106,16 +106,22 @@ impl RessProvider {
         }
     }
 
-    /// Remove blocks from chain state on finalized.
+    /// Remove blocks and witnesses from chain state on finalized.
     pub fn on_finalized(&self, finalized_hash: &B256) {
         if !finalized_hash.is_zero() {
             self.chain_state.remove_blocks_on_finalized(finalized_hash);
+            self.remove_witness(*finalized_hash);
         }
     }
 
     /// Insert witness.
     pub fn add_witness(&self, block_hash: B256, witness: Vec<Bytes>) {
         self.witnesses.lock().unwrap().insert(block_hash, witness);
+    }
+
+    /// Remove witness.
+    pub fn remove_witness(&self, finalized_hash: B256) {
+        self.witnesses.lock().unwrap().remove(&finalized_hash);
     }
 }
 
@@ -133,6 +139,6 @@ impl RessProtocolProvider for RessProvider {
     }
 
     async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
-        Ok(self.witnesses.lock().unwrap().get(&block_hash).map(|w| w.clone()).unwrap_or_default())
+        Ok(self.witnesses.lock().unwrap().get(&block_hash).cloned().unwrap_or_default())
     }
 }
