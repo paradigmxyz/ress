@@ -25,7 +25,7 @@ cargo install --git https://github.com/paradigmxyz/ress ress --locked
 See https://reth.rs/run/mainnet.html#running-the-consensus-layer for the instructions, they're the same as for Reth.
 
 The only difference is that the default JWT token location is `~/.local/share/ress/NETWORK/jwt.hex`
-instead of `~/.local/share/reth/NETWORK//jwt.hex`.
+instead of `~/.local/share/reth/NETWORK/jwt.hex`.
 
 ### (Optional) Run stateful Reth client
 
