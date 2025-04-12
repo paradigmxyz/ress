@@ -143,11 +143,8 @@ impl RpcNetworkAdapter {
                         }
                     });
                 }
-                RessPeerRequest::GetBytecode { code_hash, tx } => {
-                    let maybe_bytecode = self.bytecodes.read().get(&code_hash).cloned();
-                    if tx.send(maybe_bytecode.unwrap_or_default()).is_err() {
-                        debug!(target: "ress::rpc_adapter", %code_hash, "Failed to send bytecode");
-                    }
+                RessPeerRequest::GetProof { block_hash, tx } => {
+                    debug!(target: "ress::rpc_adapter", %block_hash, "TODO: unimplemented -- Failed to send proof");
                 }
                 RessPeerRequest::GetWitness { block_hash, tx } => {
                     let provider = self.clone();
@@ -164,16 +161,7 @@ impl RpcNetworkAdapter {
                                     debug!(target: "ress::rpc_adapter", %block_hash, %error, "Failed to request witness from provider");
                                 })
                                 .ok();
-                            if let Some(witness) = &maybe_witness {
-                                let mut bytecodes_ = provider.bytecodes.write();
-                                for bytecode in &witness.codes {
-                                    let code_hash = Bytecode::new_raw(bytecode.clone()).hash_slow();
-                                    if let Entry::Vacant(entry) = bytecodes_.entry(code_hash) {
-                                        entry.insert(bytecode.clone());
-                                    }
-                                }
-                            }
-                            maybe_witness.map(|witness| witness.state)
+                            maybe_witness.map(|witness| witness.into())
                         } else {
                             None
                         };

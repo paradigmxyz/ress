@@ -7,8 +7,8 @@ mod provider;
 pub use provider::RessProvider;
 
 /// Ress database.
-mod database;
-pub use database::RessDatabase;
+// mod database;
+// pub use database::RessDatabase;
 
 /// Chain state.
 mod chain_state;

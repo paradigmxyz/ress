@@ -1,7 +1,7 @@
 use alloy_primitives::{Bytes, B256};
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
-use reth_ress_protocol::{GetHeaders, RessPeerRequest};
+use reth_ress_protocol::{GetHeaders, RLPExecutionWitness, RessPeerRequest};
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::trace;
@@ -61,18 +61,21 @@ impl RessNetworkHandle {
         Ok(response)
     }
 
-    /// Get contract bytecode by code hash.
-    pub async fn fetch_bytecode(&self, code_hash: B256) -> Result<Bytes, PeerRequestError> {
-        trace!(target: "ress::net", %code_hash, "requesting bytecode");
+    /// Get proof for block hash
+    pub async fn fetch_proof(&self, block_hash: B256) -> Result<Bytes, PeerRequestError> {
+        trace!(target: "ress::net", %block_hash, "requesting proof");
         let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetBytecode { code_hash, tx })?;
+        self.send_request(RessPeerRequest::GetProof { block_hash, tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
-        trace!(target: "ress::net", %code_hash, "bytecode received");
+        trace!(target: "ress::net", %block_hash, "proof received");
         Ok(response)
     }
 
-    /// Get StateWitness from block hash
-    pub async fn fetch_witness(&self, block_hash: B256) -> Result<Vec<Bytes>, PeerRequestError> {
+    /// Get ExecutionWitness for block hash
+    pub async fn fetch_witness(
+        &self,
+        block_hash: B256,
+    ) -> Result<RLPExecutionWitness, PeerRequestError> {
         trace!(target: "ress::net", %block_hash, "requesting witness");
         let (tx, rx) = oneshot::channel();
         self.send_request(RessPeerRequest::GetWitness { block_hash, tx })?;
