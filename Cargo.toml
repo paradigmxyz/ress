@@ -81,105 +81,105 @@ ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 # reth
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-errors = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## db
-reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-storage-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-provider = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4", features = [
+reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-network-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-network = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-network-peers = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-discv4 = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-network = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## trie
-reth-trie = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-trie-sparse = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-trie = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## evm
-reth-revm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-evm = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-revm = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-evm = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-consensus-debug-client = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-ethereum-engine-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-engine-tree = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-chain-state = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc-engine-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc-layer = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc-types-compat = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-rpc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## node
-reth-node-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-node-core = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-node-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-node-events = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-node-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-payload-builder = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4", features = [
+reth-node-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-tasks = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-cli-util = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-ethereum-cli = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-metrics = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
-reth-testing-utils = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.4" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
 
 # alloy
-alloy-primitives = { version = "0.8.20", default-features = false }
-alloy-trie = { version = "0.7", default-features = false }
+alloy-primitives = { version = "1.0.0", default-features = false }
+alloy-trie = { version = "0.8.0", default-features = false }
 alloy-rlp = { version = "0.3.10", default-features = false }
 
-alloy-eips = { version = "0.12.5", default-features = false }
-alloy-rpc-types = { version = "0.12.5", default-features = false }
-alloy-rpc-types-eth = { version = "0.12.5", default-features = false }
-alloy-rpc-types-engine = { version = "0.12.5", default-features = false }
-alloy-rpc-types-debug = { version = "0.12.5", default-features = false }
-alloy-rpc-client = { version = "0.12.5", default-features = false }
-alloy-provider = { version = "0.12.5", default-features = false, features = [
+alloy-eips = { version = "0.14.0", default-features = false }
+alloy-rpc-types = { version = "0.14.0", default-features = false }
+alloy-rpc-types-eth = { version = "0.14.0", default-features = false }
+alloy-rpc-types-engine = { version = "0.14.0", default-features = false }
+alloy-rpc-types-debug = { version = "0.14.0", default-features = false }
+alloy-rpc-client = { version = "0.14.0", default-features = false }
+alloy-provider = { version = "0.14.0", default-features = false, features = [
     "reqwest",
     "reqwest-rustls-tls",
 ] }
-alloy-transport-http = { version = "0.12.5", default-features = false }
-alloy-serde = { version = "0.12.5", default-features = false }
-alloy-consensus = { version = "0.12.5", default-features = false }
-alloy-network = { version = "0.12.5", default-features = false }
+alloy-transport-http = { version = "0.14.0", default-features = false, features = ["reqwest-rustls-tls"] }
+alloy-serde = { version = "0.14.0", default-features = false }
+alloy-consensus = { version = "0.14.0", default-features = false }
+alloy-network = { version = "0.14.0", default-features = false }
 
 # misc
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.39", default-features = false }
+tokio = { version = "1.44.2", default-features = false }
 tokio-stream = "0.1.11"
 futures = "0.3"
 eyre = "0.6"
