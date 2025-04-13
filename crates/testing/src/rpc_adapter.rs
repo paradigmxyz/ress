@@ -1,18 +1,13 @@
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::B256;
 use alloy_provider::{Provider, RootProvider, WsConnect};
 use alloy_rlp::Encodable;
 use alloy_rpc_client::ClientBuilder;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_eth::{Block, BlockId, BlockNumberOrTag, BlockTransactionsKind};
 use futures::{stream::FuturesOrdered, StreamExt};
-use parking_lot::RwLock;
 use reth_network::eth_requests::{MAX_BODIES_SERVE, MAX_HEADERS_SERVE, SOFT_RESPONSE_LIMIT};
-use reth_primitives::{BlockBody, Bytecode, Header, TransactionSigned};
+use reth_primitives::{BlockBody, Header, TransactionSigned};
 use reth_ress_protocol::{GetHeaders, RessPeerRequest};
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::Arc,
-};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 use tungstenite::protocol::WebSocketConfig;
@@ -21,7 +16,6 @@ use tungstenite::protocol::WebSocketConfig;
 #[derive(Clone, Debug)]
 pub struct RpcNetworkAdapter {
     provider: RootProvider,
-    bytecodes: Arc<RwLock<HashMap<B256, Bytes>>>,
 }
 
 impl RpcNetworkAdapter {
@@ -34,7 +28,7 @@ impl RpcNetworkAdapter {
                     .max_frame_size(Some(64 << 20)),
             ))
             .await?;
-        Ok(Self { provider: RootProvider::new(client), bytecodes: Default::default() })
+        Ok(Self { provider: RootProvider::new(client) })
     }
 
     async fn block(

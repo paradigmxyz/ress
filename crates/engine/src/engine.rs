@@ -7,7 +7,6 @@ use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
 use metrics::Histogram;
 use ress_network::RessNetworkHandle;
-use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
@@ -15,6 +14,7 @@ use reth_errors::ProviderError;
 use reth_metrics::Metrics;
 use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
+use reth_ress_protocol::RLPExecutionWitness;
 use std::{
     future::Future,
     pin::Pin,
@@ -91,6 +91,9 @@ impl ConsensusEngine {
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
                 self.downloader.download_witness(block_hash);
             }
+            TreeEvent::Download(DownloadRequest::Proof { block_hash }) => {
+                self.downloader.download_proof(block_hash);
+            }
             TreeEvent::Download(DownloadRequest::Finalized { block_hash }) => {
                 self.downloader.download_finalized_with_ancestors(block_hash);
             }
@@ -136,49 +139,34 @@ impl ConsensusEngine {
                 unlocked_block_hashes.insert(block_num_hash.hash);
             }
             DownloadData::Witness(block_hash, witness) => {
-                let code_hashes = witness.bytecode_hashes().clone();
-                let missing_code_hashes =
-                    self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
-                        InsertBlockFatalError::Provider(ProviderError::Database(error))
-                    })?;
-                let missing_bytecodes_len = missing_code_hashes.len();
-                let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
-                let witness_nodes_count = witness.state_witness().len();
+                let rlp_size =
+                    humansize::format_size(witness.size_with_headers(), humansize::DECIMAL);
+                let witness_nodes_count = witness.node_count();
 
                 // Record witness metrics before inserting the witness
+
                 self.record_witness_metrics(&witness);
 
-                self.tree.block_buffer.insert_witness(
-                    block_hash,
-                    witness,
-                    missing_code_hashes.clone(),
-                );
+                self.tree.block_buffer.insert_witness(block_hash, witness);
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded for parked payload");
                 } else {
-                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
-                }
-                if missing_code_hashes.is_empty() {
-                    unlocked_block_hashes.insert(block_hash);
-                } else {
-                    for code_hash in missing_code_hashes {
-                        self.downloader.download_bytecode(code_hash);
-                    }
+                    trace!(target: "ress::engine", %block_hash,  %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
                 }
             }
-            DownloadData::Bytecode(code_hash, bytecode) => {
-                trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
-                match self.tree.provider.insert_bytecode(code_hash, bytecode) {
-                    Ok(()) => {
-                        unlocked_block_hashes
-                            .extend(self.tree.block_buffer.on_bytecode_received(code_hash));
-                    }
-                    Err(error) => {
-                        error!(target: "ress::engine", %error, "Failed to insert the bytecode");
-                    }
-                };
+            DownloadData::Proof(block_hash, proof) => {
+                let proof_size = proof.len();
+
+                self.tree.block_buffer.insert_proof(block_hash, proof);
+
+                if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
+                {
+                    info!(target: "ress::engine", %block_hash, %proof_size, ?elapsed, "Downloaded for parked payload");
+                } else {
+                    trace!(target: "ress::engine", %block_hash,  %proof_size, ?elapsed, "Downloaded proof");
+                }
             }
         };
 
@@ -277,9 +265,11 @@ impl ConsensusEngine {
     }
 
     /// Record witness metrics
-    fn record_witness_metrics(&self, witness: &ExecutionWitness) {
-        let witness_size_bytes = witness.rlp_size_bytes();
-        let witness_nodes_count = witness.state_witness().len();
+    fn record_witness_metrics(&self, witness: &RLPExecutionWitness) {
+        // TODO: We can add more metrics like average_code_size
+        // TODO: this is already a method on `RLPExecutionWitness`
+        let witness_size_bytes = witness.size_with_headers();
+        let witness_nodes_count = witness.node_count();
 
         self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
         self.metrics.witness_nodes_count.record(witness_nodes_count as f64);

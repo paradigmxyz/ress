@@ -1,17 +1,15 @@
+use alloy_consensus::BlockHeader;
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, map::B256Map, B256, U256};
+use alloy_primitives::{B256, U256};
 use alloy_rpc_types_engine::{
     ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
     PayloadValidationError,
 };
 use metrics::Gauge;
-use rayon::iter::IntoParallelRefIterator;
-use ress_evm::BlockExecutor;
-use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
-use reth_consensus::{Consensus, ConsensusError, FullConsensus, HeaderValidator};
+use reth_consensus::{Consensus, ConsensusError, HeaderValidator};
 use reth_engine_tree::tree::{
     error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError},
     InvalidHeaderCache,
@@ -24,11 +22,11 @@ use reth_node_api::{
     OnForkChoiceUpdated, PayloadBuilderAttributes, PayloadValidator,
 };
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
-use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock, SealedBlock};
+use reth_primitives::{Block, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::ExecutionOutcome;
-use reth_trie::{HashedPostState, KeccakKeyHasher};
-use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
+use reth_ress_protocol::RLPExecutionWitness;
+use stateless_validate::stateless_block_validation;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::*;
@@ -41,7 +39,8 @@ pub use block_buffer::BlockBuffer;
 
 /// State root computation.
 pub mod root;
-use root::calculate_state_root;
+
+mod stateless_validate;
 
 /// Consensus engine tree for storing and validating blocks as well as advancing the chain.
 #[derive(Debug)]
@@ -476,7 +475,7 @@ impl EngineTree {
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
-        maybe_witness: Option<ExecutionWitness>,
+        maybe_witness: Option<RLPExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
 
@@ -565,7 +564,7 @@ impl EngineTree {
     pub fn on_downloaded_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        witness: ExecutionWitness,
+        witness: RLPExecutionWitness,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
@@ -666,7 +665,7 @@ impl EngineTree {
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        maybe_witness: Option<ExecutionWitness>,
+        maybe_witness: Option<RLPExecutionWitness>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let start = Instant::now();
         let block_num_hash = block.num_hash();
@@ -689,7 +688,7 @@ impl EngineTree {
                 .unwrap_or_else(|| block.parent_num_hash());
             trace!(target: "ress::engine", block=?block_num_hash, ?missing_ancestor, has_witness=maybe_witness.is_some(), "Block has missing ancestor");
             if let Some(witness) = maybe_witness {
-                self.block_buffer.insert_witness(block.hash(), witness, Default::default());
+                self.block_buffer.insert_witness(block.hash(), witness);
             }
             self.block_buffer.insert_block(block);
             return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
@@ -697,6 +696,8 @@ impl EngineTree {
                 missing_ancestor,
             }));
         };
+        let parent_header = parent.clone(); // TODO: the next line creates a SealedHeader<SealedHead> so I'm cloning it here to use
+                                            // later
 
         let parent = SealedHeader::new(parent, block.parent_hash);
         if let Err(error) =
@@ -706,47 +707,20 @@ impl EngineTree {
             return Err(error.into());
         }
 
-        // ===================== Witness =====================
         let Some(execution_witness) = maybe_witness else {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
             return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
         };
-        let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
-        let mut state_witness = B256Map::default();
-        for encoded in execution_witness.state_witness() {
-            state_witness.insert(keccak256(encoded), encoded.clone());
-        }
-        trie.reveal_witness(parent.state_root, &state_witness).map_err(|error| {
-            InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-        })?;
 
-        // ===================== Execution =====================
-        let start_time = std::time::Instant::now();
-        let block_executor =
-            BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
-        let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
-        debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
+        // Insert function here
 
-        // ===================== Post Execution Validation =====================
-        <EthBeaconConsensus<ChainSpec> as FullConsensus<EthPrimitives>>::validate_block_post_execution(
-            &self.consensus,
-            &block,
-            &output.result
+        let output = stateless_block_validation(
+            self.provider.chain_spec().clone(),
+            parent_header.clone(),
+            block.clone(),
+            execution_witness,
         )?;
-
-        // ===================== State Root =====================
-        let hashed_state =
-            HashedPostState::from_bundle_state::<KeccakKeyHasher>(output.state.state.par_iter());
-        let state_root = calculate_state_root(&mut trie, hashed_state).map_err(|error| {
-            InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
-        })?;
-        if state_root != block.state_root {
-            return Err(ConsensusError::BodyStateRootDiff(
-                GotExpected { got: state_root, expected: block.state_root }.into(),
-            )
-            .into());
-        }
 
         // ===================== Update Node State =====================
         self.provider.insert_block(block.clone());

@@ -1,11 +1,10 @@
 use crate::chain_state::ChainState;
-use alloy_eips::BlockNumHash;
 use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::{RLPExecutionWitness, RessProtocolProvider};
 use reth_storage_errors::provider::ProviderResult;
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 /// Provider for retrieving blockchain data.
 ///
@@ -30,12 +29,6 @@ impl RessProvider {
     /// Returns `true` if block hash is canonical.
     pub fn is_hash_canonical(&self, hash: &BlockHash) -> bool {
         self.chain_state.is_hash_canonical(hash)
-    }
-
-    /// Finds block hash in memory for the target block number.
-    /// Includes both canonical and pending blocks.
-    pub fn block_hash(&self, parent: BlockNumHash, number: BlockNumber) -> Option<BlockHash> {
-        self.chain_state.block_hash(parent, number)
     }
 
     /// Return block number by hash.

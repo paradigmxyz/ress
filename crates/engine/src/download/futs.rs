@@ -1,13 +1,11 @@
 use alloy_primitives::{Bytes, B256};
-use alloy_rlp::Encodable;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
-use ress_primitives::witness::ExecutionWitness;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
-use reth_primitives::{Block, BlockBody, Bytecode, Header, SealedBlock, SealedHeader};
-use reth_ress_protocol::GetHeaders;
+use reth_primitives::{Block, BlockBody, Header, SealedBlock, SealedHeader};
+use reth_ress_protocol::{GetHeaders, RLPExecutionWitness};
 use std::{
     future::Future,
     pin::Pin,
@@ -507,76 +505,6 @@ impl Future for FetchFullBlockRangeFuture {
     }
 }
 
-/// A future that downloads a bytecode from the network.
-#[must_use = "futures do nothing unless polled"]
-pub struct FetchBytecodeFuture {
-    network: RessNetworkHandle,
-    retry_delay: Duration,
-    code_hash: B256,
-    started_at: Instant,
-    pending: DownloadFut<Bytes>,
-}
-
-impl FetchBytecodeFuture {
-    /// Create new fetch bytecode future.
-    pub fn new(network: RessNetworkHandle, retry_delay: Duration, code_hash: B256) -> Self {
-        let network_ = network.clone();
-        Self {
-            network,
-            retry_delay,
-            code_hash,
-            started_at: Instant::now(),
-            pending: Box::pin(async move { network_.fetch_bytecode(code_hash).await }),
-        }
-    }
-
-    /// Returns the code hash of the bytecode being requested.
-    pub fn code_hash(&self) -> B256 {
-        self.code_hash
-    }
-
-    /// The duration elapsed since request was started.
-    pub fn elapsed(&self) -> Duration {
-        self.started_at.elapsed()
-    }
-
-    fn bytecode_request(&self) -> DownloadFut<Bytes> {
-        let network = self.network.clone();
-        let hash = self.code_hash;
-        let delay = self.retry_delay;
-        Box::pin(async move {
-            tokio::time::sleep(delay).await;
-            network.fetch_bytecode(hash).await
-        })
-    }
-}
-
-impl Future for FetchBytecodeFuture {
-    type Output = Bytecode;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-
-        loop {
-            match ready!(this.pending.poll_unpin(cx)) {
-                Ok(bytecode) => {
-                    let bytecode = Bytecode::new_raw(bytecode);
-                    let code_hash = bytecode.hash_slow();
-                    if code_hash == this.code_hash {
-                        return Poll::Ready(bytecode)
-                    } else {
-                        trace!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
-                    }
-                }
-                Err(error) => {
-                    trace!(target: "ress::engine::downloader", %error, %this.code_hash, "Bytecode download failed");
-                }
-            };
-            this.pending = this.bytecode_request();
-        }
-    }
-}
-
 /// A future that downloads a witness from the network.
 #[must_use = "futures do nothing unless polled"]
 pub struct FetchWitnessFuture {
@@ -584,7 +512,7 @@ pub struct FetchWitnessFuture {
     block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
-    pending: DownloadFut<Vec<Bytes>>,
+    pending: DownloadFut<RLPExecutionWitness>,
 }
 
 impl FetchWitnessFuture {
@@ -610,7 +538,7 @@ impl FetchWitnessFuture {
         self.started_at.elapsed()
     }
 
-    fn witness_request(&self) -> DownloadFut<Vec<Bytes>> {
+    fn witness_request(&self) -> DownloadFut<RLPExecutionWitness> {
         let network = self.network.clone();
         let hash = self.block_hash;
         let delay = self.retry_delay;
@@ -622,7 +550,7 @@ impl FetchWitnessFuture {
 }
 
 impl Future for FetchWitnessFuture {
-    type Output = ExecutionWitness;
+    type Output = RLPExecutionWitness;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -633,7 +561,6 @@ impl Future for FetchWitnessFuture {
                     if witness.is_empty() {
                         trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
-                        let rlp_size_bytes = witness.length();
                         let valid = {
                             // TODO:
                             // for StateWitnessEntry { hash, bytes } in witness {
@@ -649,7 +576,7 @@ impl Future for FetchWitnessFuture {
                             true
                         };
                         if valid {
-                            return Poll::Ready(ExecutionWitness::new(witness, rlp_size_bytes))
+                            return Poll::Ready(witness)
                         }
                     }
                 }
@@ -658,6 +585,79 @@ impl Future for FetchWitnessFuture {
                 }
             };
             this.pending = this.witness_request();
+        }
+    }
+}
+
+/// A future that downloads a proof (bytecode) from the network.
+#[must_use = "futures do nothing unless polled"]
+pub struct FetchProofFuture {
+    network: RessNetworkHandle,
+    block_hash: B256,
+    retry_delay: Duration,
+    started_at: Instant,
+    pending: DownloadFut<Bytes>,
+}
+
+impl FetchProofFuture {
+    /// Create new fetch proof future.
+    pub fn new(network: RessNetworkHandle, retry_delay: Duration, block_hash: B256) -> Self {
+        let network_ = network.clone();
+        Self {
+            network,
+            retry_delay,
+            block_hash,
+            started_at: Instant::now(),
+            pending: Box::pin(async move { network_.fetch_proof(block_hash).await }),
+        }
+    }
+
+    /// Returns the hash of the block the proof is being requested for.
+    pub fn block_hash(&self) -> B256 {
+        self.block_hash
+    }
+
+    /// The duration elapsed since request was started.
+    pub fn elapsed(&self) -> Duration {
+        self.started_at.elapsed()
+    }
+
+    fn proof_request(&self) -> DownloadFut<Bytes> {
+        let network = self.network.clone();
+        let hash = self.block_hash;
+        let delay = self.retry_delay;
+        Box::pin(async move {
+            tokio::time::sleep(delay).await;
+            network.fetch_proof(hash).await
+        })
+    }
+}
+
+impl Future for FetchProofFuture {
+    type Output = Bytes;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+
+        loop {
+            match ready!(this.pending.poll_unpin(cx)) {
+                Ok(proof) => {
+                    if proof.is_empty() {
+                        // TODO: This just shouldn't happen
+                        trace!(target: "ress::engine::downloader", code_hash = %this.block_hash, "Received empty proof");
+                    } else {
+                        // TODO: Proof is not being checked. Can check if it is the keccak256 hash
+                        // TODO: of the block. This was the placeholder we
+                        // TODO: had for a proof.
+
+                        return Poll::Ready(proof)
+                    }
+                }
+                Err(error) => {
+                    trace!(target: "ress::engine::downloader", %error, %this.block_hash, "Proof (bytecode) download failed");
+                }
+            };
+            this.pending = this.proof_request();
         }
     }
 }

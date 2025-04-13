@@ -16,7 +16,6 @@ members = [
     "crates/engine",
     "crates/evm",
     "crates/network",
-    "crates/primitives",
     "crates/provider",
 
     "crates/testing",
@@ -77,7 +76,6 @@ ress-engine = { path = "crates/engine" }
 ress-network = { path = "crates/network" }
 ress-provider = { path = "crates/provider" }
 ress-evm = { path = "crates/evm" }
-ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress

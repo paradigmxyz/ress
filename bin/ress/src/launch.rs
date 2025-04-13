@@ -1,15 +1,13 @@
 use alloy_network::Ethereum;
-use alloy_primitives::keccak256;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use futures::StreamExt;
 use http::{header::CONTENT_TYPE, HeaderValue, Response};
 use ress_engine::engine::ConsensusEngine;
 use ress_network::{RessNetworkHandle, RessNetworkManager};
-use ress_provider::{RessDatabase, RessProvider};
+use ress_provider::RessProvider;
 use ress_testing::rpc_adapter::RpcNetworkAdapter;
 use reth_chainspec::ChainSpec;
 use reth_consensus_debug_client::{DebugConsensusClient, RpcBlockProvider};
-use reth_db_api::database_metrics::DatabaseMetrics;
 use reth_ethereum_primitives::EthPrimitives;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
@@ -17,7 +15,7 @@ use reth_network::{
 };
 use reth_network_peers::TrustedPeer;
 use reth_node_api::BeaconConsensusEngineHandle;
-use reth_node_core::primitives::{Bytecode, RecoveredBlock, SealedBlock};
+use reth_node_core::primitives::{RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
 };
@@ -67,18 +65,14 @@ impl NodeLauncher {
         let data_dir = self.args.datadir.unwrap_or_chain_default(self.args.chain.chain());
 
         // Open database.
-        let db_path = data_dir.db();
-        debug!(target: "ress", path = %db_path.display(), "Opening database");
-        let database = RessDatabase::new(&db_path)?;
-        info!(target: "ress", path = %db_path.display(), "Database opened");
-        let provider = RessProvider::new(self.args.chain.clone(), database.clone());
+        let provider = RessProvider::new(self.args.chain.clone());
 
         // Install the recorder to ensure that upkeep is run periodically and
         // start the metrics server.
         install_prometheus_recorder().spawn_upkeep();
         if let Some(addr) = self.args.metrics {
             info!(target: "ress", ?addr, "Starting metrics endpoint");
-            self.start_prometheus_server(addr, database).await?;
+            self.start_prometheus_server(addr).await?;
         }
 
         // Insert genesis block.
@@ -90,13 +84,6 @@ impl NodeLauncher {
         ));
         provider.insert_canonical_hash(0, genesis_hash);
         info!(target: "ress", %genesis_hash, "Inserted genesis block");
-        for account in self.args.chain.genesis().alloc.values() {
-            if let Some(code) = account.code.clone() {
-                let code_hash = keccak256(&code);
-                provider.insert_bytecode(code_hash, Bytecode::new_raw(code))?;
-            }
-        }
-        info!(target: "ress", %genesis_hash, "Inserted genesis bytecodes");
 
         // Launch network.
         let network_secret_path = self.args.network.network_secret_path(&data_dir);
@@ -267,11 +254,7 @@ impl NodeLauncher {
     }
 
     /// This launches the prometheus server.
-    pub async fn start_prometheus_server(
-        &self,
-        addr: SocketAddr,
-        database: RessDatabase,
-    ) -> eyre::Result<()> {
+    pub async fn start_prometheus_server(&self, addr: SocketAddr) -> eyre::Result<()> {
         // Register version.
         let _gauge = metrics::gauge!("info", &[("version", env!("CARGO_PKG_VERSION"))]);
 
@@ -286,10 +269,8 @@ impl NodeLauncher {
                     }
                 };
 
-                let database_ = database.clone();
                 let handle = install_prometheus_recorder();
                 let service = tower::service_fn(move |_| {
-                    database_.report_metrics();
                     let metrics = handle.handle().render();
                     let mut response = Response::new(metrics);
                     let content_type = HeaderValue::from_static("text/plain");
