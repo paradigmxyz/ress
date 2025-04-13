@@ -85,14 +85,11 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.chain_state.block_body(&block_hash))
     }
 
-    fn proof(&self, block_hash: B256) -> impl Future<Output = ProviderResult<Bytes>> + Send {
+    async fn proof(&self, block_hash: B256) -> ProviderResult<Bytes> {
         todo!()
     }
 
-    fn witness(
-        &self,
-        block_hash: B256,
-    ) -> impl Future<Output = ProviderResult<RLPExecutionWitness>> + Send {
+    async fn witness(&self, block_hash: B256) -> ProviderResult<RLPExecutionWitness> {
         todo!()
     }
 }
