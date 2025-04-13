@@ -81,81 +81,81 @@ ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 # reth
-reth = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-primitives-traits = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-chainspec = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-storage-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-errors = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-errors = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## db
-reth-db = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-db-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-storage-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-provider = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol", features = [
+reth-db = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-provider = { git = "https://github.com/kevaundray/reth", rev = "c68d52b", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-network-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-network = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-network-peers = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-discv4 = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-network = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## trie
-reth-trie = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-trie-sparse = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-trie = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## evm
-reth-revm = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-evm = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-revm = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-evm = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-engine-tree = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-chain-state = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc-layer = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-rpc = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## node
-reth-node-api = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-node-core = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-node-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-node-ethereum = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-node-events = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-node-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-payload-builder = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol", features = [
+reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-tracing = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-tasks = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-cli-util = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-metrics = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
-reth-testing-utils = { git = "https://github.com/kevaundray/reth", branch = "kw/modify-ress-protocol" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-cli = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
 
 # alloy
 alloy-primitives = { version = "1.0.0", default-features = false }
