@@ -81,81 +81,81 @@ ress-primitives = { path = "crates/primitives" }
 ress-testing = { path = "crates/testing" }
 
 # reth ress
-reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 # reth
-reth = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## primitives/types
-reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-errors = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-errors = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## db
-reth-db = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-provider = { git = "https://github.com/kevaundray/reth", rev = "c68d52b", features = [
+reth-db = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-provider = { git = "https://github.com/kevaundray/reth", rev = "78df17a", features = [
     "test-utils",
 ] }
 
 ## network
-reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-network = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-network = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## trie
-reth-trie = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-trie = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## evm
-reth-revm = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-evm = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-revm = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-evm = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## consensus
-reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## rpc
-reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## node
-reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "c68d52b", features = [
+reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "78df17a", features = [
     "test-utils",
 ] }
-reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 ## util
-reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-cli = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
-reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "c68d52b" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-cli = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "78df17a" }
 
 # alloy
 alloy-primitives = { version = "1.0.0", default-features = false }
@@ -172,7 +172,9 @@ alloy-provider = { version = "0.14.0", default-features = false, features = [
     "reqwest",
     "reqwest-rustls-tls",
 ] }
-alloy-transport-http = { version = "0.14.0", default-features = false, features = ["reqwest-rustls-tls"] }
+alloy-transport-http = { version = "0.14.0", default-features = false, features = [
+    "reqwest-rustls-tls",
+] }
 alloy-serde = { version = "0.14.0", default-features = false }
 alloy-consensus = { version = "0.14.0", default-features = false }
 alloy-network = { version = "0.14.0", default-features = false }
