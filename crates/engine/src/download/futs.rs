@@ -1,4 +1,4 @@
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::B256;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
 use reth_chainspec::ChainSpec;
@@ -585,79 +585,6 @@ impl Future for FetchWitnessFuture {
                 }
             };
             this.pending = this.witness_request();
-        }
-    }
-}
-
-/// A future that downloads a proof (bytecode) from the network.
-#[must_use = "futures do nothing unless polled"]
-pub struct FetchProofFuture {
-    network: RessNetworkHandle,
-    block_hash: B256,
-    retry_delay: Duration,
-    started_at: Instant,
-    pending: DownloadFut<Bytes>,
-}
-
-impl FetchProofFuture {
-    /// Create new fetch proof future.
-    pub fn new(network: RessNetworkHandle, retry_delay: Duration, block_hash: B256) -> Self {
-        let network_ = network.clone();
-        Self {
-            network,
-            retry_delay,
-            block_hash,
-            started_at: Instant::now(),
-            pending: Box::pin(async move { network_.fetch_proof(block_hash).await }),
-        }
-    }
-
-    /// Returns the hash of the block the proof is being requested for.
-    pub fn block_hash(&self) -> B256 {
-        self.block_hash
-    }
-
-    /// The duration elapsed since request was started.
-    pub fn elapsed(&self) -> Duration {
-        self.started_at.elapsed()
-    }
-
-    fn proof_request(&self) -> DownloadFut<Bytes> {
-        let network = self.network.clone();
-        let hash = self.block_hash;
-        let delay = self.retry_delay;
-        Box::pin(async move {
-            tokio::time::sleep(delay).await;
-            network.fetch_proof(hash).await
-        })
-    }
-}
-
-impl Future for FetchProofFuture {
-    type Output = Bytes;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-
-        loop {
-            match ready!(this.pending.poll_unpin(cx)) {
-                Ok(proof) => {
-                    if proof.is_empty() {
-                        // TODO: This just shouldn't happen
-                        trace!(target: "ress::engine::downloader", code_hash = %this.block_hash, "Received empty proof");
-                    } else {
-                        // TODO: Proof is not being checked. Can check if it is the keccak256 hash
-                        // TODO: of the block. This was the placeholder we
-                        // TODO: had for a proof.
-
-                        return Poll::Ready(proof)
-                    }
-                }
-                Err(error) => {
-                    trace!(target: "ress::engine::downloader", %error, %this.block_hash, "Proof (bytecode) download failed");
-                }
-            };
-            this.pending = this.proof_request();
         }
     }
 }

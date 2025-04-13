@@ -91,9 +91,6 @@ impl ConsensusEngine {
             TreeEvent::Download(DownloadRequest::Witness { block_hash }) => {
                 self.downloader.download_witness(block_hash);
             }
-            TreeEvent::Download(DownloadRequest::Proof { block_hash }) => {
-                self.downloader.download_proof(block_hash);
-            }
             TreeEvent::Download(DownloadRequest::Finalized { block_hash }) => {
                 self.downloader.download_finalized_with_ancestors(block_hash);
             }
@@ -154,18 +151,6 @@ impl ConsensusEngine {
                     info!(target: "ress::engine", %block_hash, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded for parked payload");
                 } else {
                     trace!(target: "ress::engine", %block_hash,  %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
-                }
-            }
-            DownloadData::Proof(block_hash, proof) => {
-                let proof_size = proof.len();
-
-                self.tree.block_buffer.insert_proof(block_hash, proof);
-
-                if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
-                {
-                    info!(target: "ress::engine", %block_hash, %proof_size, ?elapsed, "Downloaded for parked payload");
-                } else {
-                    trace!(target: "ress::engine", %block_hash,  %proof_size, ?elapsed, "Downloaded proof");
                 }
             }
         };

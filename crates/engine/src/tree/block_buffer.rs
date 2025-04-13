@@ -1,5 +1,5 @@
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{BlockHash, BlockNumber, Bytes};
+use alloy_primitives::{BlockHash, BlockNumber};
 use metrics::Gauge;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};
@@ -15,8 +15,6 @@ pub(crate) struct BlockBufferMetrics {
     pub blocks: Gauge,
     /// Total witnesses in the block buffer.
     pub witnesses: Gauge,
-    /// Total proofs in the block buffer.
-    pub proofs: Gauge,
 }
 
 /// Contains the tree of pending blocks that cannot be executed due to missing parent.
@@ -36,8 +34,6 @@ pub struct BlockBuffer<B: Block> {
     pub(crate) blocks: HashMap<BlockHash, RecoveredBlock<B>>,
     /// All witnesses stored by their block hash.
     pub(crate) witnesses: HashMap<BlockHash, RLPExecutionWitness>,
-    /// All proofs stored by their block hash.
-    pub(crate) proofs: HashMap<BlockHash, Bytes>,
     /// Map of any parent block hash (even the ones not currently in the buffer)
     /// to the buffered children.
     /// Allows connecting buffered blocks by parent.
@@ -60,7 +56,6 @@ impl<B: Block> BlockBuffer<B> {
         Self {
             blocks: Default::default(),
             witnesses: Default::default(),
-            proofs: Default::default(),
             parent_to_child: Default::default(),
             earliest_blocks: Default::default(),
             lru: LruMap::new(ByLength::new(limit)),
@@ -106,12 +101,6 @@ impl<B: Block> BlockBuffer<B> {
         self.metrics.witnesses.set(self.witnesses.len() as f64);
     }
 
-    /// Insert a proof in the buffer.
-    pub fn insert_proof(&mut self, block_hash: BlockHash, proofs: Bytes) {
-        self.proofs.insert(block_hash, proofs);
-        self.metrics.proofs.set(self.proofs.len() as f64);
-    }
-
     /// Inserts the hash and returns the oldest evicted hash if any.
     fn insert_hash_and_get_evicted(&mut self, entry: BlockHash) -> Option<BlockHash> {
         let new = self.lru.peek(&entry).is_none();
@@ -141,7 +130,6 @@ impl<B: Block> BlockBuffer<B> {
             .collect();
         self.metrics.blocks.set(self.blocks.len() as f64);
         self.metrics.witnesses.set(self.witnesses.len() as f64);
-        self.metrics.proofs.set(self.proofs.len() as f64);
         removed
     }
 
@@ -203,8 +191,6 @@ impl<B: Block> BlockBuffer<B> {
             return None
         }
         let witness = self.remove_witness(hash)?;
-        //TODO: proofs have not been fully hooked up, so we don't remove them yet
-        // let proofs = self.remove_proofs(hash)?;
         let block = self.blocks.remove(hash).unwrap();
         self.remove_from_earliest_blocks(block.number(), hash);
         self.remove_from_parent(block.parent_hash(), hash);
@@ -217,7 +203,6 @@ impl<B: Block> BlockBuffer<B> {
     fn evict_block(&mut self, hash: &BlockHash) -> Option<RecoveredBlock<B>> {
         let block = self.blocks.remove(hash)?;
         self.witnesses.remove(hash);
-        self.proofs.remove(hash);
         self.remove_from_earliest_blocks(block.number(), hash);
         self.remove_from_parent(block.parent_hash(), hash);
         self.lru.remove(hash);
@@ -268,10 +253,6 @@ impl<B: Block> BlockBuffer<B> {
     /// Remove witness from the buffer.
     pub fn remove_witness(&mut self, block_hash: &BlockHash) -> Option<RLPExecutionWitness> {
         return self.witnesses.remove(block_hash)
-    }
-    /// Remove proof from the buffer.
-    pub fn remove_proof(&mut self, block_hash: &BlockHash) -> Option<Bytes> {
-        return self.proofs.remove(block_hash)
     }
 }
 

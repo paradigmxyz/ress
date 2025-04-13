@@ -1,5 +1,5 @@
 use crate::chain_state::ChainState;
-use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
+use alloy_primitives::{BlockHash, BlockNumber, B256};
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::{RLPExecutionWitness, RessProtocolProvider};
@@ -76,10 +76,6 @@ impl RessProtocolProvider for RessProvider {
 
     fn block_body(&self, block_hash: B256) -> ProviderResult<Option<BlockBody>> {
         Ok(self.chain_state.block_body(&block_hash))
-    }
-
-    async fn proof(&self, block_hash: B256) -> ProviderResult<Bytes> {
-        todo!()
     }
 
     async fn witness(&self, block_hash: B256) -> ProviderResult<RLPExecutionWitness> {

@@ -137,9 +137,6 @@ impl RpcNetworkAdapter {
                         }
                     });
                 }
-                RessPeerRequest::GetProof { block_hash, tx } => {
-                    debug!(target: "ress::rpc_adapter", %block_hash, "TODO: unimplemented -- Failed to send proof");
-                }
                 RessPeerRequest::GetWitness { block_hash, tx } => {
                     let provider = self.clone();
                     tokio::spawn(async move {

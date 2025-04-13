@@ -51,7 +51,6 @@ pub struct EngineTree {
     pub(crate) consensus: EthBeaconConsensus<ChainSpec>,
     /// Engine validator.
     pub(crate) engine_validator: EthereumEngineValidator,
-
     /// Current canonical head.
     pub(crate) canonical_head: BlockNumHash,
     /// Tracks the forkchoice state updates received by the CL.
@@ -60,7 +59,6 @@ pub struct EngineTree {
     pub(crate) block_buffer: BlockBuffer<Block>,
     /// Invalid headers.
     pub(crate) invalid_headers: InvalidHeaderCache,
-
     /// Outgoing events that are emitted to the handler.
     events_sender: mpsc::UnboundedSender<BeaconConsensusEngineEvent>,
     /// Metrics.

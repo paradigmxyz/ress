@@ -1,4 +1,4 @@
-use alloy_primitives::{map::HashMap, Bytes, B256};
+use alloy_primitives::{map::HashMap, B256};
 use futures::FutureExt;
 use metrics::{Counter, Gauge, Histogram};
 use ress_network::RessNetworkHandle;
@@ -27,7 +27,6 @@ pub struct EngineDownloader {
     retry_delay: Duration,
 
     inflight_full_block_requests: Vec<FetchFullBlockFuture>,
-    inflight_proof_requests: Vec<FetchProofFuture>,
     inflight_witness_requests: Vec<FetchWitnessFuture>,
     inflight_finalized_block_requests: Vec<FetchFullBlockWithAncestorsFuture>,
     outcomes: VecDeque<DownloadOutcome>,
@@ -44,7 +43,6 @@ impl EngineDownloader {
             retry_delay: Duration::from_millis(50),
             inflight_full_block_requests: Vec::new(),
             inflight_witness_requests: Vec::new(),
-            inflight_proof_requests: Vec::new(),
             inflight_finalized_block_requests: Vec::new(),
             outcomes: VecDeque::new(),
             metrics: EngineDownloaderMetrics::default(),
@@ -67,19 +65,6 @@ impl EngineDownloader {
         self.inflight_full_block_requests.push(fut);
         self.metrics.inc_total(RequestMetricTy::FullBlock);
         self.metrics.set_inflight(RequestMetricTy::FullBlock, self.inflight_witness_requests.len());
-    }
-
-    /// Download bytecode by code hash.
-    pub fn download_proof(&mut self, block_hash: B256) {
-        if self.inflight_proof_requests.iter().any(|req| req.block_hash() == block_hash) {
-            return
-        }
-
-        debug!(target: "ress::engine::downloader", %block_hash, "Downloading proof");
-        let fut = FetchProofFuture::new(self.network.clone(), self.retry_delay, block_hash);
-        self.inflight_proof_requests.push(fut);
-        self.metrics.inc_total(RequestMetricTy::Proof);
-        self.metrics.set_inflight(RequestMetricTy::Proof, self.inflight_proof_requests.len());
     }
 
     /// Download witness by block hash.
@@ -172,23 +157,6 @@ impl EngineDownloader {
         }
         self.metrics.set_inflight(RequestMetricTy::Witness, self.inflight_witness_requests.len());
 
-        // advance all bytecode requests
-        for idx in (0..self.inflight_proof_requests.len()).rev() {
-            let mut request = self.inflight_proof_requests.swap_remove(idx);
-            if let Poll::Ready(proof) = request.poll_unpin(cx) {
-                let elapsed = request.elapsed();
-                self.metrics.record_elapsed(RequestMetricTy::Proof, elapsed);
-                trace!(target: "ress::engine::downloader", code_hash = %request.block_hash(), ?elapsed, "Received bytecode");
-                self.outcomes.push_back(DownloadOutcome::new(
-                    DownloadData::Proof(request.block_hash(), proof),
-                    elapsed,
-                ));
-            } else {
-                self.inflight_proof_requests.push(request);
-            }
-        }
-        self.metrics.set_inflight(RequestMetricTy::Proof, self.inflight_proof_requests.len());
-
         if let Some(outcome) = self.outcomes.pop_front() {
             return Poll::Ready(outcome)
         }
@@ -218,8 +186,6 @@ impl DownloadOutcome {
 pub enum DownloadData {
     /// Downloaded full block.
     FullBlock(SealedBlock),
-    /// Downloaded bytecode.
-    Proof(B256, Bytes),
     /// Downloaded execution witness.
     Witness(B256, RLPExecutionWitness),
     /// Downloaded full block with ancestors.
@@ -266,7 +232,6 @@ struct DownloadRequestTypeMetrics {
 #[strum(serialize_all = "snake_case")]
 enum RequestMetricTy {
     FullBlock,
-    Proof,
     Witness,
     Finalized,
 }

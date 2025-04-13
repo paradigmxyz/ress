@@ -1,4 +1,4 @@
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::B256;
 use reth_network::NetworkHandle;
 use reth_primitives::{BlockBody, Header};
 use reth_ress_protocol::{GetHeaders, RLPExecutionWitness, RessPeerRequest};
@@ -58,16 +58,6 @@ impl RessNetworkHandle {
         self.send_request(RessPeerRequest::GetBlockBodies { request: request.clone(), tx })?;
         let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
         trace!(target: "ress::net", ?request, "block bodies received");
-        Ok(response)
-    }
-
-    /// Get proof for block hash
-    pub async fn fetch_proof(&self, block_hash: B256) -> Result<Bytes, PeerRequestError> {
-        trace!(target: "ress::net", %block_hash, "requesting proof");
-        let (tx, rx) = oneshot::channel();
-        self.send_request(RessPeerRequest::GetProof { block_hash, tx })?;
-        let response = rx.await.map_err(|_| PeerRequestError::RequestDropped)?;
-        trace!(target: "ress::net", %block_hash, "proof received");
         Ok(response)
     }
 

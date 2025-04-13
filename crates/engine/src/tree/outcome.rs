@@ -86,11 +86,6 @@ pub enum DownloadRequest {
         /// Target block hash.
         block_hash: B256,
     },
-    /// Download proof.
-    Proof {
-        /// Target block hash.
-        block_hash: B256,
-    },
     /// Download finalized block with ancestors.
     Finalized {
         /// Target block hash.
