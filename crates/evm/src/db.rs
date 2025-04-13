@@ -1,28 +1,31 @@
 //! EVM database implementation.
 
-use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, Address, B256, U256};
+use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
-use ress_provider::RessProvider;
 use reth_provider::ProviderError;
 use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
+use std::collections::HashMap;
 use tracing::trace;
 
 /// EVM database implementation that uses a [`SparseStateTrie`] for account and storage data
-/// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
+/// retrieval. Block hashes and bytecodes are stored in memory.
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
-    provider: RessProvider,
-    parent: BlockNumHash,
     trie: &'a SparseStateTrie,
+    codes: B256Map<Bytecode>,
+    block_hashes: HashMap<u64, B256>,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
-        Self { provider, parent, trie }
+    pub fn new(
+        trie: &'a SparseStateTrie,
+        codes: B256Map<Bytecode>,
+        block_hashes: HashMap<u64, B256>,
+    ) -> Self {
+        Self { trie, codes, block_hashes }
     }
 }
 
@@ -66,17 +69,18 @@ impl Database for WitnessDatabase<'_> {
     /// Get account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         trace!(target: "ress::evm", %code_hash, "retrieving bytecode");
-        let bytecode = self.provider.get_bytecode(code_hash)?.ok_or_else(|| {
+        let bytecode = self.codes.get(&code_hash).cloned().ok_or_else(|| {
             ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found"))
         })?;
-        Ok(bytecode.0)
+        Ok(bytecode)
     }
 
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
-        trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
-        self.provider
-            .block_hash(self.parent, block_number)
+        trace!(target: "ress::evm", block_number, "retrieving block hash");
+        self.block_hashes
+            .get(&block_number)
+            .copied()
             .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

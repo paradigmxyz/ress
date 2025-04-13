@@ -1,7 +1,9 @@
 //! EVM block executor implementation.
 
-use alloy_eips::BlockNumHash;
-use ress_provider::RessProvider;
+use std::sync::Arc;
+
+use alloy_primitives::{map::B256Map, B256};
+use reth_chainspec::ChainSpec;
 use reth_evm::{
     execute::{BlockExecutionError, BlockExecutor as _},
     ConfigureEvm,
@@ -9,8 +11,12 @@ use reth_evm::{
 use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives::{Block, Receipt, RecoveredBlock};
 use reth_provider::BlockExecutionOutput;
-use reth_revm::db::{states::bundle_state::BundleRetention, State};
+use reth_revm::{
+    db::{states::bundle_state::BundleRetention, State},
+    state::Bytecode,
+};
 use reth_trie_sparse::SparseStateTrie;
+use std::collections::HashMap;
 
 use crate::db::WitnessDatabase;
 
@@ -24,9 +30,14 @@ pub struct BlockExecutor<'a> {
 
 impl<'a> BlockExecutor<'a> {
     /// Instantiate new block executor with chain spec and witness database.
-    pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
-        let evm_config = EthEvmConfig::new(provider.chain_spec());
-        let db = WitnessDatabase::new(provider, parent, trie);
+    pub fn new(
+        chain_spec: Arc<ChainSpec>,
+        trie: &'a SparseStateTrie,
+        codes: B256Map<Bytecode>,
+        block_hashes: HashMap<u64, B256>, // TODO: note, we assume that these have been checked
+    ) -> Self {
+        let evm_config = EthEvmConfig::new(chain_spec);
+        let db = WitnessDatabase::new(trie, codes, block_hashes);
         let state =
             State::builder().with_database(db).with_bundle_update().without_state_clear().build();
         Self { evm_config, state }
