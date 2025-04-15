@@ -1,10 +1,13 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
+use alloy_primitives::{
+    map::{B256HashMap, B256HashSet},
+    BlockHash, BlockNumber, Bytes, B256,
+};
 use itertools::Itertools;
 use parking_lot::RwLock;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedBlock, SealedHeader};
 use std::{
-    collections::{btree_map, BTreeMap, HashMap},
+    collections::{btree_map, BTreeMap},
     sync::Arc,
 };
 
@@ -21,9 +24,11 @@ struct ChainStateInner {
     /// __All__ validated blocks by block hash that are connected to the canonical chain.
     ///
     /// This includes blocks for all forks.
-    blocks_by_hash: HashMap<B256, RecoveredBlock<Block>>,
+    blocks_by_hash: B256HashMap<RecoveredBlock<Block>>,
     /// __All__ block hashes stored by their number.
     block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
+    /// Valid block witnesses by block hash.
+    witnesses: B256HashMap<Vec<Bytes>>,
 }
 
 impl ChainState {
@@ -102,11 +107,20 @@ impl ChainState {
         self.map_recovered_block(hash, Clone::clone)
     }
 
+    /// Returns witness by block hash.
+    pub fn witness(&self, hash: &BlockHash) -> Option<Vec<Bytes>> {
+        self.0.read().witnesses.get(hash).cloned()
+    }
+
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>) {
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
         let mut this = self.0.write();
-        this.block_hashes_by_number.entry(block.number).or_default().insert(block.hash());
-        this.blocks_by_hash.insert(block.hash(), block);
+        let block_hash = block.hash();
+        this.block_hashes_by_number.entry(block.number).or_default().insert(block_hash);
+        this.blocks_by_hash.insert(block_hash, block);
+        if let Some(witness) = maybe_witness {
+            this.witnesses.insert(block_hash, witness);
+        }
     }
 
     /// Remove all blocks before finalized as well as
@@ -125,6 +139,7 @@ impl ChainState {
                 let (_, block_hashes) = this.block_hashes_by_number.pop_first().unwrap();
                 for block_hash in block_hashes {
                     this.blocks_by_hash.remove(&block_hash);
+                    this.witnesses.remove(&block_hash);
                 }
             }
 

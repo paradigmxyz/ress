@@ -101,7 +101,7 @@ impl ConsensusEngine {
                 })?;
                 self.tree.set_canonical_head(block_num_hash);
                 self.tree.provider.insert_canonical_hash(recovered.number, recovered.hash());
-                self.tree.provider.insert_block(recovered);
+                self.tree.provider.insert_block(recovered, None);
                 for header in ancestors {
                     self.tree.provider.insert_canonical_hash(header.number, header.hash());
                 }

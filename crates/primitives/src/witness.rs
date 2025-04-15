@@ -34,6 +34,11 @@ impl ExecutionWitness {
         &self.state_witness
     }
 
+    /// Converts execution witness into state witness.
+    pub fn into_state_witness(self) -> StateWitness {
+        self.state_witness
+    }
+
     /// Returns the size of RLP encoded state witness in bytes.
     pub fn rlp_size_bytes(&self) -> usize {
         self.rlp_size_bytes

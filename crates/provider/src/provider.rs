@@ -1,15 +1,12 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{
-    map::{B256HashMap, B256HashSet},
-    BlockHash, BlockNumber, Bytes, B256,
-};
+use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, Bytes, B256};
 use reth_chainspec::ChainSpec;
 use reth_db::DatabaseError;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
 use reth_ress_protocol::RessProtocolProvider;
 use reth_storage_errors::provider::ProviderResult;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Provider for retrieving blockchain data.
 ///
@@ -19,18 +16,12 @@ pub struct RessProvider {
     chain_spec: Arc<ChainSpec>,
     database: RessDatabase,
     chain_state: ChainState,
-    witnesses: Arc<Mutex<B256HashMap<Vec<Bytes>>>>,
 }
 
 impl RessProvider {
     /// Instantiate new storage.
     pub fn new(chain_spec: Arc<ChainSpec>, database: RessDatabase) -> Self {
-        Self {
-            chain_spec,
-            database,
-            chain_state: ChainState::default(),
-            witnesses: Arc::new(Mutex::new(B256HashMap::default())),
-        }
+        Self { chain_spec, database, chain_state: ChainState::default() }
     }
 
     /// Get chain spec.
@@ -60,8 +51,8 @@ impl RessProvider {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>) {
-        self.chain_state.insert_block(block);
+    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
+        self.chain_state.insert_block(block, maybe_witness);
     }
 
     /// Returns `true` if bytecode exists in the database.
@@ -110,18 +101,7 @@ impl RessProvider {
     pub fn on_finalized(&self, finalized_hash: &B256) {
         if !finalized_hash.is_zero() {
             self.chain_state.remove_blocks_on_finalized(finalized_hash);
-            self.remove_witness(*finalized_hash);
         }
-    }
-
-    /// Insert witness.
-    pub fn add_witness(&self, block_hash: B256, witness: Vec<Bytes>) {
-        self.witnesses.lock().unwrap().insert(block_hash, witness);
-    }
-
-    /// Remove witness.
-    pub fn remove_witness(&self, finalized_hash: B256) {
-        self.witnesses.lock().unwrap().remove(&finalized_hash);
     }
 }
 
@@ -139,6 +119,6 @@ impl RessProtocolProvider for RessProvider {
     }
 
     async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
-        Ok(self.witnesses.lock().unwrap().get(&block_hash).cloned().unwrap_or_default())
+        Ok(self.chain_state.witness(&block_hash).unwrap_or_default())
     }
 }

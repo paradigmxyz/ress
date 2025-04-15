@@ -84,10 +84,13 @@ impl NodeLauncher {
         // Insert genesis block.
         let genesis_hash = self.args.chain.genesis_hash();
         let genesis_header = self.args.chain.genesis_header().clone();
-        provider.insert_block(RecoveredBlock::new_sealed(
-            SealedBlock::from_parts_unchecked(genesis_header, Default::default(), genesis_hash),
-            Vec::new(),
-        ));
+        provider.insert_block(
+            RecoveredBlock::new_sealed(
+                SealedBlock::from_parts_unchecked(genesis_header, Default::default(), genesis_hash),
+                Vec::new(),
+            ),
+            None,
+        );
         provider.insert_canonical_hash(0, genesis_hash);
         info!(target: "ress", %genesis_hash, "Inserted genesis block");
         for account in self.args.chain.genesis().alloc.values() {

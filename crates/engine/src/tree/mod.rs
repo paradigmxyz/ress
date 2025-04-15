@@ -749,8 +749,7 @@ impl EngineTree {
         }
 
         // ===================== Update Node State =====================
-        self.provider.insert_block(block.clone());
-        self.provider.add_witness(block.hash(), execution_witness.state_witness().to_vec());
+        self.provider.insert_block(block.clone(), Some(execution_witness.into_state_witness()));
 
         // Emit event.
         let executed = ExecutedBlockWithTrieUpdates::new(
