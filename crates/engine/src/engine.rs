@@ -5,11 +5,14 @@ use crate::{
 use alloy_primitives::{map::B256HashSet, B256};
 use alloy_rpc_types_engine::{PayloadStatus, PayloadStatusEnum};
 use futures::{FutureExt, StreamExt};
+use metrics::Histogram;
 use ress_network::RessNetworkHandle;
+use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chainspec::ChainSpec;
 use reth_engine_tree::tree::error::InsertBlockFatalError;
 use reth_errors::ProviderError;
+use reth_metrics::Metrics;
 use reth_node_api::{BeaconConsensusEngineEvent, BeaconEngineMessage, BeaconOnNewPayloadError};
 use reth_node_ethereum::{consensus::EthBeaconConsensus, EthEngineTypes, EthereumEngineValidator};
 use std::{
@@ -25,6 +28,16 @@ use tokio::{
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::*;
 
+/// Metrics for the consensus engine
+#[derive(Metrics)]
+#[metrics(scope = "engine")]
+pub(crate) struct ConsensusEngineMetrics {
+    /// Histogram of witness sizes in bytes.
+    pub witness_size_bytes: Histogram,
+    /// Histogram of witness node counts.
+    pub witness_nodes_count: Histogram,
+}
+
 /// Ress consensus engine.
 #[allow(missing_debug_implementations)]
 pub struct ConsensusEngine {
@@ -33,6 +46,7 @@ pub struct ConsensusEngine {
     from_beacon_engine: UnboundedReceiverStream<BeaconEngineMessage<EthEngineTypes>>,
     parked_payload_timeout: Duration,
     parked_payload: Option<ParkedPayload>,
+    metrics: ConsensusEngineMetrics,
 }
 
 impl ConsensusEngine {
@@ -56,6 +70,7 @@ impl ConsensusEngine {
             from_beacon_engine: UnboundedReceiverStream::from(from_beacon_engine),
             parked_payload_timeout: Duration::from_secs(3),
             parked_payload: None,
+            metrics: Default::default(),
         }
     }
 
@@ -128,6 +143,11 @@ impl ConsensusEngine {
                     })?;
                 let missing_bytecodes_len = missing_code_hashes.len();
                 let rlp_size = humansize::format_size(witness.rlp_size_bytes(), humansize::DECIMAL);
+                let witness_nodes_count = witness.state_witness().len();
+
+                // Record witness metrics before inserting the witness
+                self.record_witness_metrics(&witness);
+
                 self.tree.block_buffer.insert_witness(
                     block_hash,
                     witness,
@@ -136,9 +156,9 @@ impl ConsensusEngine {
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
-                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded for parked payload");
+                    info!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded for parked payload");
                 } else {
-                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, ?elapsed, "Downloaded witness");
+                    trace!(target: "ress::engine", %block_hash, missing_bytecodes_len, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
                 }
                 if missing_code_hashes.is_empty() {
                     unlocked_block_hashes.insert(block_hash);
@@ -254,6 +274,15 @@ impl ConsensusEngine {
                 warn!(target: "ress::engine", "Received unsupported `TransitionConfigurationExchanged` message");
             }
         }
+    }
+
+    /// Record witness metrics
+    fn record_witness_metrics(&self, witness: &ExecutionWitness) {
+        let witness_size_bytes = witness.rlp_size_bytes();
+        let witness_nodes_count = witness.state_witness().len();
+
+        self.metrics.witness_size_bytes.record(witness_size_bytes as f64);
+        self.metrics.witness_nodes_count.record(witness_nodes_count as f64);
     }
 }
 
