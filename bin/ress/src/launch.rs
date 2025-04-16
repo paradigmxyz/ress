@@ -13,7 +13,7 @@ use reth_db_api::database_metrics::DatabaseMetrics;
 use reth_ethereum_primitives::EthPrimitives;
 use reth_network::{
     config::SecretKey, protocol::IntoRlpxSubProtocol, EthNetworkPrimitives, NetworkConfig,
-    NetworkInfo, NetworkManager,
+    NetworkInfo, NetworkManager, PeersInfo,
 };
 use reth_network_peers::TrustedPeer;
 use reth_node_api::BeaconConsensusEngineHandle;
@@ -113,7 +113,7 @@ impl NodeLauncher {
                 self.args.network.trusted_peers.clone(),
             )
             .await?;
-        info!(target: "ress", peer_id = %network_handle.inner().peer_id(), addr = %network_handle.inner().local_addr(), "Network launched");
+        info!(target: "ress", peer_id = %network_handle.inner().peer_id(), addr = %network_handle.inner().local_addr(), enode = %network_handle.inner().local_node_record().to_string(), "Network launched");
 
         // Spawn consensus engine.
         let (to_engine, from_auth_rpc) = mpsc::unbounded_channel();
