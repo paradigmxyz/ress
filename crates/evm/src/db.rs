@@ -1,10 +1,10 @@
 //! EVM database implementation.
 
-use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, Address, B256, U256};
+use std::collections::BTreeMap;
+
+use alloy_primitives::{keccak256, map::B256Map, Address, Bytes, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::TrieAccount;
-use ress_provider::RessProvider;
 use reth_provider::ProviderError;
 use reth_revm::{bytecode::Bytecode, state::AccountInfo, Database};
 use reth_trie_sparse::SparseStateTrie;
@@ -14,15 +14,24 @@ use tracing::trace;
 /// retrieval. Block hashes and bytecodes are retrieved from the [`RessProvider`].
 #[derive(Debug)]
 pub struct WitnessDatabase<'a> {
-    provider: RessProvider,
-    parent: BlockNumHash,
     trie: &'a SparseStateTrie,
+    bytecode_mapping: B256Map<Bytecode>,
+    blockhashes: BTreeMap<u64, B256>,
 }
 
 impl<'a> WitnessDatabase<'a> {
     /// Create new witness database.
-    pub fn new(provider: RessProvider, parent: BlockNumHash, trie: &'a SparseStateTrie) -> Self {
-        Self { provider, parent, trie }
+    pub fn new(
+        trie: &'a SparseStateTrie,
+        codes: Vec<Bytes>,
+        blockhashes: BTreeMap<u64, B256>,
+    ) -> Self {
+        let mut bytecode_mapping = B256Map::default();
+        for code in codes {
+            let code_hash = keccak256(&code);
+            bytecode_mapping.insert(code_hash, Bytecode::new_raw(code));
+        }
+        Self { trie, bytecode_mapping, blockhashes }
     }
 }
 
@@ -36,7 +45,7 @@ impl Database for WitnessDatabase<'_> {
         trace!(target: "ress::evm", %address, %hashed_address, "retrieving account");
         let Some(bytes) = self.trie.get_account_value(&hashed_address) else {
             trace!(target: "ress::evm", %address, %hashed_address, "no account found");
-            return Ok(None)
+            return Ok(None);
         };
         let account = TrieAccount::decode(&mut bytes.as_slice())?;
         let account_info = AccountInfo {
@@ -66,17 +75,20 @@ impl Database for WitnessDatabase<'_> {
     /// Get account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         trace!(target: "ress::evm", %code_hash, "retrieving bytecode");
-        let bytecode = self.provider.get_bytecode(code_hash)?.ok_or_else(|| {
-            ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found"))
-        })?;
-        Ok(bytecode.0)
+        match self.bytecode_mapping.get(&code_hash) {
+            Some(bytecode) => Ok(bytecode.clone()),
+            None => {
+                Err(ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found")))
+            }
+        }
     }
 
     /// Get block hash by block number.
     fn block_hash(&mut self, block_number: u64) -> Result<B256, Self::Error> {
-        trace!(target: "ress::evm", block_number, parent = ?self.parent, "retrieving block hash");
-        self.provider
-            .block_hash(self.parent, block_number)
-            .ok_or(ProviderError::StateForNumberNotFound(block_number))
+        trace!(target: "ress::evm", block_number, "retrieving block hash");
+        match self.blockhashes.get(&block_number) {
+            Some(hash) => Ok(hash.clone()),
+            None => Err(ProviderError::StateForNumberNotFound(block_number)),
+        }
     }
 }

@@ -1,5 +1,4 @@
 use alloy_network::Ethereum;
-use alloy_primitives::keccak256;
 use alloy_rpc_types_engine::{ClientCode, ClientVersionV1, JwtSecret};
 use futures::StreamExt;
 use http::{header::CONTENT_TYPE, HeaderValue, Response};
@@ -17,7 +16,7 @@ use reth_network::{
 };
 use reth_network_peers::TrustedPeer;
 use reth_node_api::BeaconConsensusEngineHandle;
-use reth_node_core::primitives::{Bytecode, RecoveredBlock, SealedBlock};
+use reth_node_core::primitives::{RecoveredBlock, SealedBlock};
 use reth_node_ethereum::{
     consensus::EthBeaconConsensus, node::EthereumEngineValidator, EthEngineTypes,
 };
@@ -93,13 +92,13 @@ impl NodeLauncher {
         );
         provider.insert_canonical_hash(0, genesis_hash);
         info!(target: "ress", %genesis_hash, "Inserted genesis block");
-        for account in self.args.chain.genesis().alloc.values() {
-            if let Some(code) = account.code.clone() {
-                let code_hash = keccak256(&code);
-                provider.insert_bytecode(code_hash, Bytecode::new_raw(code))?;
-            }
-        }
-        info!(target: "ress", %genesis_hash, "Inserted genesis bytecodes");
+        // for account in self.args.chain.genesis().alloc.values() {
+        //     if let Some(code) = account.code.clone() {
+        //         let code_hash = keccak256(&code);
+        //         provider.insert_bytecode(code_hash, Bytecode::new_raw(code))?;
+        //     }
+        // }
+        // info!(target: "ress", %genesis_hash, "Inserted genesis bytecodes");
 
         // Launch network.
         let network_secret_path = self.args.network.network_secret_path(&data_dir);
