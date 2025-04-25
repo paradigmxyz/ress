@@ -81,10 +81,6 @@ impl Database for WitnessDatabase<'_> {
                 Err(ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found")))
             }
         }
-        // let bytecode = self.provider.get_bytecode(code_hash)?.ok_or_else(|| {
-        //     ProviderError::TrieWitnessError(format!("bytecode for {code_hash} not found"))
-        // })?;
-        // Ok(bytecode.0)
     }
 
     /// Get block hash by block number.
@@ -94,8 +90,5 @@ impl Database for WitnessDatabase<'_> {
             Some(hash) => Ok(hash.clone()),
             None => Err(ProviderError::StateForNumberNotFound(block_number)),
         }
-        // self.provider
-        //     .block_hash(self.parent, block_number)
-        //     .ok_or(ProviderError::StateForNumberNotFound(block_number))
     }
 }

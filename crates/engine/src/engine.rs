@@ -136,24 +136,6 @@ impl ConsensusEngine {
                 unlocked_block_hashes.insert(block_num_hash.hash);
             }
             DownloadData::Witness(block_hash, witness) => {
-                // Insert bytecode into database.
-                // TODO: We can remove bytecode_hashes because bytecode comes
-                // TODO: with the witness
-                // for code in &witness.codes {
-                //     let code_hash = keccak256(code);
-                //     self.tree
-                //         .provider
-                //         .insert_bytecode(code_hash, Bytecode::new_raw(code.clone()))?;
-                // }
-
-                // TODO: can remove this now
-                // let code_hashes = witness.bytecode_hashes();
-                // let missing_code_hashes =
-                //     self.tree.provider.missing_code_hashes(code_hashes).map_err(|error| {
-                //         InsertBlockFatalError::Provider(ProviderError::Database(error))
-                //     })?;
-                // let missing_bytecodes_len = missing_code_hashes.len();
-
                 let rlp_size =
                     humansize::format_size(witness.size_without_headers(), humansize::DECIMAL);
                 let witness_nodes_count = witness.node_count();
@@ -161,12 +143,7 @@ impl ConsensusEngine {
                 // Record witness metrics before inserting the witness
                 self.record_witness_metrics(&witness);
 
-                self.tree.block_buffer.insert_witness(
-                    block_hash,
-                    witness,
-                    // missing_code_hashes.clone(),
-                    B256HashSet::default(),
-                );
+                self.tree.block_buffer.insert_witness(block_hash, witness, B256HashSet::default());
 
                 if Some(block_hash) == self.parked_payload.as_ref().map(|parked| parked.block_hash)
                 {
@@ -175,26 +152,10 @@ impl ConsensusEngine {
                     trace!(target: "ress::engine", %block_hash, %rlp_size, witness_nodes_count, ?elapsed, "Downloaded witness");
                 }
                 unlocked_block_hashes.insert(block_hash);
-                // if missing_code_hashes.is_empty() {
-                //     unlocked_block_hashes.insert(block_hash);
-                // } else {
-                //     for code_hash in missing_code_hashes {
-                //         self.downloader.download_bytecode(code_hash);
-                //     }
-                // }
             }
             DownloadData::Bytecode(code_hash, _bytecode) => {
                 trace!(target: "ress::engine", %code_hash, ?elapsed, "Downloaded bytecode");
-                // NOOP the witness has the bytecode
-                // match self.tree.provider.insert_bytecode(code_hash, bytecode) {
-                //     Ok(()) => {
-                //         unlocked_block_hashes
-                //             .extend(self.tree.block_buffer.on_bytecode_received(code_hash));
-                //     }
-                //     Err(error) => {
-                //         error!(target: "ress::engine", %error, "Failed to insert the bytecode");
-                //     }
-                // };
+                // NOOP the witness has the bytecode now
             }
         };
 

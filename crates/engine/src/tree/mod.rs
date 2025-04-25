@@ -1,5 +1,5 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, map::B256Map, B256, U256};
+use alloy_primitives::{keccak256, map::B256Map, B256};
 use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::{
     ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
@@ -103,8 +103,8 @@ impl EngineTree {
 
     /// Returns true if the block is either persisted or buffered.
     fn is_block_persisted_or_buffered(&self, block_hash: &B256) -> bool {
-        self.provider.sealed_header(block_hash).is_some()
-            || self.block_buffer.blocks.contains_key(block_hash)
+        self.provider.sealed_header(block_hash).is_some() ||
+            self.block_buffer.blocks.contains_key(block_hash)
     }
 
     /// Determines if the given block is part of a fork.
@@ -255,14 +255,14 @@ impl EngineTree {
         )));
 
         // Find the appropriate target to sync to.
-        if !state.finalized_block_hash.is_zero()
-            && !self.is_block_persisted_or_buffered(&state.finalized_block_hash)
+        if !state.finalized_block_hash.is_zero() &&
+            !self.is_block_persisted_or_buffered(&state.finalized_block_hash)
         {
             debug!(target: "ress::engine", finalized = %state.finalized_block_hash, "Missing finalized block on FCU, downloading");
             outcome = outcome.with_event(TreeEvent::download_finalized(state.finalized_block_hash));
         } else {
-            let target = if !state.safe_block_hash.is_zero()
-                && !self.is_block_persisted_or_buffered(&state.safe_block_hash)
+            let target = if !state.safe_block_hash.is_zero() &&
+                !self.is_block_persisted_or_buffered(&state.safe_block_hash)
             {
                 state.safe_block_hash
             } else {
@@ -310,13 +310,13 @@ impl EngineTree {
         &self,
         state: ForkchoiceState,
     ) -> Result<(), OnForkChoiceUpdated> {
-        if !state.finalized_block_hash.is_zero()
-            && !self.provider.is_hash_canonical(&state.finalized_block_hash)
+        if !state.finalized_block_hash.is_zero() &&
+            !self.provider.is_hash_canonical(&state.finalized_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
-        if !state.safe_block_hash.is_zero()
-            && !self.provider.is_hash_canonical(&state.safe_block_hash)
+        if !state.safe_block_hash.is_zero() &&
+            !self.provider.is_hash_canonical(&state.safe_block_hash)
         {
             return Err(OnForkChoiceUpdated::invalid_state());
         }
@@ -640,8 +640,8 @@ impl EngineTree {
             match self.insert_block(child.clone(), Some(witness)) {
                 Ok(result) => {
                     debug!(target: "engine::tree", child = ?child_num_hash, ?result, "connected buffered block");
-                    if self.is_sync_target_head(child_num_hash.hash)
-                        && matches!(result, InsertPayloadOk::Inserted(BlockStatus::Valid))
+                    if self.is_sync_target_head(child_num_hash.hash) &&
+                        matches!(result, InsertPayloadOk::Inserted(BlockStatus::Valid))
                     {
                         self.make_canonical(child_num_hash.hash);
                     }
@@ -849,10 +849,6 @@ impl EngineTree {
     /// Validate if block is correct and satisfies all the consensus rules that concern the header
     /// and block body itself.
     fn validate_block(&self, block: &SealedBlock) -> Result<(), ConsensusError> {
-        self.consensus.validate_header_with_total_difficulty(block.header(), U256::MAX).inspect_err(|error| {
-            error!(target: "ress::engine", %error, "Failed to validate header against total difficulty");
-        })?;
-
         self.consensus.validate_header(block.sealed_header()).inspect_err(|error| {
             error!(target: "ress::engine", %error, "Failed to validate header");
         })?;
