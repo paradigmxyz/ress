@@ -212,75 +212,76 @@ proptest-arbitrary-interop = "0.1.0"
 assert_matches = "1.5.0"
 
 [patch."https://github.com/paradigmxyz/reth"]
-# --- reth crates (local path) -----------------------------------------------
-reth                        = { path = "../reth/bin/reth" }
-reth-ress-protocol          = { path = "../reth/crates/ress/protocol" }
+# --- reth crates (kevaundray fork branch is kw/ress-modifications) -------------------------------
 
-## primitives / types
-reth-primitives             = { path = "../reth/crates/primitives" }
-reth-primitives-traits      = { path = "../reth/crates/primitives-traits" }
-reth-ethereum-primitives    = { path = "../reth/crates/ethereum/primitives" }
-reth-chainspec              = { path = "../reth/crates/chainspec" }
-reth-storage-errors         = { path = "../reth/crates/storage/errors" }
-reth-errors                 = { path = "../reth/crates/errors" }
+reth = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## database
-reth-db                     = { path = "../reth/crates/storage/db" }
-reth-db-api                 = { path = "../reth/crates/storage/db-api" }
-reth-storage-api            = { path = "../reth/crates/storage/storage-api" }
-reth-provider               = { path = "../reth/crates/storage/provider"}
+# primitives / types
+reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-errors = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## network
-reth-eth-wire               = { path = "../reth/crates/net/eth-wire" }
-reth-network-api            = { path = "../reth/crates/net/network-api" }
-reth-network                = { path = "../reth/crates/net/network" }
-reth-network-peers          = { path = "../reth/crates/net/peers"}
-reth-discv4                 = { path = "../reth/crates/net/discv4" }
+# database
+reth-db = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-provider = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## trie
-reth-trie                   = { path = "../reth/crates/trie/trie" }
-reth-trie-sparse            = { path = "../reth/crates/trie/sparse" }
+# network
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-network = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## EVM
-reth-revm                   = { path = "../reth/crates/revm" }
-reth-evm                    = { path = "../reth/crates/evm/evm" }
-reth-evm-ethereum           = { path = "../reth/crates/ethereum/evm" }
+# trie
+reth-trie = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## consensus / engine
-reth-consensus              = { path = "../reth/crates/consensus/consensus" }
-reth-consensus-debug-client = { path = "../reth/crates/consensus/debug-client" }
-reth-engine-primitives      = { path = "../reth/crates/engine/primitives" }
-reth-ethereum-engine-primitives = { path = "../reth/crates/ethereum/engine-primitives" }
-reth-engine-tree            = { path = "../reth/crates/engine/tree" }
-reth-chain-state            = { path = "../reth/crates/chain-state" }
+# EVM
+reth-revm = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-evm = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## RPC
-reth-rpc-eth-types          = { path = "../reth/crates/rpc/rpc-eth-types" }
-reth-rpc-api                = { path = "../reth/crates/rpc/rpc-api" }
-reth-rpc-engine-api         = { path = "../reth/crates/rpc/rpc-engine-api" }
-reth-rpc-layer              = { path = "../reth/crates/rpc/rpc-layer" }
-reth-rpc-types-compat       = { path = "../reth/crates/rpc/rpc-types-compat" }
-reth-rpc-builder            = { path = "../reth/crates/rpc/rpc-builder" }
-reth-rpc                    = { path = "../reth/crates/rpc/rpc" }
+# consensus / engine
+reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## node
-reth-node-api               = { path = "../reth/crates/node/api" }
-reth-node-core              = { path = "../reth/crates/node/core" }
-reth-node-builder           = { path = "../reth/crates/node/builder" }
-reth-node-ethereum          = { path = "../reth/crates/ethereum/node" }
-reth-node-events            = { path = "../reth/crates/node/events" }
-reth-node-metrics           = { path = "../reth/crates/node/metrics" }
+# RPC
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## payload / txpool
-reth-payload-builder        = { path = "../reth/crates/payload/builder" }
-reth-transaction-pool       = { path = "../reth/crates/transaction-pool" }
+# node
+reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
 
-## utilities
-reth-tokio-util             = { path = "../reth/crates/tokio-util" }
-reth-tracing                = { path = "../reth/crates/tracing" }
-reth-tasks                  = { path = "../reth/crates/tasks" }
-reth-cli                    = { path = "../reth/crates/cli/cli" }
-reth-cli-util               = { path = "../reth/crates/cli/util" }
-reth-ethereum-cli           = { path = "../reth/crates/ethereum/cli" }
-reth-metrics                = { path = "../reth/crates/metrics" }
-reth-testing-utils          = { path = "../reth/testing/testing-utils" }
+# payload / txpool
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+
+# utilities
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-cli = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "d4cfa4cc2913f783a9c245836d96590da3482fb6" }
