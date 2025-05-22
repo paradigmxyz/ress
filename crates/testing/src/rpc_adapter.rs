@@ -8,7 +8,7 @@ use futures::{stream::FuturesOrdered, StreamExt};
 use parking_lot::RwLock;
 use reth_network::eth_requests::{MAX_BODIES_SERVE, MAX_HEADERS_SERVE, SOFT_RESPONSE_LIMIT};
 use reth_primitives::{BlockBody, Bytecode, Header, TransactionSigned};
-use reth_ress_protocol::{GetHeaders, RessPeerRequest};
+use reth_ress_protocol::{GetHeaders, RLPExecutionWitness, RessPeerRequest};
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
@@ -85,7 +85,7 @@ impl RpcNetworkAdapter {
             total_bytes += header.length();
             headers.push(header);
             if total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -114,7 +114,7 @@ impl RpcNetworkAdapter {
             total_bytes += body.length();
             bodies.push(body);
             if bodies.len() >= MAX_BODIES_SERVE || total_bytes > SOFT_RESPONSE_LIMIT {
-                break
+                break;
             }
         }
 
@@ -165,6 +165,7 @@ impl RpcNetworkAdapter {
                                 })
                                 .ok();
                             if let Some(witness) = &maybe_witness {
+                                // TODO: when we call bytecode_hashes, we can do this there.
                                 let mut bytecodes_ = provider.bytecodes.write();
                                 for bytecode in &witness.codes {
                                     let code_hash = Bytecode::new_raw(bytecode.clone()).hash_slow();
@@ -173,11 +174,11 @@ impl RpcNetworkAdapter {
                                     }
                                 }
                             }
-                            maybe_witness.map(|witness| witness.state)
+                            maybe_witness.map(|witness| RLPExecutionWitness::from(witness))
                         } else {
                             None
                         };
-
+                        // TODO: Why unwrap_or_default? if it defaults should we not send?
                         if tx.send(maybe_witness.unwrap_or_default()).is_err() {
                             debug!(target: "ress::rpc_adapter", %block_hash, "Failed to send witness");
                         }

@@ -19,8 +19,8 @@ pub struct RpcExecutionWitness {
 }
 
 impl RpcExecutionWitness {
-    /// Create new RPC execution witness from state and bytecodes.
-    pub fn new(state: B256HashMap<Bytes>, codes: B256HashMap<Bytes>) -> Self {
-        Self { state, codes }
-    }
+    // / Create new RPC execution witness from state and bytecodes.
+    // pub fn new(state: B256HashMap<Bytes>, codes: B256HashMap<Bytes>) -> Self {
+    //     Self { state, codes }
+    // }
 }

@@ -1,5 +1,6 @@
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{keccak256, map::B256Map, B256, U256};
+use alloy_primitives::{keccak256, map::B256Map, B256};
+use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::{
     ExecutionData, ForkchoiceState, PayloadAttributes, PayloadStatus, PayloadStatusEnum,
     PayloadValidationError,
@@ -7,7 +8,6 @@ use alloy_rpc_types_engine::{
 use metrics::Gauge;
 use rayon::iter::IntoParallelRefIterator;
 use ress_evm::BlockExecutor;
-use ress_primitives::witness::ExecutionWitness;
 use ress_provider::RessProvider;
 use reth_chain_state::ExecutedBlockWithTrieUpdates;
 use reth_chainspec::ChainSpec;
@@ -27,9 +27,10 @@ use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator}
 use reth_primitives::{Block, EthPrimitives, GotExpected, Header, RecoveredBlock, SealedBlock};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::ExecutionOutcome;
+use reth_ress_protocol::RLPExecutionWitness;
 use reth_trie::{HashedPostState, KeccakKeyHasher};
 use reth_trie_sparse::{blinded::DefaultBlindedProviderFactory, SparseStateTrie};
-use std::{sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::*;
 
@@ -95,7 +96,7 @@ impl EngineTree {
     /// See [`ForkchoiceStateTracker::sync_target_state`]
     fn is_sync_target_head(&self, block_hash: B256) -> bool {
         if let Some(target) = self.forkchoice_state_tracker.sync_target_state() {
-            return target.head_block_hash == block_hash
+            return target.head_block_hash == block_hash;
         }
         false
     }
@@ -113,11 +114,11 @@ impl EngineTree {
         let mut current_hash = target_hash;
         while let Some(current_block) = self.provider.sealed_header(&current_hash) {
             if current_block.hash() == canonical_head.hash {
-                return false
+                return false;
             }
             // We already passed the canonical head
             if current_block.number <= canonical_head.number {
-                break
+                break;
             }
             current_hash = current_block.parent_hash;
         }
@@ -476,7 +477,7 @@ impl EngineTree {
     pub fn on_new_payload(
         &mut self,
         payload: ExecutionData,
-        maybe_witness: Option<ExecutionWitness>,
+        maybe_witness: Option<RLPExecutionWitness>,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let parent_hash = payload.payload.parent_hash();
 
@@ -565,14 +566,14 @@ impl EngineTree {
     pub fn on_downloaded_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        witness: ExecutionWitness,
+        witness: RLPExecutionWitness,
     ) -> Result<TreeOutcome<PayloadStatus>, InsertBlockFatalError> {
         let block_num_hash = block.num_hash();
         let lowest_buffered_ancestor = self.lowest_buffered_ancestor_or(block_num_hash.hash);
         if let Some(status) =
             self.check_invalid_ancestor_with_head(lowest_buffered_ancestor, block_num_hash.hash)
         {
-            return Ok(TreeOutcome::new(status))
+            return Ok(TreeOutcome::new(status));
         }
 
         // try to append the block
@@ -629,7 +630,7 @@ impl EngineTree {
 
         if blocks.is_empty() {
             // nothing to append
-            return Ok(())
+            return Ok(());
         }
 
         let now = Instant::now();
@@ -652,7 +653,7 @@ impl EngineTree {
                         kind,
                     )) {
                         warn!(target: "engine::tree", %fatal, "Fatal error occurred while connecting buffered blocks");
-                        return Err(fatal)
+                        return Err(fatal);
                     }
                 }
             }
@@ -666,7 +667,7 @@ impl EngineTree {
     pub fn insert_block(
         &mut self,
         block: RecoveredBlock<Block>,
-        maybe_witness: Option<ExecutionWitness>,
+        maybe_witness: Option<RLPExecutionWitness>,
     ) -> Result<InsertPayloadOk, InsertBlockErrorKind> {
         let start = Instant::now();
         let block_num_hash = block.num_hash();
@@ -710,21 +711,46 @@ impl EngineTree {
         let Some(execution_witness) = maybe_witness else {
             self.block_buffer.insert_block(block);
             trace!(target: "ress::engine", block = ?block_num_hash, "Block has missing witness");
-            return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness))
+            return Ok(InsertPayloadOk::Inserted(BlockStatus::NoWitness));
         };
         let mut trie = SparseStateTrie::new(DefaultBlindedProviderFactory);
         let mut state_witness = B256Map::default();
-        for encoded in execution_witness.state_witness() {
+        for encoded in execution_witness.state.iter() {
             state_witness.insert(keccak256(encoded), encoded.clone());
         }
         trie.reveal_witness(parent.state_root, &state_witness).map_err(|error| {
             InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(error.to_string()))
         })?;
 
+        // Compute block hashes
+        // TODO: actually check they are linked
+        let ancestor_headers: Vec<Header> = execution_witness
+            .headers
+            .iter()
+            .map(|serialized_header| {
+                let bytes = serialized_header.as_ref();
+                Header::decode(&mut &bytes[..]).map_err(|_| {
+                    // TODO: Add different header "type"
+                    InsertBlockErrorKind::Provider(ProviderError::TrieWitnessError(
+                        "could not deserialize header".to_owned(),
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+
+        let hashes: BTreeMap<_, _> = ancestor_headers
+            .into_iter()
+            .map(|header| (header.number, header.hash_slow()))
+            .collect();
+
         // ===================== Execution =====================
         let start_time = std::time::Instant::now();
-        let block_executor =
-            BlockExecutor::new(self.provider.clone(), block.parent_num_hash(), &trie);
+        let block_executor = BlockExecutor::new(
+            self.provider.chain_spec(),
+            &trie,
+            execution_witness.codes.clone(),
+            hashes,
+        );
         let output = block_executor.execute(&block).map_err(InsertBlockErrorKind::Execution)?;
         debug!(target: "ress::engine", block = ?block_num_hash, elapsed = ?start_time.elapsed(), "Executed new payload");
 
@@ -749,7 +775,7 @@ impl EngineTree {
         }
 
         // ===================== Update Node State =====================
-        self.provider.insert_block(block.clone(), Some(execution_witness.into_state_witness()));
+        self.provider.insert_block(block.clone(), Some(execution_witness));
 
         // Emit event.
         let executed = ExecutedBlockWithTrieUpdates::new(
@@ -823,10 +849,6 @@ impl EngineTree {
     /// Validate if block is correct and satisfies all the consensus rules that concern the header
     /// and block body itself.
     fn validate_block(&self, block: &SealedBlock) -> Result<(), ConsensusError> {
-        self.consensus.validate_header_with_total_difficulty(block.header(), U256::MAX).inspect_err(|error| {
-            error!(target: "ress::engine", %error, "Failed to validate header against total difficulty");
-        })?;
-
         self.consensus.validate_header(block.sealed_header()).inspect_err(|error| {
             error!(target: "ress::engine", %error, "Failed to validate header");
         })?;
