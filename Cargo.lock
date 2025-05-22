@@ -7558,7 +7558,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 dependencies = [
  "futures",
  "metrics",
@@ -7935,7 +7935,7 @@ dependencies = [
 [[package]]
 name = "reth-node-metrics"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 dependencies = [
  "eyre",
  "http",
@@ -8692,7 +8692,7 @@ dependencies = [
 [[package]]
 name = "reth-tasks"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 dependencies = [
  "auto_impl",
  "dyn-clone",
@@ -8726,7 +8726,7 @@ dependencies = [
 [[package]]
 name = "reth-tokio-util"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 dependencies = [
  "tokio",
  "tokio-stream",
@@ -8736,7 +8736,7 @@ dependencies = [
 [[package]]
 name = "reth-tracing"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 dependencies = [
  "clap",
  "eyre",
@@ -11818,229 +11818,229 @@ dependencies = [
 [[patch.unused]]
 name = "reth"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-chain-state"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-chainspec"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-cli"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-cli-util"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-consensus"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-consensus-debug-client"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-db"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-db-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-discv4"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-engine-primitives"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-engine-tree"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-errors"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-eth-wire"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-ethereum-cli"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-ethereum-engine-primitives"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-ethereum-primitives"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-evm"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-evm-ethereum"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-network"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-network-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-network-peers"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-node-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-node-builder"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-node-core"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-node-ethereum"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-node-events"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-payload-builder"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-primitives"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-primitives-traits"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-provider"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-ress-protocol"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-revm"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-builder"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-engine-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-eth-types"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-layer"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-rpc-types-compat"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-storage-api"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-storage-errors"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-testing-utils"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-transaction-pool"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-trie"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"
 
 [[patch.unused]]
 name = "reth-trie-sparse"
 version = "1.4.3"
-source = "git+https://github.com/kevaundray/reth?rev=9a8088a514e4484b6a1367d8840303eb18ce6dbc#9a8088a514e4484b6a1367d8840303eb18ce6dbc"
+source = "git+https://github.com/kevaundray/reth?rev=2d7b3f6564025307aab8f7085c4ad908d8a380a5#2d7b3f6564025307aab8f7085c4ad908d8a380a5"

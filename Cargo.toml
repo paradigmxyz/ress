@@ -214,74 +214,74 @@ assert_matches = "1.5.0"
 [patch."https://github.com/paradigmxyz/reth"]
 # --- reth crates (kevaundray fork branch is kw/ress-modifications) -------------------------------
 
-reth = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-ress-protocol = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # primitives / types
-reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-errors = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-primitives = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-primitives-traits = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-ethereum-primitives = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-chainspec = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-storage-errors = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-errors = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # database
-reth-db = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-provider = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-db = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-db-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-storage-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-provider = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # network
-reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-network = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-eth-wire = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-network-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-network = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-network-peers = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-discv4 = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # trie
-reth-trie = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-trie = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-trie-sparse = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # EVM
-reth-revm = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-evm = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-revm = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-evm = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-evm-ethereum = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # consensus / engine
-reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-consensus = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-consensus-debug-client = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-ethereum-engine-primitives = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-engine-tree = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-chain-state = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # RPC
-reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-rpc-eth-types = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc-engine-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc-layer = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc-types-compat = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc-builder = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-rpc = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # node
-reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-node-api = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-node-core = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-node-builder = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-node-ethereum = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-node-events = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-node-metrics = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # payload / txpool
-reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-payload-builder = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-transaction-pool = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
 
 # utilities
-reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-cli = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
-reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "9a8088a514e4484b6a1367d8840303eb18ce6dbc" }
+reth-tokio-util = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-tracing = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-tasks = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-cli = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-cli-util = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-ethereum-cli = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-metrics = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
+reth-testing-utils = { git = "https://github.com/kevaundray/reth", rev = "2d7b3f6564025307aab8f7085c4ad908d8a380a5" }
