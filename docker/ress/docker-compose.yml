@@ -1,12 +1,10 @@
 services:
     ress:
         image: ress:local
-        networks:
-            - stateless
         container_name: ress
         volumes:
             - ./ress:/root/.local/share/ress/mainnet
-            - ./JWT:/JWT
+            - ./jwttoken:/root/jwt:ro
         ports:
             - 127.0.0.1:6060:6060 # metrics
             - 127.0.0.1:8551:8551 # engine rpc
@@ -16,7 +14,7 @@ services:
         restart: on-failure
         command: >
           --port 30303
-          --authrpc.jwtsecret /JWT/jwtsecret
+          --authrpc.jwtsecret /root/jwt/jwt.hex
           --authrpc.addr 0.0.0.0
           --authrpc.port 8551
           --metrics 0.0.0.0:6060
@@ -24,14 +22,12 @@ services:
     
     consensus:
         image: sigp/lighthouse:latest
-        networks:
-            - stateless
         container_name: beacon
         tty: true
         restart: on-failure
         volumes:
             - ./lighthouse:/root/.lighthouse
-            - ./JWT:/JWT
+            - ./jwttoken:/root/jwt:ro
         ports:
             - 127.0.0.1:5052:5052 # consensus http
             - 127.0.0.1:5054:5054 # metrics http
@@ -52,5 +48,6 @@ services:
           --metrics-address 0.0.0.0
           --metrics-allow-origin *
           --validator-monitor-auto
-          --execution-jwt /JWT/jwtsecret
+          --execution-jwt /root/jwt/jwt.hex
           --execution-endpoints http://ress:8551
+          --checkpoint-sync-url https://checkpoint-sync.hoodi.ethpandaops.io
