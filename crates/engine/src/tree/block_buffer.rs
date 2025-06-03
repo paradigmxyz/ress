@@ -1,9 +1,9 @@
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, B256};
 use metrics::Gauge;
-use ress_primitives::witness::ExecutionWitness;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Block, RecoveredBlock};
+use reth_ress_protocol::RLPExecutionWitness;
 use schnellru::{ByLength, LruMap};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -33,7 +33,7 @@ pub struct BlockBuffer<B: Block> {
     /// All blocks in the buffer stored by their block hash.
     pub(crate) blocks: HashMap<BlockHash, RecoveredBlock<B>>,
     /// All witnesses stored by their block hash.
-    pub(crate) witnesses: HashMap<BlockHash, ExecutionWitness>,
+    pub(crate) witnesses: HashMap<BlockHash, RLPExecutionWitness>,
     /// Missing bytecodes by block hash.
     pub(crate) missing_bytecodes: HashMap<BlockHash, B256HashSet>,
     /// Map of any parent block hash (even the ones not currently in the buffer)
@@ -67,7 +67,7 @@ impl<B: Block> BlockBuffer<B> {
     }
 
     /// Return reference to the requested witness.
-    pub fn witness(&self, hash: &BlockHash) -> Option<&ExecutionWitness> {
+    pub fn witness(&self, hash: &BlockHash) -> Option<&RLPExecutionWitness> {
         self.witnesses.get(hash)
     }
 
@@ -102,7 +102,7 @@ impl<B: Block> BlockBuffer<B> {
     pub fn insert_witness(
         &mut self,
         block_hash: BlockHash,
-        witness: ExecutionWitness,
+        witness: RLPExecutionWitness,
         missing_bytecodes: B256HashSet,
     ) {
         self.witnesses.insert(block_hash, witness);
@@ -133,7 +133,7 @@ impl<B: Block> BlockBuffer<B> {
     pub fn remove_block_with_children(
         &mut self,
         parent_hash: BlockHash,
-    ) -> Vec<(RecoveredBlock<B>, ExecutionWitness)> {
+    ) -> Vec<(RecoveredBlock<B>, RLPExecutionWitness)> {
         let removed = self
             .remove_block(&parent_hash)
             .into_iter()
@@ -151,7 +151,7 @@ impl<B: Block> BlockBuffer<B> {
         // discard all blocks that are before the finalized number.
         while let Some(entry) = self.earliest_blocks.first_entry() {
             if *entry.key() > block_number {
-                break
+                break;
             }
             let block_hashes = entry.remove();
             block_hashes_to_remove.extend(block_hashes);
@@ -197,9 +197,9 @@ impl<B: Block> BlockBuffer<B> {
     pub fn remove_block(
         &mut self,
         hash: &BlockHash,
-    ) -> Option<(RecoveredBlock<B>, ExecutionWitness)> {
+    ) -> Option<(RecoveredBlock<B>, RLPExecutionWitness)> {
         if !self.blocks.contains_key(hash) {
-            return None
+            return None;
         }
         let witness = self.remove_witness(hash)?;
         let block = self.blocks.remove(hash).unwrap();
@@ -225,7 +225,7 @@ impl<B: Block> BlockBuffer<B> {
     fn remove_children(
         &mut self,
         parent_hashes: Vec<BlockHash>,
-    ) -> Vec<(RecoveredBlock<B>, ExecutionWitness)> {
+    ) -> Vec<(RecoveredBlock<B>, RLPExecutionWitness)> {
         // remove all parent child connection and all the child children blocks that are connected
         // to the discarded parent blocks.
         let mut remove_parent_children = parent_hashes;
@@ -263,11 +263,11 @@ impl<B: Block> BlockBuffer<B> {
     }
 
     /// Remove witness from the buffer.
-    pub fn remove_witness(&mut self, block_hash: &BlockHash) -> Option<ExecutionWitness> {
+    pub fn remove_witness(&mut self, block_hash: &BlockHash) -> Option<RLPExecutionWitness> {
         // Remove the witness only if there are no missing bytecodes for it.
         if self.missing_bytecodes.get(block_hash).is_none_or(|b| b.is_empty()) {
             self.missing_bytecodes.remove(block_hash);
-            return self.witnesses.remove(block_hash)
+            return self.witnesses.remove(block_hash);
         }
         None
     }

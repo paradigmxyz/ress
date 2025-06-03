@@ -2,11 +2,11 @@ use alloy_primitives::{map::HashMap, B256};
 use futures::FutureExt;
 use metrics::{Counter, Gauge, Histogram};
 use ress_network::RessNetworkHandle;
-use ress_primitives::witness::ExecutionWitness;
 use reth_chainspec::ChainSpec;
 use reth_metrics::Metrics;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Bytecode, SealedBlock, SealedHeader};
+use reth_ress_protocol::RLPExecutionWitness;
 use std::{
     collections::VecDeque,
     task::{Context, Poll},
@@ -54,7 +54,7 @@ impl EngineDownloader {
     /// Download full block by block hash.
     pub fn download_full_block(&mut self, block_hash: B256) {
         if self.inflight_full_block_requests.iter().any(|req| req.block_hash() == block_hash) {
-            return
+            return;
         }
 
         debug!(target: "ress::engine::downloader", %block_hash, "Downloading full block");
@@ -72,7 +72,7 @@ impl EngineDownloader {
     /// Download bytecode by code hash.
     pub fn download_bytecode(&mut self, code_hash: B256) {
         if self.inflight_bytecode_requests.iter().any(|req| req.code_hash() == code_hash) {
-            return
+            return;
         }
 
         debug!(target: "ress::engine::downloader", %code_hash, "Downloading bytecode");
@@ -85,7 +85,7 @@ impl EngineDownloader {
     /// Download witness by block hash.
     pub fn download_witness(&mut self, block_hash: B256) {
         if self.inflight_witness_requests.iter().any(|req| req.block_hash() == block_hash) {
-            return
+            return;
         }
 
         debug!(target: "ress::engine::downloader", %block_hash, "Downloading witness");
@@ -98,7 +98,7 @@ impl EngineDownloader {
     /// Download finalized block with 256 ancestors.
     pub fn download_finalized_with_ancestors(&mut self, block_hash: B256) {
         if self.inflight_finalized_block_requests.iter().any(|req| req.block_hash() == block_hash) {
-            return
+            return;
         }
 
         debug!(target: "ress::engine::downloader", %block_hash, "Downloading finalized");
@@ -118,7 +118,7 @@ impl EngineDownloader {
     /// Poll downloader.
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<DownloadOutcome> {
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(outcome)
+            return Poll::Ready(outcome);
         }
 
         // advance all full block range requests
@@ -190,7 +190,7 @@ impl EngineDownloader {
         self.metrics.set_inflight(RequestMetricTy::Bytecode, self.inflight_bytecode_requests.len());
 
         if let Some(outcome) = self.outcomes.pop_front() {
-            return Poll::Ready(outcome)
+            return Poll::Ready(outcome);
         }
 
         Poll::Pending
@@ -221,7 +221,7 @@ pub enum DownloadData {
     /// Downloaded bytecode.
     Bytecode(B256, Bytecode),
     /// Downloaded execution witness.
-    Witness(B256, ExecutionWitness),
+    Witness(B256, RLPExecutionWitness),
     /// Downloaded full block with ancestors.
     FinalizedBlock(SealedBlock, Vec<SealedHeader>),
 }

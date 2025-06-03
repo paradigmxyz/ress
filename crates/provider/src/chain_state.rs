@@ -1,11 +1,12 @@
 use alloy_eips::BlockNumHash;
 use alloy_primitives::{
     map::{B256HashMap, B256HashSet},
-    BlockHash, BlockNumber, Bytes, B256,
+    BlockHash, BlockNumber, B256,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
 use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedBlock, SealedHeader};
+use reth_ress_protocol::RLPExecutionWitness;
 use std::{
     collections::{btree_map, BTreeMap},
     sync::Arc,
@@ -28,7 +29,7 @@ struct ChainStateInner {
     /// __All__ block hashes stored by their number.
     block_hashes_by_number: BTreeMap<BlockNumber, B256HashSet>,
     /// Valid block witnesses by block hash.
-    witnesses: B256HashMap<Vec<Bytes>>,
+    witnesses: B256HashMap<RLPExecutionWitness>,
 }
 
 impl ChainState {
@@ -47,16 +48,16 @@ impl ChainState {
         let mut ancestor = parent;
         while let Some(block) = inner.blocks_by_hash.get(&ancestor.hash) {
             if block.number == number {
-                return Some(block.hash())
+                return Some(block.hash());
             }
             ancestor = block.parent_num_hash();
         }
 
         // We exhausted all executed blocks, the target block must be canonical.
-        if number <= ancestor.number &&
-            inner.canonical_hashes_by_number.get(&ancestor.number) == Some(&ancestor.hash)
+        if number <= ancestor.number
+            && inner.canonical_hashes_by_number.get(&ancestor.number) == Some(&ancestor.hash)
         {
-            return inner.canonical_hashes_by_number.get(&number).cloned()
+            return inner.canonical_hashes_by_number.get(&number).cloned();
         }
 
         None
@@ -108,12 +109,16 @@ impl ChainState {
     }
 
     /// Returns witness by block hash.
-    pub fn witness(&self, hash: &BlockHash) -> Option<Vec<Bytes>> {
+    pub fn witness(&self, hash: &BlockHash) -> Option<RLPExecutionWitness> {
         self.0.read().witnesses.get(hash).cloned()
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
+    pub fn insert_block(
+        &self,
+        block: RecoveredBlock<Block>,
+        maybe_witness: Option<RLPExecutionWitness>,
+    ) {
         let mut this = self.0.write();
         let block_hash = block.hash();
         this.block_hashes_by_number.entry(block.number).or_default().insert(block_hash);

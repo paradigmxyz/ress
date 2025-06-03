@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 # ress
-ress-primitives.workspace = true
 ress-provider.workspace = true
 ress-evm.workspace = true
 ress-network.workspace = true

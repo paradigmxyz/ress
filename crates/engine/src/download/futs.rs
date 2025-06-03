@@ -1,13 +1,11 @@
 use alloy_primitives::{Bytes, B256};
-use alloy_rlp::Encodable;
 use futures::FutureExt;
 use ress_network::{PeerRequestError, RessNetworkHandle};
-use ress_primitives::witness::ExecutionWitness;
 use reth_chainspec::ChainSpec;
 use reth_consensus::{Consensus, HeaderValidator};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives::{Block, BlockBody, Bytecode, Header, SealedBlock, SealedHeader};
-use reth_ress_protocol::GetHeaders;
+use reth_ress_protocol::{GetHeaders, RLPExecutionWitness};
 use std::{
     future::Future,
     pin::Pin,
@@ -136,7 +134,7 @@ impl Future for FetchFullBlockFuture {
                     this.on_header_response(response);
                     if this.header.is_none() {
                         this.pending_header_request = Some(this.header_request(this.retry_delay));
-                        continue
+                        continue;
                     }
                 }
             }
@@ -147,7 +145,7 @@ impl Future for FetchFullBlockFuture {
                     this.on_body_response(response);
                     if this.body.is_none() {
                         this.pending_body_request = Some(this.body_request(this.retry_delay));
-                        continue
+                        continue;
                     }
                 }
             }
@@ -164,10 +162,10 @@ impl Future for FetchFullBlockFuture {
                     continue
                 }
 
-                return Poll::Ready(SealedBlock::from_sealed_parts(header, body))
+                return Poll::Ready(SealedBlock::from_sealed_parts(header, body));
             }
 
-            return Poll::Pending
+            return Poll::Pending;
         }
     }
 }
@@ -230,19 +228,19 @@ impl FetchHeadersRangeFuture {
             Ok(headers) => headers,
             Err(error) => {
                 trace!(target: "ress::engine::downloader", %error, ?self.request, "Headers download failed");
-                return None
+                return None;
             }
         };
 
         if headers.len() < self.request.limit as usize {
             trace!(target: "ress::engine::downloader", len = headers.len(), request = ?self.request, "Invalid headers response length");
-            return None
+            return None;
         }
 
         let headers_falling = headers.into_iter().map(SealedHeader::seal_slow).collect::<Vec<_>>();
         if headers_falling[0].hash() != self.request.start_hash {
             trace!(target: "ress::engine::downloader", expected = %self.request.start_hash, received = %headers_falling[0].hash(), "Invalid start hash");
-            return None
+            return None;
         }
 
         let headers_rising = headers_falling.iter().rev().cloned().collect::<Vec<_>>();
@@ -266,7 +264,7 @@ impl Future for FetchHeadersRangeFuture {
         loop {
             let response = ready!(this.pending.poll_unpin(cx));
             if let Some(headers) = this.on_response(response) {
-                return Poll::Ready(headers)
+                return Poll::Ready(headers);
             }
             this.pending = this.request_headers();
         }
@@ -336,7 +334,7 @@ impl Future for FetchFullBlockWithAncestorsFuture {
                 }
                 FullBlockWithAncestorsDownloadState::Ancestors(block, fut) => {
                     let ancestors = ready!(fut.poll_unpin(cx));
-                    return Poll::Ready((std::mem::take(block), ancestors))
+                    return Poll::Ready((std::mem::take(block), ancestors));
                 }
             }
         }
@@ -454,7 +452,7 @@ impl Future for FetchFullBlockRangeFuture {
                                     state.missing(),
                                     this.retry_delay,
                                 );
-                                continue
+                                continue;
                             }
                             pending
                         }
@@ -465,7 +463,7 @@ impl Future for FetchFullBlockRangeFuture {
                                 state.missing(),
                                 this.retry_delay,
                             );
-                            continue
+                            continue;
                         }
                     };
 
@@ -483,7 +481,7 @@ impl Future for FetchFullBlockRangeFuture {
                                     state.missing(),
                                     this.retry_delay,
                                 );
-                                continue
+                                continue;
                             }
 
                             state.bodies.push(body);
@@ -497,10 +495,10 @@ impl Future for FetchFullBlockRangeFuture {
                             remaining_hashes,
                             Default::default(),
                         );
-                        continue
+                        continue;
                     }
 
-                    return Poll::Ready(state.take_blocks().collect())
+                    return Poll::Ready(state.take_blocks().collect());
                 }
             }
         }
@@ -563,7 +561,7 @@ impl Future for FetchBytecodeFuture {
                     let bytecode = Bytecode::new_raw(bytecode);
                     let code_hash = bytecode.hash_slow();
                     if code_hash == this.code_hash {
-                        return Poll::Ready(bytecode)
+                        return Poll::Ready(bytecode);
                     } else {
                         trace!(target: "ress::engine::downloader", expected = %this.code_hash, received = %code_hash, "Received wrong bytecode");
                     }
@@ -584,7 +582,7 @@ pub struct FetchWitnessFuture {
     block_hash: B256,
     retry_delay: Duration,
     started_at: Instant,
-    pending: DownloadFut<Vec<Bytes>>,
+    pending: DownloadFut<RLPExecutionWitness>,
 }
 
 impl FetchWitnessFuture {
@@ -610,7 +608,7 @@ impl FetchWitnessFuture {
         self.started_at.elapsed()
     }
 
-    fn witness_request(&self) -> DownloadFut<Vec<Bytes>> {
+    fn witness_request(&self) -> DownloadFut<RLPExecutionWitness> {
         let network = self.network.clone();
         let hash = self.block_hash;
         let delay = self.retry_delay;
@@ -622,7 +620,7 @@ impl FetchWitnessFuture {
 }
 
 impl Future for FetchWitnessFuture {
-    type Output = ExecutionWitness;
+    type Output = RLPExecutionWitness;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -633,7 +631,7 @@ impl Future for FetchWitnessFuture {
                     if witness.is_empty() {
                         trace!(target: "ress::engine::downloader", block_hash = %this.block_hash, "Received empty witness");
                     } else {
-                        let rlp_size_bytes = witness.length();
+                        // let rlp_size_bytes = witness.length();
                         let valid = {
                             // TODO:
                             // for StateWitnessEntry { hash, bytes } in witness {
@@ -649,7 +647,7 @@ impl Future for FetchWitnessFuture {
                             true
                         };
                         if valid {
-                            return Poll::Ready(ExecutionWitness::new(witness, rlp_size_bytes))
+                            return Poll::Ready(witness);
                         }
                     }
                 }

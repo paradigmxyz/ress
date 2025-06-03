@@ -1,10 +1,9 @@
 use crate::{chain_state::ChainState, database::RessDatabase};
 use alloy_eips::BlockNumHash;
-use alloy_primitives::{map::B256HashSet, BlockHash, BlockNumber, Bytes, B256};
+use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use reth_chainspec::ChainSpec;
-use reth_db::DatabaseError;
-use reth_primitives::{Block, BlockBody, Bytecode, Header, RecoveredBlock, SealedHeader};
-use reth_ress_protocol::RessProtocolProvider;
+use reth_primitives::{Block, BlockBody, Header, RecoveredBlock, SealedHeader};
+use reth_ress_protocol::{RLPExecutionWitness, RessProtocolProvider};
 use reth_storage_errors::provider::ProviderResult;
 use std::sync::Arc;
 
@@ -51,36 +50,40 @@ impl RessProvider {
     }
 
     /// Insert recovered block.
-    pub fn insert_block(&self, block: RecoveredBlock<Block>, maybe_witness: Option<Vec<Bytes>>) {
+    pub fn insert_block(
+        &self,
+        block: RecoveredBlock<Block>,
+        maybe_witness: Option<RLPExecutionWitness>,
+    ) {
         self.chain_state.insert_block(block, maybe_witness);
     }
 
-    /// Returns `true` if bytecode exists in the database.
-    pub fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
-        self.database.bytecode_exists(code_hash)
-    }
+    // /// Returns `true` if bytecode exists in the database.
+    // pub fn bytecode_exists(&self, code_hash: B256) -> Result<bool, DatabaseError> {
+    //     self.database.bytecode_exists(code_hash)
+    // }
 
-    /// Get contract bytecode from given code hash from the disk
-    pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
-        self.database.get_bytecode(code_hash)
-    }
+    // /// Get contract bytecode from given code hash from the disk
+    // pub fn get_bytecode(&self, code_hash: B256) -> Result<Option<Bytecode>, DatabaseError> {
+    //     self.database.get_bytecode(code_hash)
+    // }
 
-    /// Insert bytecode into the database.
-    pub fn insert_bytecode(
-        &self,
-        code_hash: B256,
-        bytecode: Bytecode,
-    ) -> Result<(), DatabaseError> {
-        self.database.insert_bytecode(code_hash, bytecode)
-    }
+    // /// Insert bytecode into the database.
+    // pub fn insert_bytecode(
+    //     &self,
+    //     code_hash: B256,
+    //     bytecode: Bytecode,
+    // ) -> Result<(), DatabaseError> {
+    //     self.database.insert_bytecode(code_hash, bytecode)
+    // }
 
-    /// Filter the collection of code hashes for the ones that are missing from the database.
-    pub fn missing_code_hashes(
-        &self,
-        code_hashes: B256HashSet,
-    ) -> Result<B256HashSet, DatabaseError> {
-        self.database.missing_code_hashes(code_hashes)
-    }
+    // /// Filter the collection of code hashes for the ones that are missing from the database.
+    // pub fn missing_code_hashes(
+    //     &self,
+    //     code_hashes: B256HashSet,
+    // ) -> Result<B256HashSet, DatabaseError> {
+    //     self.database.missing_code_hashes(code_hashes)
+    // }
 
     /// Inserts canonical hash for block number.
     pub fn insert_canonical_hash(&self, number: BlockNumber, hash: BlockHash) {
@@ -118,7 +121,7 @@ impl RessProtocolProvider for RessProvider {
         Ok(self.database.get_bytecode(code_hash)?.map(|b| b.original_bytes()))
     }
 
-    async fn witness(&self, block_hash: B256) -> ProviderResult<Vec<Bytes>> {
+    async fn witness(&self, block_hash: B256) -> ProviderResult<RLPExecutionWitness> {
         Ok(self.chain_state.witness(&block_hash).unwrap_or_default())
     }
 }
