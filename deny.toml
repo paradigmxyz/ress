@@ -91,13 +91,4 @@ license-files = [{ path = "LICENSE", hash = 0x001c7e6c }]
 unknown-registry = "warn"
 # Lint level for what to happen when a crate from a git repository that is not
 # in the allow list is encountered
-unknown-git = "deny"
-allow-git = [
-    # TODO: Please avoid adding new entries to this list.
-    "https://github.com/alloy-rs/alloy",
-    "https://github.com/alloy-rs/evm",
-    "https://github.com/bluealloy/revm",
-    "https://github.com/foundry-rs/block-explorers",
-    "https://github.com/paradigmxyz/reth",
-    "https://github.com/paradigmxyz/revm-inspectors",
-]
+unknown-git = "allow"
